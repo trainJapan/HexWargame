@@ -468,17 +468,50 @@ function displayMap() {
 function drawRoads() {
     if (!mapData || !mapData.roads) return;
     
-    // Roads are semi-transparent (alpha 0.8) and on top of artwork
+    // Width 6, Semi-transparent (0.8) so artwork shows through
     roadGraphics.lineStyle(6, 0x555555, 0.8);
     
+    // 1. Draw connections between hexes (The standard segments)
     mapData.roads.forEach(seg => {
         const h1 = hexMap[seg.from.q][seg.from.r];
         const h2 = hexMap[seg.to.q][seg.to.r];
-        roadGraphics.beginPath();
-        roadGraphics.moveTo(h1.x, h1.y);
-        roadGraphics.lineTo(h2.x, h2.y);
-        roadGraphics.strokePath();
+        if (h1 && h2) {
+            roadGraphics.beginPath();
+            roadGraphics.moveTo(h1.x, h1.y);
+            roadGraphics.lineTo(h2.x, h2.y);
+            roadGraphics.strokePath();
+        }
     });
+
+    // 2. THE EDGE LOGIC
+    // This looks at every hex; if it has a road and is on the map boundary, 
+    // it draws a line from the center to the visual edge of the map.
+    for (let q = 0; q < mapData.cols; q++) {
+        for (let r = 0; r < mapData.rows; r++) {
+            const hex = hexMap[q][r];
+            if (hex.hasRoad) {
+                // Check if it's on any of the four boundaries
+                const isEdge = (q === 0 || r === 0 || q === mapData.cols - 1 || r === mapData.rows - 1);
+                
+                if (isEdge) {
+                    let edgeX = hex.x;
+                    let edgeY = hex.y;
+
+                    // Calculate the projection toward the boundary
+                    if (q === 0) edgeX -= HEX_RADIUS;
+                    else if (q === mapData.cols - 1) edgeX += HEX_RADIUS;
+                    
+                    if (r === 0) edgeY -= HEX_RADIUS;
+                    else if (r === mapData.rows - 1) edgeY += HEX_RADIUS;
+
+                    roadGraphics.beginPath();
+                    roadGraphics.moveTo(hex.x, hex.y);
+                    roadGraphics.lineTo(edgeX, edgeY);
+                    roadGraphics.strokePath();
+                }
+            }
+        }
+    }
 }
 
 function redrawAllUnits() {
@@ -960,4 +993,5 @@ function showStatus(msg, color='black') {
 }
 </script>
 </body>
+
 </html>
