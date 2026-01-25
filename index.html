@@ -468,10 +468,10 @@ function displayMap() {
 function drawRoads() {
     if (!mapData || !mapData.roads) return;
     
-    roadGraphics.clear();
+    // Width 6, Semi-transparent (0.8) so artwork shows through
     roadGraphics.lineStyle(6, 0x555555, 0.8);
     
-    // 1. Standard connections
+    // 1. Draw connections between hexes (The standard segments)
     mapData.roads.forEach(seg => {
         const h1 = hexMap[seg.from.q][seg.from.r];
         const h2 = hexMap[seg.to.q][seg.to.r];
@@ -483,34 +483,60 @@ function drawRoads() {
         }
     });
 
-    // 2. FIXED Edge Extension
+    // 2. THE EDGE LOGIC - Draw to hex boundary, not beyond
     for (let q = 0; q < mapData.cols; q++) {
         for (let r = 0; r < mapData.rows; r++) {
             const hex = hexMap[q][r];
             if (hex.hasRoad) {
-                const isLeft = (q === 0);
-                const isRight = (q === mapData.cols - 1);
-                const isTop = (r === 0);
-                const isBottom = (r === mapData.rows - 1);
-
-                if (isLeft || isRight || isTop || isBottom) {
+                // Check if it's on any of the four boundaries
+                const isLeftEdge = (q === 0);
+                const isRightEdge = (q === mapData.cols - 1);
+                const isTopEdge = (r === 0);
+                const isBottomEdge = (r === mapData.rows - 1);
+                
+                if (isLeftEdge || isRightEdge || isTopEdge || isBottomEdge) {
+                    // Calculate hex vertices (flat-top hex)
+                    const vertices = [];
+                    for (let i = 0; i < 6; i++) {
+                        const angle = (Math.PI / 3) * i;
+                        vertices.push({
+                            x: hex.x + HEX_RADIUS * Math.cos(angle),
+                            y: hex.y + HEX_RADIUS * Math.sin(angle)
+                        });
+                    }
+                    
+                    // Determine which direction to extend based on edge position
                     let targetX = hex.x;
                     let targetY = hex.y;
-
-                    // Calculate offset to the flat edge or corner 
-                    // Adjusting by 0.85 of radius prevents the "overshoot" into the black void
-                    const offset = HEX_RADIUS * 0.86; 
-
-                    if (isLeft) targetX -= offset;
-                    else if (isRight) targetX += offset;
                     
-                    if (isTop) targetY -= offset;
-                    else if (isBottom) targetY += offset;
+                    // Find the furthest vertex in the direction of the map edge
+                    if (isLeftEdge) {
+                        targetX = Math.min(...vertices.map(v => v.x));
+                        const leftVerts = vertices.filter(v => Math.abs(v.x - targetX) < 1);
+                        targetY = leftVerts.reduce((sum, v) => sum + v.y, 0) / leftVerts.length;
+                    } else if (isRightEdge) {
+                        targetX = Math.max(...vertices.map(v => v.x));
+                        const rightVerts = vertices.filter(v => Math.abs(v.x - targetX) < 1);
+                        targetY = rightVerts.reduce((sum, v) => sum + v.y, 0) / rightVerts.length;
+                    }
+                    
+                    if (isTopEdge) {
+                        targetY = Math.min(...vertices.map(v => v.y));
+                        const topVerts = vertices.filter(v => Math.abs(v.y - targetY) < 1);
+                        targetX = topVerts.reduce((sum, v) => sum + v.x, 0) / topVerts.length;
+                    } else if (isBottomEdge) {
+                        targetY = Math.max(...vertices.map(v => v.y));
+                        const bottomVerts = vertices.filter(v => Math.abs(v.y - targetY) < 1);
+                        targetX = bottomVerts.reduce((sum, v) => sum + v.x, 0) / bottomVerts.length;
+                    }
 
-                    roadGraphics.beginPath();
-                    roadGraphics.moveTo(hex.x, hex.y);
-                    roadGraphics.lineTo(targetX, targetY);
-                    roadGraphics.strokePath();
+                    // Only draw if we actually moved from center
+                    if (targetX !== hex.x || targetY !== hex.y) {
+                        roadGraphics.beginPath();
+                        roadGraphics.moveTo(hex.x, hex.y);
+                        roadGraphics.lineTo(targetX, targetY);
+                        roadGraphics.strokePath();
+                    }
                 }
             }
         }
@@ -998,4 +1024,5 @@ function showStatus(msg, color='black') {
 </body>
 
 </html>
+
 
