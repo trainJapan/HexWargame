@@ -152,8 +152,8 @@
     <div id="los-result">Click LOS tool, then select start and target hex</div>
     
     <div class="label">Units</div>
-    <button class="btn" onclick="addUnit('blue', 'infantry')">Add US Infantry</button>
-    <button class="btn" onclick="addUnit('blue', 'vehicle')">Add US Vehicle</button>
+    <button class="btn" onclick="addUnit('blue', 'infantry')">Add UK Infantry</button>
+    <button class="btn" onclick="addUnit('blue', 'vehicle')">Add UK Vehicle</button>
     <button class="btn" onclick="addUnit('red', 'infantry')">Add German Infantry</button>
     <button class="btn" onclick="addUnit('red', 'vehicle')">Add German Vehicle</button>
 </div>
@@ -229,9 +229,9 @@ function preloadScene() {
     
     // Load unit counter artwork
     const counterURL = 'https://raw.githubusercontent.com/trainJapan/HexWargame/main/artwork/counters/';
-    this.load.image('US_Inf', `${counterURL}US_Inf.png`);
+    this.load.image('UK_Inf', `${counterURL}UK_Inf.png`);
     this.load.image('GER_Inf', `${counterURL}GER_Inf.png`);
-    this.load.image('US_Veh', `${counterURL}US_Veh.png`);
+    this.load.image('UK_Veh', `${counterURL}UK_Veh.png`);
     this.load.image('GER_Veh', `${counterURL}GER_Veh.png`);
     
     this.make.graphics({x:0,y:0,add:false}).fillStyle(0xffffff).fillRect(0,0,1,1).generateTexture('fallback', 1, 1);
@@ -558,15 +558,15 @@ function redrawAllUnits() {
         
         // Determine counter image key
         let counterKey = '';
-        if (unit.side === 'blue' && unit.unitType === 'infantry') counterKey = 'US_Inf';
-        else if (unit.side === 'blue' && unit.unitType === 'vehicle') counterKey = 'US_Veh';
+        if (unit.side === 'blue' && unit.unitType === 'infantry') counterKey = 'UK_Inf';
+        else if (unit.side === 'blue' && unit.unitType === 'vehicle') counterKey = 'UK_Veh';
         else if (unit.side === 'red' && unit.unitType === 'infantry') counterKey = 'GER_Inf';
         else if (unit.side === 'red' && unit.unitType === 'vehicle') counterKey = 'GER_Veh';
         
         // Create counter sprite
         if (scene.textures.exists(counterKey)) {
             const sprite = scene.add.image(pos.x, pos.y, counterKey);
-            sprite.setDisplaySize(HEX_RADIUS * 1.5, HEX_RADIUS * 1.5);
+            sprite.setDisplaySize(HEX_RADIUS * 0.75, HEX_RADIUS * 0.75);
             sprite.setDepth(600);
             unitSprites[unit.id] = sprite;
         }
@@ -574,7 +574,7 @@ function redrawAllUnits() {
         // Selection Ring
         if (selectedUnit === unit) {
             unitGraphics.lineStyle(3, 0xffcc00, 1);
-            unitGraphics.strokeCircle(pos.x, pos.y, HEX_RADIUS * 0.85);
+            unitGraphics.strokeCircle(pos.x, pos.y, HEX_RADIUS * 0.45);
         }
     });
 }
@@ -806,7 +806,7 @@ function openActionMenu(unit, pointer) {
     selectedUnit = unit;
     redrawAllUnits();
     
-    const sideName = unit.side === 'blue' ? 'US' : 'GERMAN';
+    const sideName = unit.side === 'blue' ? 'UK' : 'GERMAN';
     const unitTypeName = unit.unitType.toUpperCase();
     
     const menu = document.getElementById('action-menu');
@@ -929,8 +929,8 @@ function executeFire(attacker, targetUnit) {
     targetUnit.hp -= damage;
     drawVisualLOSLine(startHex, targetHex, color);
     
-    const attackerName = attacker.side === 'blue' ? 'US' : 'German';
-    const targetName = targetUnit.side === 'blue' ? 'US' : 'German';
+    const attackerName = attacker.side === 'blue' ? 'UK' : 'German';
+    const targetName = targetUnit.side === 'blue' ? 'UK' : 'German';
     
     alert(`${msg}\nRange: ${physicalRange}\nDealt ${damage} damage to ${targetName} unit.`);
     
