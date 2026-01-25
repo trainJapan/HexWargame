@@ -1,0 +1,963 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Hex & Counter Wargame - Artwork & Rules Fix</title>
+    <script src="https://cdn.jsdelivr.net/npm/phaser@3.60.0/dist/phaser.min.js"></script>
+    <style>
+        body { 
+            margin: 0; 
+            padding: 0; 
+            font-family: 'Segoe UI', sans-serif; 
+            display: flex; 
+            height: 100vh; 
+            background: #111; 
+            color: white; 
+            overflow: hidden; 
+        }
+        #sidebar { 
+            width: 280px; 
+            background: #222; 
+            padding: 20px; 
+            border-right: 2px solid #444; 
+            display: flex; 
+            flex-direction: column; 
+            gap: 12px; 
+            z-index: 100; 
+            overflow-y: auto; 
+        }
+        #game-container { 
+            flex-grow: 1; 
+            position: relative; 
+        }
+        #status-bar { 
+            position: absolute; 
+            top: 15px; 
+            left: 50%; 
+            transform: translateX(-50%); 
+            background: #ffcc00; 
+            color: #000; 
+            padding: 8px 20px; 
+            border-radius: 4px; 
+            font-weight: bold; 
+            z-index: 1000; 
+            pointer-events: none; 
+            text-align: center;
+        }
+        .btn { 
+            background: #333; 
+            color: #ccc; 
+            border: 1px solid #555; 
+            padding: 12px; 
+            cursor: pointer; 
+            border-radius: 4px; 
+            font-weight: bold; 
+        }
+        .btn:hover { background: #444; }
+        .btn.active { 
+            border-color: #ffcc00; 
+            background: #ffcc00; 
+            color: #000; 
+        }
+        .label { 
+            font-size: 11px; 
+            color: #888; 
+            text-transform: uppercase; 
+            margin-top: 10px; 
+        }
+        textarea { 
+            background: #333; 
+            color: white; 
+            border: 1px solid #555; 
+            padding: 8px; 
+            border-radius: 4px; 
+            width: 100%; 
+            font-family: monospace;
+            font-size: 11px;
+            resize: vertical;
+        }
+        #tooltip {
+            position: absolute;
+            background: rgba(0, 0, 0, 0.9);
+            color: white;
+            padding: 10px 15px;
+            border-radius: 6px;
+            border: 2px solid #ffcc00;
+            font-size: 13px;
+            pointer-events: none;
+            z-index: 2000;
+            display: none;
+            min-width: 150px;
+        }
+        #los-result {
+            background: #333;
+            padding: 10px;
+            border-radius: 4px;
+            border: 1px solid #555;
+            font-size: 12px;
+        }
+        #action-menu {
+            position: absolute;
+            background: #222;
+            border: 1px solid #ffcc00;
+            border-radius: 4px;
+            padding: 5px;
+            display: none;
+            z-index: 3000;
+            min-width: 120px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.5);
+        }
+        .menu-item {
+            padding: 8px 12px;
+            cursor: pointer;
+            color: white;
+            font-size: 13px;
+            border-bottom: 1px solid #333;
+        }
+        .menu-item:last-child { border-bottom: none; }
+        .menu-item:hover { background: #ffcc00; color: black; }
+        .menu-header {
+            padding: 5px 12px;
+            font-size: 11px;
+            color: #888;
+            background: #111;
+            border-bottom: 1px solid #444;
+        }
+
+        .los-clear { color: #00ff00; }
+        .los-degraded { color: #ffaa00; }
+        .los-blocked { color: #ff0000; }
+    </style>
+</head>
+<body>
+
+<div id="sidebar">
+    <h2 style="margin:0; color:#ffcc00">WARGAME</h2>
+    
+    <div class="label">Import Map</div>
+    <textarea id="json-input" rows="8" placeholder='Paste JSON from map editor here...'></textarea>
+    <button class="btn" style="width:100%; background:#0066cc; color:white; border:none;" onclick="loadMap()">Load Map</button>
+    
+    <div class="label">Navigation</div>
+    <p style="font-size: 10px; color: #aaa; margin: 0;">Right-Click Drag to Pan<br>Mouse Wheel to Zoom</p>
+    
+    <div class="label">Tools</div>
+    <button id="los-toggle" class="btn" onclick="toggleLOSTool()">LINE OF SIGHT TOOL</button>
+    
+    <div class="label">LOS Result</div>
+    <div id="los-result">Click LOS tool, then select start and target hex</div>
+    
+    <div class="label">Units</div>
+    <button class="btn" onclick="addUnit('blue')">Add Blue Unit</button>
+    <button class="btn" onclick="addUnit('red')">Add Red Unit</button>
+</div>
+
+<div id="game-container">
+    <div id="status-bar">Load a map to begin</div>
+    <div id="tooltip">
+        <div class="terrain-name"></div>
+        <div class="terrain-type"></div>
+    </div>
+    <div id="action-menu"></div>
+</div>
+
+<script>
+// --- Configuration & Constants ---
+
+const TERRAIN_TYPES = {
+    'clear':      { color: 0x98FB98, los: 'clear',     cost: 1 },
+    'fields':     { color: 0xCCAA00, los: 'degrading', cost: 1 },
+    'beach':      { color: 0xFFFF99, los: 'clear',     cost: 1 },
+    'broken':     { color: 0x8B4513, los: 'degrading', cost: 2 },
+    'orchard':    { color: 0x00FF00, los: 'degrading', cost: 2 },
+    'rural':      { color: 0xFF9999, los: 'degrading', cost: 2 },
+    'forest':     { color: 0x228B22, los: 'blocking',  cost: 3 },
+    'urban':      { color: 0xCC0000, los: 'blocking',  cost: 3 },
+    'industrial': { color: 0x808080, los: 'blocking',  cost: 3 },
+    'water':      { color: 0x4169E1, los: 'clear',     cost: 999 }
+};
+
+const HEX_RADIUS = 40;
+
+// Game State
+let mapData = null;
+let losTool = false;
+let losStartHex = null;
+let units = [];
+let unitIdCounter = 0;
+
+// Interaction State
+let selectedUnit = null; 
+let currentAction = null; 
+
+// Phaser Objects
+let scene, hexGroup, roadGraphics, losGraphics, unitGraphics, uiGraphics, hexMap = {};
+
+// --- Phaser Config ---
+const config = {
+    type: Phaser.AUTO,
+    parent: 'game-container',
+    width: window.innerWidth - 280,
+    height: window.innerHeight,
+    backgroundColor: '#1a1a1a',
+    scene: {
+        preload: preloadScene,
+        create: createScene,
+        update: updateScene
+    }
+};
+
+const game = new Phaser.Game(config);
+
+function preloadScene() {
+    // OLD CODE (Local)
+    // this.load.image(`${key}${i}`, `artwork/map/${key}${i}.png`);
+
+    // NEW CODE (GitHub Example)
+    // 1. PRELOAD ARTWORK FROM GITHUB
+    const baseURL = 'https://raw.githubusercontent.com/trainJapan/HexWargame/main/artwork/map/';
+    
+    for (const [key, value] of Object.entries(TERRAIN_TYPES)) {
+        for (let i = 1; i <= 3; i++) {
+            this.load.image(`${key}${i}`, `${baseURL}${key}${i}.png`);
+        }
+    }
+    
+    // Fallback texture
+    this.make.graphics({x:0,y:0,add:false}).fillStyle(0xffffff).fillRect(0,0,1,1).generateTexture('fallback', 1, 1);
+}
+
+function createScene() {
+    scene = this;
+    
+    // Layers
+    hexGroup = this.add.group(); // Bottom layer: Terrain Images
+    roadGraphics = this.add.graphics().setDepth(100); // Roads on top of terrain
+    losGraphics = this.add.graphics().setDepth(500);
+    unitGraphics = this.add.graphics().setDepth(600);
+    uiGraphics = this.add.graphics().setDepth(700);
+    
+    // Camera
+    this.cameras.main.setBounds(-1000, -1000, 6000, 6000);
+    this.input.mouse.disableContextMenu();
+    
+    // Zoom
+    this.input.on('wheel', (pointer, gameObjects, deltaX, deltaY) => {
+        const zoom = scene.cameras.main.zoom - (deltaY * 0.001);
+        scene.cameras.main.setZoom(Phaser.Math.Clamp(zoom, 0.3, 2));
+    });
+    
+    // Global Click Handler
+    this.input.on('pointerdown', (pointer) => {
+        if (!pointer.event.target.closest('#action-menu')) {
+             document.getElementById('action-menu').style.display = 'none';
+        }
+
+        if (pointer.leftButtonDown() && !pointer.event.target.closest('#sidebar')) {
+            handleLeftClick(pointer);
+        }
+        
+        if (pointer.rightButtonDown()) {
+            showTooltip(pointer);
+            if (currentAction) {
+                currentAction = null;
+                selectedUnit = null;
+                uiGraphics.clear();
+                showStatus("Action Cancelled");
+            }
+        }
+    });
+    
+    this.input.on('pointerup', (pointer) => {
+        if (pointer.button === 2) hideTooltip();
+    });
+}
+
+function updateScene() {
+    if (this.input.activePointer.rightButtonDown()) {
+        const pointer = this.input.activePointer;
+        this.cameras.main.scrollX -= (pointer.x - pointer.prevPosition.x) / this.cameras.main.zoom;
+        this.cameras.main.scrollY -= (pointer.y - pointer.prevPosition.y) / this.cameras.main.zoom;
+    }
+}
+
+// --- Coordinates & Geometry ---
+
+function getHexPosition(q, r) {
+    const x = q * HEX_RADIUS * 1.5;
+    const y = r * HEX_RADIUS * Math.sqrt(3) + (q % 2 === 1 ? HEX_RADIUS * Math.sqrt(3) / 2 : 0);
+    return { x, y };
+}
+
+function offsetToCube(q, r) {
+    const col = q;
+    const row = r;
+    const x = col;
+    const z = row - (col - (col & 1)) / 2;
+    const y = -x - z;
+    return { x, y, z };
+}
+
+function getHexDistance(h1, h2) {
+    const a = offsetToCube(h1.q, h1.r);
+    const b = offsetToCube(h2.q, h2.r);
+    return Math.max(Math.abs(a.x - b.x), Math.abs(a.y - b.y), Math.abs(a.z - b.z));
+}
+
+function getHexAtPoint(worldX, worldY) {
+    if (!mapData) return null;
+    let closestHex = null;
+    let closestDist = Infinity;
+    
+    for (let q = 0; q < mapData.cols; q++) {
+        for (let r = 0; r < mapData.rows; r++) {
+            const hex = hexMap[q][r];
+            const dist = Math.sqrt((hex.x - worldX) ** 2 + (hex.y - worldY) ** 2);
+            if (dist < HEX_RADIUS && dist < closestDist) {
+                closestDist = dist;
+                closestHex = hex;
+            }
+        }
+    }
+    return closestHex;
+}
+
+// --- NEW: Physical Path Count for Firing Range ---
+
+function getPhysicalRange(startHex, targetHex) {
+    const hexes = [];
+    const dx = targetHex.x - startHex.x;
+    const dy = targetHex.y - startHex.y;
+    const dist = Math.sqrt(dx * dx + dy * dy);
+    
+    // Supercover sampling step (small enough to catch corners)
+    const stepSize = 2; 
+    const steps = Math.ceil(dist / stepSize);
+    
+    for (let i = 0; i <= steps; i++) {
+        const t = i / steps;
+        const currX = startHex.x + dx * t;
+        const currY = startHex.y + dy * t;
+        
+        const h = getHexAtPoint(currX, currY);
+        if (h) {
+            const key = `${h.q},${h.r}`;
+            // Count any hex that is NOT the shooter's hex
+            if (!hexes.includes(key) && !(h.q === startHex.q && h.r === startHex.r)) {
+                hexes.push(key);
+            }
+        }
+    }
+    return hexes.length;
+}
+
+// --- Rendering ---
+
+function drawHex(hex) {
+    const terrainType = hex.terrain;
+    const x = hex.x;
+    const y = hex.y;
+    
+    // 1. Pick Random Variant (1-3)
+    // We store the chosen variant in the hex object so it doesn't flicker on redraw
+    if (!hex.variant) hex.variant = Phaser.Math.Between(1, 3);
+    
+    const textureKey = `${terrainType}${hex.variant}`;
+    
+    // 2. Check if texture exists, otherwise fallback to color
+    if (scene.textures.exists(textureKey)) {
+        const img = scene.add.image(x, y, textureKey);
+        // Scale image to fit hex size roughly (assuming standard square textures)
+        // 2 * Radius is width of flat-to-flat, or height corner-to-corner
+        img.setDisplaySize(HEX_RADIUS * 2, HEX_RADIUS * 2);
+        
+        // Masking to Hexagon Shape
+        const shape = scene.make.graphics();
+        shape.fillStyle(0xffffff);
+        shape.beginPath();
+        for (let i = 0; i < 6; i++) {
+            const angle = (Math.PI / 3) * i;
+            const hx = x + HEX_RADIUS * Math.cos(angle);
+            const hy = y + HEX_RADIUS * Math.sin(angle);
+            if (i === 0) shape.moveTo(hx, hy);
+            else shape.lineTo(hx, hy);
+        }
+        shape.closePath();
+        shape.fillPath();
+        
+        const mask = shape.createGeometryMask();
+        img.setMask(mask);
+        hexGroup.add(img);
+        
+        // Draw Hex Outline (Stroke)
+        const outline = scene.add.graphics();
+        outline.lineStyle(2, 0x333333);
+        outline.beginPath();
+        for (let i = 0; i < 6; i++) {
+            const angle = (Math.PI / 3) * i;
+            const hx = x + HEX_RADIUS * Math.cos(angle);
+            const hy = y + HEX_RADIUS * Math.sin(angle);
+            if (i === 0) outline.moveTo(hx, hy);
+            else outline.lineTo(hx, hy);
+        }
+        outline.closePath();
+        outline.strokePath();
+        hexGroup.add(outline);
+
+    } else {
+        // Fallback: Draw colored polygon if image missing
+        const g = scene.add.graphics();
+        g.fillStyle(TERRAIN_TYPES[terrainType].color);
+        g.lineStyle(2, 0x333333);
+        g.beginPath();
+        for (let i = 0; i < 6; i++) {
+            const angle = (Math.PI / 3) * i;
+            const hx = x + HEX_RADIUS * Math.cos(angle);
+            const hy = y + HEX_RADIUS * Math.sin(angle);
+            if (i === 0) g.moveTo(hx, hy);
+            else g.lineTo(hx, hy);
+        }
+        g.closePath();
+        g.fillPath();
+        g.strokePath();
+        hexGroup.add(g);
+    }
+}
+
+function displayMap() {
+    if (!mapData) return;
+    hexGroup.clear(true, true);
+    roadGraphics.clear();
+    hexMap = {};
+    
+    // Init Grid
+    for (let q = 0; q < mapData.cols; q++) {
+        hexMap[q] = {};
+        for (let r = 0; r < mapData.rows; r++) {
+            const pos = getHexPosition(q, r);
+            hexMap[q][r] = {
+                terrain: 'clear', x: pos.x, y: pos.y, q: q, r: r, hasRoad: false, variant: null
+            };
+        }
+    }
+    
+    // Apply Data
+    if (mapData.terrain) {
+        mapData.terrain.forEach(t => {
+            if (hexMap[t.q] && hexMap[t.q][t.r]) hexMap[t.q][t.r].terrain = t.type;
+        });
+    }
+    if (mapData.roads) {
+        mapData.roads.forEach(road => {
+            if (hexMap[road.from.q]) hexMap[road.from.q][road.from.r].hasRoad = true;
+            if (hexMap[road.to.q]) hexMap[road.to.q][road.to.r].hasRoad = true;
+        });
+    }
+    
+    // Draw Terrain
+    for (let q = 0; q < mapData.cols; q++) {
+        for (let r = 0; r < mapData.rows; r++) {
+            drawHex(hexMap[q][r]);
+        }
+    }
+    
+    drawRoads();
+    redrawAllUnits();
+}
+
+function drawRoads() {
+    if (!mapData || !mapData.roads) return;
+    
+    // Roads are semi-transparent (alpha 0.8) and on top of artwork
+    roadGraphics.lineStyle(6, 0x555555, 0.8);
+    
+    mapData.roads.forEach(seg => {
+        const h1 = hexMap[seg.from.q][seg.from.r];
+        const h2 = hexMap[seg.to.q][seg.to.r];
+        roadGraphics.beginPath();
+        roadGraphics.moveTo(h1.x, h1.y);
+        roadGraphics.lineTo(h2.x, h2.y);
+        roadGraphics.strokePath();
+    });
+}
+
+function redrawAllUnits() {
+    unitGraphics.clear();
+    
+    units.forEach(unit => {
+        if (unit.hp <= 0) return;
+
+        const pos = getHexPosition(unit.q, unit.r);
+        const color = unit.side === 'blue' ? 0x0066cc : 0xcc0000;
+        
+        // Base
+        unitGraphics.fillStyle(color, 1);
+        unitGraphics.lineStyle(2, 0xffffff, 1);
+        unitGraphics.fillCircle(pos.x, pos.y, 20);
+        unitGraphics.strokeCircle(pos.x, pos.y, 20);
+        
+        // Selection Ring
+        if (selectedUnit === unit) {
+            unitGraphics.lineStyle(3, 0xffcc00, 1);
+            unitGraphics.strokeCircle(pos.x, pos.y, 25);
+        }
+        
+        // Stats Text
+        if (!unit.textObj) {
+            unit.textObj = scene.add.text(pos.x, pos.y, '', { 
+                fontSize: '10px', fontFamily: 'monospace', color: '#fff', align: 'center', stroke: '#000', strokeThickness: 3 
+            }).setOrigin(0.5).setDepth(601);
+        }
+        
+        unit.textObj.setPosition(pos.x, pos.y);
+        unit.textObj.setText(`HP:${unit.hp}\nMP:${unit.mp}`);
+    });
+}
+
+// --- Logic: Line of Sight (Calculations) ---
+
+function calculateLOS(startHex, targetHex) {
+    const hexesOnLine = getHexesAlongLine(startHex, targetHex);
+    const roadLOS = checkRoadLOS(startHex, targetHex, hexesOnLine);
+    if (roadLOS) return { status: 'clear', isRoad: true };
+    
+    const dx = targetHex.x - startHex.x;
+    const dy = targetHex.y - startHex.y;
+    const distance = Math.sqrt(dx * dx + dy * dy);
+    const steps = Math.ceil(distance / 2); 
+    
+    const hexesCrossed = new Set();
+    const edgeSegments = [];
+    let edgeRunLength = 0;
+    let edgeHexPair = null;
+    
+    for (let i = 0; i <= steps; i++) {
+        const t = i / steps;
+        const x = startHex.x + dx * t;
+        const y = startHex.y + dy * t;
+        
+        const currentHex = getHexAtPoint(x, y);
+        if (!currentHex) continue;
+        
+        if ((currentHex.q === startHex.q && currentHex.r === startHex.r) || 
+            (currentHex.q === targetHex.q && currentHex.r === targetHex.r)) {
+            continue;
+        }
+        
+        const perpDx = -dy / distance;
+        const perpDy = dx / distance;
+        const checkDist = 3;
+        
+        const hex1 = getHexAtPoint(x + perpDx * checkDist, y + perpDy * checkDist);
+        const hex2 = getHexAtPoint(x - perpDx * checkDist, y - perpDy * checkDist);
+        
+        const atBoundary = hex1 && hex2 && (hex1.q !== hex2.q || hex1.r !== hex2.r);
+        
+        if (atBoundary && hex1 && hex2) {
+            const key1 = `${hex1.q},${hex1.r}`;
+            const key2 = `${hex2.q},${hex2.r}`;
+            const pairKey = [key1, key2].sort().join('|');
+            
+            if (edgeHexPair === pairKey) edgeRunLength++;
+            else {
+                if (edgeRunLength > 5) edgeSegments.push(edgeHexPair);
+                edgeHexPair = pairKey;
+                edgeRunLength = 1;
+            }
+        } else {
+            if (edgeRunLength > 5) edgeSegments.push(edgeHexPair);
+            edgeRunLength = 0;
+            edgeHexPair = null;
+            hexesCrossed.add(`${currentHex.q},${currentHex.r}`);
+        }
+    }
+    if (edgeRunLength > 5) edgeSegments.push(edgeHexPair);
+    
+    let degradingCount = 0;
+    let hasBlocking = false;
+    
+    // Full Hexes
+    for (let key of hexesCrossed) {
+        const [q, r] = key.split(',').map(Number);
+        const t = TERRAIN_TYPES[hexMap[q][r].terrain];
+        if (t.los === 'blocking') hasBlocking = true;
+        else if (t.los === 'degrading') degradingCount++;
+    }
+    
+    // Edges
+    for (let edgePair of edgeSegments) {
+        if (!edgePair) continue;
+        const [k1, k2] = edgePair.split('|');
+        const [q1, r1] = k1.split(',').map(Number);
+        const [q2, r2] = k2.split(',').map(Number);
+        
+        const t1 = TERRAIN_TYPES[hexMap[q1][r1].terrain].los;
+        const t2 = TERRAIN_TYPES[hexMap[q2][r2].terrain].los;
+        
+        if (t1 === 'blocking' && t2 === 'blocking') hasBlocking = true;
+        else if ((t1 === 'blocking' || t2 === 'blocking')) {
+            // FIX: Blocking + Clear = 1 Degrading
+            degradingCount++;
+        }
+        else if (t1 === 'degrading' && t2 === 'degrading') degradingCount++;
+    }
+    
+    if (hasBlocking || degradingCount >= 2) return { status: 'blocked', isRoad: false };
+    if (degradingCount === 1) return { status: 'degraded', isRoad: false };
+    return { status: 'clear', isRoad: false };
+}
+
+function getHexesAlongLine(startHex, targetHex) {
+    const hexes = [];
+    const dx = targetHex.x - startHex.x;
+    const dy = targetHex.y - startHex.y;
+    const dist = Math.sqrt(dx*dx + dy*dy);
+    const steps = Math.ceil(dist / 10);
+    for(let i=0; i<=steps; i++) {
+        const t = i/steps;
+        const h = getHexAtPoint(startHex.x + dx*t, startHex.y + dy*t);
+        if(h && !hexes.includes(h)) hexes.push(h);
+    }
+    return hexes;
+}
+
+function checkRoadLOS(startHex, targetHex, hexesOnLine) {
+    if (!mapData || !mapData.roads) return false;
+    if (!startHex.hasRoad || !targetHex.hasRoad) return false;
+    const roadPath = findRoadPath(startHex, targetHex);
+    if (!roadPath || roadPath.length < 2) return false;
+    
+    const idealDx = targetHex.x - startHex.x;
+    const idealDy = targetHex.y - startHex.y;
+    const idealLen = Math.sqrt(idealDx*idealDx + idealDy*idealDy);
+    const idealDirX = idealDx/idealLen;
+    const idealDirY = idealDy/idealLen;
+    
+    for (let i = 0; i < roadPath.length - 1; i++) {
+        const c = roadPath[i];
+        const n = roadPath[i+1];
+        const sdx = n.x - c.x;
+        const sdy = n.y - c.y;
+        const slen = Math.sqrt(sdx*sdx + sdy*sdy);
+        const dot = idealDirX * (sdx/slen) + idealDirY * (sdy/slen);
+        if (dot < 0.96) return false; 
+    }
+    for (let h of hexesOnLine) {
+        if (!roadPath.find(rh => rh.q === h.q && rh.r === h.r)) return false;
+    }
+    return true;
+}
+
+function findRoadPath(start, target) {
+    const visited = new Set();
+    const queue = [[start]];
+    while(queue.length > 0) {
+        const path = queue.shift();
+        const curr = path[path.length-1];
+        if(curr.q === target.q && curr.r === target.r) return path;
+        
+        const key = `${curr.q},${curr.r}`;
+        if(visited.has(key)) continue;
+        visited.add(key);
+        
+        mapData.roads.forEach(r => {
+            let next = null;
+            if(r.from.q === curr.q && r.from.r === curr.r) next = hexMap[r.to.q][r.to.r];
+            else if(r.to.q === curr.q && r.to.r === curr.r) next = hexMap[r.from.q][r.from.r];
+            if(next) queue.push([...path, next]);
+        });
+    }
+    return null;
+}
+
+// --- Interaction Logic ---
+
+function handleLeftClick(pointer) {
+    const hex = getHexAtPoint(pointer.worldX, pointer.worldY);
+    if (!hex) return;
+
+    if (losTool) {
+        if (!losStartHex) {
+            losStartHex = hex;
+            showStatus("LOS: Select target hex");
+            highlightHex(hex, 0xffffff);
+        } else {
+            drawLOSResult(losStartHex, hex);
+            losStartHex = null;
+        }
+        return;
+    }
+
+    const clickedUnit = units.find(u => u.q === hex.q && u.r === hex.r && u.hp > 0);
+
+    if (currentAction && selectedUnit) {
+        if (currentAction === 'FIRE') {
+            executeFire(selectedUnit, clickedUnit);
+        } else if (currentAction === 'TACTICAL' || currentAction === 'FAST') {
+            executeMove(selectedUnit, hex);
+        }
+    } else {
+        if (clickedUnit) {
+            openActionMenu(clickedUnit, pointer);
+        } else {
+            selectedUnit = null;
+            uiGraphics.clear();
+            redrawAllUnits();
+            showStatus("Select a unit");
+        }
+    }
+}
+
+function openActionMenu(unit, pointer) {
+    selectedUnit = unit;
+    redrawAllUnits();
+    showStatus(`Selected: ${unit.side.toUpperCase()} | HP: ${unit.hp} | MP: ${unit.mp} | FP: ${unit.fp}`);
+    
+    const menu = document.getElementById('action-menu');
+    menu.innerHTML = `
+        <div class="menu-header">UNIT ACTIONS</div>
+        <div class="menu-item" onclick="selectAction('TACTICAL')">TACTICAL MOVE</div>
+        <div class="menu-item" onclick="selectAction('FAST')">FAST MOVE</div>
+        <div class="menu-item" onclick="selectAction('FIRE')">FIRE</div>
+    `;
+    
+    menu.style.display = 'block';
+    menu.style.left = pointer.event.clientX + 'px';
+    menu.style.top = pointer.event.clientY + 'px';
+}
+
+function selectAction(action) {
+    currentAction = action;
+    document.getElementById('action-menu').style.display = 'none';
+    if (action === 'FIRE') {
+        showStatus(`FIRE MODE: Select enemy target within ${selectedUnit.range} hexes.`);
+    } else if (action === 'TACTICAL') {
+        showStatus(`TACTICAL MOVE: Select adjacent hex (Costs all ${selectedUnit.mp} MP).`);
+    } else if (action === 'FAST') {
+        showStatus(`FAST MOVE: Select adjacent hex (Costs Terrain MP).`);
+    }
+}
+
+function executeMove(unit, targetHex) {
+    if (unit.mp <= 0) {
+        alert("Unit has no Movement Points!");
+        resetAction();
+        return;
+    }
+    
+    // FIX: Use Cube Math for Adjacent Check (Always Correct for Grid)
+    const dist = getHexDistance({q: unit.q, r: unit.r}, targetHex);
+    
+    if (dist !== 1) {
+        alert("Please select an adjacent hex. Grid distance: " + dist);
+        return;
+    }
+    
+    const occupant = units.find(u => u.q === targetHex.q && u.r === targetHex.r && u.hp > 0);
+    if (occupant) {
+        alert("Hex is occupied!");
+        return;
+    }
+
+    const terrainCost = TERRAIN_TYPES[targetHex.terrain].cost;
+
+    if (currentAction === 'TACTICAL') {
+        if (terrainCost >= 999) {
+            alert("Terrain is impassable (Water).");
+            return;
+        }
+        unit.mp = 0;
+        moveUnitTo(unit, targetHex);
+        
+    } else if (currentAction === 'FAST') {
+        if (unit.mp < terrainCost) {
+            alert(`Not enough MP. Cost: ${terrainCost}, Have: ${unit.mp}`);
+            return;
+        }
+        unit.mp -= terrainCost;
+        moveUnitTo(unit, targetHex);
+    }
+    
+    resetAction();
+}
+
+function moveUnitTo(unit, hex) {
+    unit.q = hex.q;
+    unit.r = hex.r;
+    redrawAllUnits();
+}
+
+function executeFire(attacker, targetUnit) {
+    if (!targetUnit) {
+        alert("You must select an enemy unit!");
+        return;
+    }
+    if (attacker.side === targetUnit.side) {
+        alert("Cannot fire at friendly units!");
+        return;
+    }
+    
+    const startHex = hexMap[attacker.q][attacker.r];
+    const targetHex = hexMap[targetUnit.q][targetUnit.r];
+
+    // FIX: Use Supercover Raycast (Physical Line) for Range
+    const physicalRange = getPhysicalRange(startHex, targetHex);
+    
+    if (physicalRange > attacker.range) {
+        alert(`Target out of range! Line crosses ${physicalRange} hexes (Max: ${attacker.range}).`);
+        resetAction();
+        return;
+    }
+    
+    const los = calculateLOS(startHex, targetHex);
+    
+    if (los.status === 'blocked') {
+        showStatus("LOS BLOCKED! Cannot fire.", 'red');
+        drawVisualLOSLine(startHex, targetHex, 0xff0000); 
+        setTimeout(() => losGraphics.clear(), 1500);
+        resetAction();
+        return;
+    }
+    
+    let damage = attacker.fp;
+    let msg = "LOS CLEAR! Full Damage.";
+    let color = 0x00ff00;
+    
+    if (los.status === 'degraded') {
+        damage -= 1;
+        msg = "LOS DEGRADED! Damage -1.";
+        color = 0xffaa00;
+    }
+    
+    targetUnit.hp -= damage;
+    drawVisualLOSLine(startHex, targetHex, color);
+    alert(`${msg}\nRange: ${physicalRange}\nDealt ${damage} damage to ${targetUnit.side} unit.`);
+    
+    if (targetUnit.hp <= 0) {
+        alert("Target Destroyed!");
+        if (targetUnit.textObj) targetUnit.textObj.destroy();
+    }
+    
+    setTimeout(() => losGraphics.clear(), 1000);
+    redrawAllUnits();
+    resetAction();
+}
+
+function resetAction() {
+    currentAction = null;
+    selectedUnit = null;
+    showStatus("Ready");
+}
+
+function drawVisualLOSLine(start, end, color) {
+    losGraphics.clear();
+    losGraphics.lineStyle(4, color, 0.8);
+    losGraphics.beginPath();
+    losGraphics.moveTo(start.x, start.y);
+    losGraphics.lineTo(end.x, end.y);
+    losGraphics.strokePath();
+}
+
+function toggleLOSTool() {
+    losTool = !losTool;
+    losStartHex = null;
+    losGraphics.clear();
+    currentAction = null; 
+    document.getElementById('los-toggle').classList.toggle('active', losTool);
+    showStatus(losTool ? 'LOS Tool: Select start hex' : 'Ready');
+    document.getElementById('los-result').innerHTML = 'Click LOS tool, then select start and target hex';
+}
+
+function drawLOSResult(start, end) {
+    const result = calculateLOS(start, end);
+    let color = 0xff0000;
+    let text = "";
+    
+    if (result.status === 'clear') {
+        color = 0x00ff00;
+        text = result.isRoad ? '<span class="los-clear">✓ CLEAR (Road Bonus)</span>' : '<span class="los-clear">✓ LOS CLEAR</span>';
+    } else if (result.status === 'degraded') {
+        color = 0xffaa00;
+        text = '<span class="los-degraded">~ LOS DEGRADED</span>';
+    } else {
+        text = '<span class="los-blocked">✗ LOS BLOCKED</span>';
+    }
+    
+    drawVisualLOSLine(start, end, color);
+    document.getElementById('los-result').innerHTML = text;
+    showStatus('LOS Result displayed');
+}
+
+function highlightHex(hex, color) {
+    losGraphics.clear();
+    losGraphics.lineStyle(4, color);
+    losGraphics.strokeCircle(hex.x, hex.y, HEX_RADIUS - 5);
+}
+
+function loadMap() {
+    const jsonText = document.getElementById('json-input').value;
+    try {
+        mapData = JSON.parse(jsonText);
+        displayMap();
+        showStatus(`Map loaded: ${mapData.cols}x${mapData.rows}`);
+    } catch (e) {
+        alert('Invalid JSON');
+    }
+}
+
+function addUnit(side) {
+    if (!mapData) { alert('Load a map first!'); return; }
+    
+    let q = Math.floor(mapData.cols / 2);
+    let r = Math.floor(mapData.rows / 2);
+    
+    let found = false;
+    const maxDist = 5;
+    
+    for (let d = 0; d < maxDist && !found; d++) {
+        for (let dq = -d; dq <= d; dq++) {
+            for (let dr = -d; dr <= d; dr++) {
+                const checkQ = q + dq;
+                const checkR = r + dr;
+                if (hexMap[checkQ] && hexMap[checkQ][checkR]) {
+                    const occupied = units.find(u => u.q === checkQ && u.r === checkR && u.hp > 0);
+                    const terrain = TERRAIN_TYPES[hexMap[checkQ][checkR].terrain];
+                    if (!occupied && terrain.cost < 999) {
+                        q = checkQ;
+                        r = checkR;
+                        found = true;
+                        break;
+                    }
+                }
+            }
+            if (found) break;
+        }
+    }
+
+    if (!found) { alert("No empty space in center!"); return; }
+
+    const unit = {
+        id: unitIdCounter++,
+        side: side,
+        q: q,
+        r: r,
+        mp: 6,
+        maxMp: 6,
+        hp: 5,
+        fp: 3,
+        range: 6,
+        textObj: null
+    };
+    
+    units.push(unit);
+    redrawAllUnits();
+}
+
+function showStatus(msg, color='black') {
+    const sb = document.getElementById('status-bar');
+    sb.innerText = msg;
+    sb.style.color = color;
+}
+</script>
+</body>
+</html>
