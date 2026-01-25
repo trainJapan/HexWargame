@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Hex & Counter Wargame - Artwork & Rules Fix</title>
+    <title>Hex & Counter Wargame - Height-Based LOS</title>
     <script src="https://cdn.jsdelivr.net/npm/phaser@3.60.0/dist/phaser.min.js"></script>
     <style>
         body { 
@@ -143,13 +143,19 @@
     
     <div class="label">Tools</div>
     <button id="los-toggle" class="btn" onclick="toggleLOSTool()">LINE OF SIGHT TOOL</button>
+    <div id="los-type-selector" style="display: none; margin-top: 8px;">
+        <button id="los-infantry" class="btn active" onclick="setLOSType('infantry')" style="width: 48%; font-size: 11px;">Infantry</button>
+        <button id="los-vehicle" class="btn" onclick="setLOSType('vehicle')" style="width: 48%; font-size: 11px;">Vehicle</button>
+    </div>
     
     <div class="label">LOS Result</div>
     <div id="los-result">Click LOS tool, then select start and target hex</div>
     
     <div class="label">Units</div>
-    <button class="btn" onclick="addUnit('blue')">Add Blue Unit</button>
-    <button class="btn" onclick="addUnit('red')">Add Red Unit</button>
+    <button class="btn" onclick="addUnit('blue', 'infantry')">Add Blue Infantry</button>
+    <button class="btn" onclick="addUnit('blue', 'vehicle')">Add Blue Vehicle</button>
+    <button class="btn" onclick="addUnit('red', 'infantry')">Add Red Infantry</button>
+    <button class="btn" onclick="addUnit('red', 'vehicle')">Add Red Vehicle</button>
 </div>
 
 <div id="game-container">
@@ -165,16 +171,17 @@
 // --- Configuration & Constants ---
 
 const TERRAIN_TYPES = {
-    'clear':      { color: 0x98FB98, los: 'clear',     cost: 1 },
-    'fields':     { color: 0xCCAA00, los: 'degrading', cost: 1 },
-    'beach':      { color: 0xFFFF99, los: 'clear',     cost: 1 },
-    'broken':     { color: 0x8B4513, los: 'degrading', cost: 2 },
-    'orchard':    { color: 0x00FF00, los: 'degrading', cost: 2 },
-    'rural':      { color: 0xFF9999, los: 'degrading', cost: 2 },
-    'forest':     { color: 0x228B22, los: 'blocking',  cost: 3 },
-    'urban':      { color: 0xCC0000, los: 'blocking',  cost: 3 },
-    'industrial': { color: 0x808080, los: 'blocking',  cost: 3 },
-    'water':      { color: 0x4169E1, los: 'clear',     cost: 999 }
+    'clear':      { color: 0x98FB98, los: 'clear',     cost: 1,   terrainHeight: 0, infantryUsable: 0, vehicleUsable: 0 },
+    'fields':     { color: 0xCCAA00, los: 'degrading', cost: 1,   terrainHeight: 1, infantryUsable: 0, vehicleUsable: 0 },
+    'beach':      { color: 0xFFFF99, los: 'clear',     cost: 1,   terrainHeight: 0, infantryUsable: 0, vehicleUsable: 0 },
+    'broken':     { color: 0x8B4513, los: 'degrading', cost: 2,   terrainHeight: 1, infantryUsable: 0, vehicleUsable: 0 },
+    'orchard':    { color: 0x00FF00, los: 'degrading', cost: 2,   terrainHeight: 1, infantryUsable: 0, vehicleUsable: 0 },
+    'rural':      { color: 0xFF9999, los: 'degrading', cost: 2,   terrainHeight: 1, infantryUsable: 0, vehicleUsable: 0 },
+    'forest':     { color: 0x228B22, los: 'blocking',  cost: 3,   terrainHeight: 2, infantryUsable: 0, vehicleUsable: 0 },
+    'urban':      { color: 0xCC0000, los: 'blocking',  cost: 3,   terrainHeight: 2, infantryUsable: 2, vehicleUsable: 0 },
+    'industrial': { color: 0x808080, los: 'blocking',  cost: 3,   terrainHeight: 2, infantryUsable: 2, vehicleUsable: 0 },
+    'water':      { color: 0x4169E1, los: 'clear',     cost: 999, terrainHeight: 0, infantryUsable: 0, vehicleUsable: 0 },
+    'hill':       { color: 0x8B7355, los: 'clear',     cost: 2,   terrainHeight: 2, infantryUsable: 2, vehicleUsable: 2 }
 };
 
 const HEX_RADIUS = 40;
@@ -183,6 +190,7 @@ const HEX_RADIUS = 40;
 let mapData = null;
 let losTool = false;
 let losStartHex = null;
+let losUnitType = 'infantry';
 let units = [];
 let unitIdCounter = 0;
 
@@ -210,11 +218,6 @@ const config = {
 const game = new Phaser.Game(config);
 
 function preloadScene() {
-    // OLD CODE (Local)
-    // this.load.image(`${key}${i}`, `artwork/map/${key}${i}.png`);
-
-    // NEW CODE (GitHub Example)
-    // 1. PRELOAD ARTWORK FROM GITHUB
     const baseURL = 'https://raw.githubusercontent.com/trainJapan/HexWargame/main/artwork/map/';
     
     for (const [key, value] of Object.entries(TERRAIN_TYPES)) {
@@ -223,31 +226,26 @@ function preloadScene() {
         }
     }
     
-    // Fallback texture
     this.make.graphics({x:0,y:0,add:false}).fillStyle(0xffffff).fillRect(0,0,1,1).generateTexture('fallback', 1, 1);
 }
 
 function createScene() {
     scene = this;
     
-    // Layers
-    hexGroup = this.add.group(); // Bottom layer: Terrain Images
-    roadGraphics = this.add.graphics().setDepth(100); // Roads on top of terrain
+    hexGroup = this.add.group();
+    roadGraphics = this.add.graphics().setDepth(100);
     losGraphics = this.add.graphics().setDepth(500);
     unitGraphics = this.add.graphics().setDepth(600);
     uiGraphics = this.add.graphics().setDepth(700);
     
-    // Camera
     this.cameras.main.setBounds(-1000, -1000, 6000, 6000);
     this.input.mouse.disableContextMenu();
     
-    // Zoom
     this.input.on('wheel', (pointer, gameObjects, deltaX, deltaY) => {
         const zoom = scene.cameras.main.zoom - (deltaY * 0.001);
         scene.cameras.main.setZoom(Phaser.Math.Clamp(zoom, 0.3, 2));
     });
     
-    // Global Click Handler
     this.input.on('pointerdown', (pointer) => {
         if (!pointer.event.target.closest('#action-menu')) {
              document.getElementById('action-menu').style.display = 'none';
@@ -279,6 +277,24 @@ function updateScene() {
         this.cameras.main.scrollX -= (pointer.x - pointer.prevPosition.x) / this.cameras.main.zoom;
         this.cameras.main.scrollY -= (pointer.y - pointer.prevPosition.y) / this.cameras.main.zoom;
     }
+}
+
+function showTooltip(pointer) {
+    const hex = getHexAtPoint(pointer.worldX, pointer.worldY);
+    if (!hex) return;
+    
+    const tooltip = document.getElementById('tooltip');
+    tooltip.style.display = 'block';
+    tooltip.style.left = pointer.event.clientX + 15 + 'px';
+    tooltip.style.top = pointer.event.clientY + 15 + 'px';
+    
+    const terrain = TERRAIN_TYPES[hex.terrain];
+    tooltip.querySelector('.terrain-name').textContent = `${hex.terrain.toUpperCase()} [${hex.q},${hex.r}]`;
+    tooltip.querySelector('.terrain-type').textContent = `Height: ${terrain.terrainHeight} | Infantry: ${terrain.infantryUsable} | Vehicle: ${terrain.vehicleUsable}`;
+}
+
+function hideTooltip() {
+    document.getElementById('tooltip').style.display = 'none';
 }
 
 // --- Coordinates & Geometry ---
@@ -322,15 +338,12 @@ function getHexAtPoint(worldX, worldY) {
     return closestHex;
 }
 
-// --- NEW: Physical Path Count for Firing Range ---
-
 function getPhysicalRange(startHex, targetHex) {
     const hexes = [];
     const dx = targetHex.x - startHex.x;
     const dy = targetHex.y - startHex.y;
     const dist = Math.sqrt(dx * dx + dy * dy);
     
-    // Supercover sampling step (small enough to catch corners)
     const stepSize = 2; 
     const steps = Math.ceil(dist / stepSize);
     
@@ -342,7 +355,6 @@ function getPhysicalRange(startHex, targetHex) {
         const h = getHexAtPoint(currX, currY);
         if (h) {
             const key = `${h.q},${h.r}`;
-            // Count any hex that is NOT the shooter's hex
             if (!hexes.includes(key) && !(h.q === startHex.q && h.r === startHex.r)) {
                 hexes.push(key);
             }
@@ -358,20 +370,14 @@ function drawHex(hex) {
     const x = hex.x;
     const y = hex.y;
     
-    // 1. Pick Random Variant (1-3)
-    // We store the chosen variant in the hex object so it doesn't flicker on redraw
     if (!hex.variant) hex.variant = Phaser.Math.Between(1, 3);
     
     const textureKey = `${terrainType}${hex.variant}`;
     
-    // 2. Check if texture exists, otherwise fallback to color
     if (scene.textures.exists(textureKey)) {
         const img = scene.add.image(x, y, textureKey);
-        // Scale image to fit hex size roughly (assuming standard square textures)
-        // 2 * Radius is width of flat-to-flat, or height corner-to-corner
         img.setDisplaySize(HEX_RADIUS * 2, HEX_RADIUS * 2);
         
-        // Masking to Hexagon Shape
         const shape = scene.make.graphics();
         shape.fillStyle(0xffffff);
         shape.beginPath();
@@ -389,7 +395,6 @@ function drawHex(hex) {
         img.setMask(mask);
         hexGroup.add(img);
         
-        // Draw Hex Outline (Stroke)
         const outline = scene.add.graphics();
         outline.lineStyle(2, 0x333333);
         outline.beginPath();
@@ -405,7 +410,6 @@ function drawHex(hex) {
         hexGroup.add(outline);
 
     } else {
-        // Fallback: Draw colored polygon if image missing
         const g = scene.add.graphics();
         g.fillStyle(TERRAIN_TYPES[terrainType].color);
         g.lineStyle(2, 0x333333);
@@ -430,7 +434,6 @@ function displayMap() {
     roadGraphics.clear();
     hexMap = {};
     
-    // Init Grid
     for (let q = 0; q < mapData.cols; q++) {
         hexMap[q] = {};
         for (let r = 0; r < mapData.rows; r++) {
@@ -441,7 +444,6 @@ function displayMap() {
         }
     }
     
-    // Apply Data
     if (mapData.terrain) {
         mapData.terrain.forEach(t => {
             if (hexMap[t.q] && hexMap[t.q][t.r]) hexMap[t.q][t.r].terrain = t.type;
@@ -454,7 +456,6 @@ function displayMap() {
         });
     }
     
-    // Draw Terrain
     for (let q = 0; q < mapData.cols; q++) {
         for (let r = 0; r < mapData.rows; r++) {
             drawHex(hexMap[q][r]);
@@ -468,10 +469,8 @@ function displayMap() {
 function drawRoads() {
     if (!mapData || !mapData.roads) return;
     
-    // Width 6, Semi-transparent (0.8) so artwork shows through
     roadGraphics.lineStyle(6, 0x555555, 0.8);
     
-    // 1. Draw connections between hexes (The standard segments)
     mapData.roads.forEach(seg => {
         const h1 = hexMap[seg.from.q][seg.from.r];
         const h2 = hexMap[seg.to.q][seg.to.r];
@@ -483,19 +482,16 @@ function drawRoads() {
         }
     });
 
-    // 2. THE EDGE LOGIC - Draw to hex boundary, not beyond
     for (let q = 0; q < mapData.cols; q++) {
         for (let r = 0; r < mapData.rows; r++) {
             const hex = hexMap[q][r];
             if (hex.hasRoad) {
-                // Check if it's on any of the four boundaries
                 const isLeftEdge = (q === 0);
                 const isRightEdge = (q === mapData.cols - 1);
                 const isTopEdge = (r === 0);
                 const isBottomEdge = (r === mapData.rows - 1);
                 
                 if (isLeftEdge || isRightEdge || isTopEdge || isBottomEdge) {
-                    // Calculate hex vertices (flat-top hex)
                     const vertices = [];
                     for (let i = 0; i < 6; i++) {
                         const angle = (Math.PI / 3) * i;
@@ -505,11 +501,9 @@ function drawRoads() {
                         });
                     }
                     
-                    // Determine which direction to extend based on edge position
                     let targetX = hex.x;
                     let targetY = hex.y;
                     
-                    // Find the furthest vertex in the direction of the map edge
                     if (isLeftEdge) {
                         targetX = Math.min(...vertices.map(v => v.x));
                         const leftVerts = vertices.filter(v => Math.abs(v.x - targetX) < 1);
@@ -530,7 +524,6 @@ function drawRoads() {
                         targetX = bottomVerts.reduce((sum, v) => sum + v.x, 0) / bottomVerts.length;
                     }
 
-                    // Only draw if we actually moved from center
                     if (targetX !== hex.x || targetY !== hex.y) {
                         roadGraphics.beginPath();
                         roadGraphics.moveTo(hex.x, hex.y);
@@ -552,19 +545,26 @@ function redrawAllUnits() {
         const pos = getHexPosition(unit.q, unit.r);
         const color = unit.side === 'blue' ? 0x0066cc : 0xcc0000;
         
-        // Base
         unitGraphics.fillStyle(color, 1);
         unitGraphics.lineStyle(2, 0xffffff, 1);
-        unitGraphics.fillCircle(pos.x, pos.y, 20);
-        unitGraphics.strokeCircle(pos.x, pos.y, 20);
         
-        // Selection Ring
-        if (selectedUnit === unit) {
-            unitGraphics.lineStyle(3, 0xffcc00, 1);
-            unitGraphics.strokeCircle(pos.x, pos.y, 25);
+        if (unit.unitType === 'infantry') {
+            unitGraphics.fillCircle(pos.x, pos.y, 20);
+            unitGraphics.strokeCircle(pos.x, pos.y, 20);
+        } else {
+            unitGraphics.fillRect(pos.x - 18, pos.y - 18, 36, 36);
+            unitGraphics.strokeRect(pos.x - 18, pos.y - 18, 36, 36);
         }
         
-        // Stats Text
+        if (selectedUnit === unit) {
+            unitGraphics.lineStyle(3, 0xffcc00, 1);
+            if (unit.unitType === 'infantry') {
+                unitGraphics.strokeCircle(pos.x, pos.y, 25);
+            } else {
+                unitGraphics.strokeRect(pos.x - 23, pos.y - 23, 46, 46);
+            }
+        }
+        
         if (!unit.textObj) {
             unit.textObj = scene.add.text(pos.x, pos.y, '', { 
                 fontSize: '10px', fontFamily: 'monospace', color: '#fff', align: 'center', stroke: '#000', strokeThickness: 3 
@@ -578,10 +578,13 @@ function redrawAllUnits() {
 
 // --- Logic: Line of Sight (Calculations) ---
 
-function calculateLOS(startHex, targetHex) {
+function calculateLOS(startHex, targetHex, unitType = 'infantry') {
     const hexesOnLine = getHexesAlongLine(startHex, targetHex);
     const roadLOS = checkRoadLOS(startHex, targetHex, hexesOnLine);
     if (roadLOS) return { status: 'clear', isRoad: true };
+    
+    const fromTerrain = TERRAIN_TYPES[startHex.terrain];
+    const fromUsableHeight = unitType === 'vehicle' ? fromTerrain.vehicleUsable : fromTerrain.infantryUsable;
     
     const dx = targetHex.x - startHex.x;
     const dy = targetHex.y - startHex.y;
@@ -638,30 +641,47 @@ function calculateLOS(startHex, targetHex) {
     let degradingCount = 0;
     let hasBlocking = false;
     
-    // Full Hexes
     for (let key of hexesCrossed) {
         const [q, r] = key.split(',').map(Number);
-        const t = TERRAIN_TYPES[hexMap[q][r].terrain];
-        if (t.los === 'blocking') hasBlocking = true;
-        else if (t.los === 'degrading') degradingCount++;
+        const terrain = TERRAIN_TYPES[hexMap[q][r].terrain];
+        const terrainHeight = terrain.terrainHeight;
+        let losEffect = terrain.los;
+        
+        if (terrainHeight < fromUsableHeight) {
+            if (losEffect === 'blocking') losEffect = 'degrading';
+            else if (losEffect === 'degrading') losEffect = 'clear';
+        }
+        
+        if (losEffect === 'blocking') hasBlocking = true;
+        else if (losEffect === 'degrading') degradingCount++;
     }
     
-    // Edges
     for (let edgePair of edgeSegments) {
         if (!edgePair) continue;
         const [k1, k2] = edgePair.split('|');
         const [q1, r1] = k1.split(',').map(Number);
         const [q2, r2] = k2.split(',').map(Number);
         
-        const t1 = TERRAIN_TYPES[hexMap[q1][r1].terrain].los;
-        const t2 = TERRAIN_TYPES[hexMap[q2][r2].terrain].los;
+        const terrain1 = TERRAIN_TYPES[hexMap[q1][r1].terrain];
+        const terrain2 = TERRAIN_TYPES[hexMap[q2][r2].terrain];
         
-        if (t1 === 'blocking' && t2 === 'blocking') hasBlocking = true;
-        else if ((t1 === 'blocking' || t2 === 'blocking')) {
-            // FIX: Blocking + Clear = 1 Degrading
+        let los1 = terrain1.los;
+        let los2 = terrain2.los;
+        
+        if (terrain1.terrainHeight < fromUsableHeight) {
+            if (los1 === 'blocking') los1 = 'degrading';
+            else if (los1 === 'degrading') los1 = 'clear';
+        }
+        if (terrain2.terrainHeight < fromUsableHeight) {
+            if (los2 === 'blocking') los2 = 'degrading';
+            else if (los2 === 'degrading') los2 = 'clear';
+        }
+        
+        if (los1 === 'blocking' && los2 === 'blocking') hasBlocking = true;
+        else if ((los1 === 'blocking' || los2 === 'blocking')) {
             degradingCount++;
         }
-        else if (t1 === 'degrading' && t2 === 'degrading') degradingCount++;
+        else if (los1 === 'degrading' && los2 === 'degrading') degradingCount++;
     }
     
     if (hasBlocking || degradingCount >= 2) return { status: 'blocked', isRoad: false };
@@ -741,7 +761,7 @@ function handleLeftClick(pointer) {
     if (losTool) {
         if (!losStartHex) {
             losStartHex = hex;
-            showStatus("LOS: Select target hex");
+            showStatus(`LOS (${losUnitType}): Select target hex`);
             highlightHex(hex, 0xffffff);
         } else {
             drawLOSResult(losStartHex, hex);
@@ -773,7 +793,7 @@ function handleLeftClick(pointer) {
 function openActionMenu(unit, pointer) {
     selectedUnit = unit;
     redrawAllUnits();
-    showStatus(`Selected: ${unit.side.toUpperCase()} | HP: ${unit.hp} | MP: ${unit.mp} | FP: ${unit.fp}`);
+    showStatus(`Selected: ${unit.side.toUpperCase()} ${unit.unitType.toUpperCase()} | HP: ${unit.hp} | MP: ${unit.mp} | FP: ${unit.fp}`);
     
     const menu = document.getElementById('action-menu');
     menu.innerHTML = `
@@ -807,7 +827,6 @@ function executeMove(unit, targetHex) {
         return;
     }
     
-    // FIX: Use Cube Math for Adjacent Check (Always Correct for Grid)
     const dist = getHexDistance({q: unit.q, r: unit.r}, targetHex);
     
     if (dist !== 1) {
@@ -862,7 +881,6 @@ function executeFire(attacker, targetUnit) {
     const startHex = hexMap[attacker.q][attacker.r];
     const targetHex = hexMap[targetUnit.q][targetUnit.r];
 
-    // FIX: Use Supercover Raycast (Physical Line) for Range
     const physicalRange = getPhysicalRange(startHex, targetHex);
     
     if (physicalRange > attacker.range) {
@@ -871,7 +889,7 @@ function executeFire(attacker, targetUnit) {
         return;
     }
     
-    const los = calculateLOS(startHex, targetHex);
+    const los = calculateLOS(startHex, targetHex, attacker.unitType);
     
     if (los.status === 'blocked') {
         showStatus("LOS BLOCKED! Cannot fire.", 'red');
@@ -926,12 +944,20 @@ function toggleLOSTool() {
     losGraphics.clear();
     currentAction = null; 
     document.getElementById('los-toggle').classList.toggle('active', losTool);
-    showStatus(losTool ? 'LOS Tool: Select start hex' : 'Ready');
+    document.getElementById('los-type-selector').style.display = losTool ? 'block' : 'none';
+    showStatus(losTool ? `LOS Tool (${losUnitType}): Select start hex` : 'Ready');
     document.getElementById('los-result').innerHTML = 'Click LOS tool, then select start and target hex';
 }
 
+function setLOSType(type) {
+    losUnitType = type;
+    document.getElementById('los-infantry').classList.toggle('active', type === 'infantry');
+    document.getElementById('los-vehicle').classList.toggle('active', type === 'vehicle');
+    showStatus(`LOS Tool (${type}): Select start hex`);
+}
+
 function drawLOSResult(start, end) {
-    const result = calculateLOS(start, end);
+    const result = calculateLOS(start, end, losUnitType);
     let color = 0xff0000;
     let text = "";
     
@@ -967,7 +993,7 @@ function loadMap() {
     }
 }
 
-function addUnit(side) {
+function addUnit(side, unitType) {
     if (!mapData) { alert('Load a map first!'); return; }
     
     let q = Math.floor(mapData.cols / 2);
@@ -1001,6 +1027,7 @@ function addUnit(side) {
     const unit = {
         id: unitIdCounter++,
         side: side,
+        unitType: unitType,
         q: q,
         r: r,
         mp: 6,
@@ -1022,7 +1049,4 @@ function showStatus(msg, color='black') {
 }
 </script>
 </body>
-
 </html>
-
-
