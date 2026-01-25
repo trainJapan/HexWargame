@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Hex & Counter Wargame - Rules Implemented</title>
+    <title>Hex & Counter Wargame - Artwork & Rules Fix</title>
     <script src="https://cdn.jsdelivr.net/npm/phaser@3.60.0/dist/phaser.min.js"></script>
     <style>
         body { 
@@ -96,7 +96,6 @@
             border: 1px solid #555;
             font-size: 12px;
         }
-        /* Action Menu Styles */
         #action-menu {
             position: absolute;
             background: #222;
@@ -151,14 +150,6 @@
     <div class="label">Units</div>
     <button class="btn" onclick="addUnit('blue')">Add Blue Unit</button>
     <button class="btn" onclick="addUnit('red')">Add Red Unit</button>
-    
-    <div class="label">Instructions</div>
-    <p style="font-size: 11px; color: #ccc; margin: 0; line-height: 1.4;">
-        1. <b>Left Click Unit</b> to open Action Menu.<br>
-        2. Select <b>Move</b> or <b>Fire</b>.<br>
-        3. Click Target Hex.<br>
-        <span style="color:#888">Tactical: 1 Hex (All MP)<br>Fast: Normal MP cost</span>
-    </p>
 </div>
 
 <div id="game-container">
@@ -173,21 +164,17 @@
 <script>
 // --- Configuration & Constants ---
 
-// Terrain with MP Costs and LOS rules
 const TERRAIN_TYPES = {
     'clear':      { color: 0x98FB98, los: 'clear',     cost: 1 },
     'fields':     { color: 0xCCAA00, los: 'degrading', cost: 1 },
     'beach':      { color: 0xFFFF99, los: 'clear',     cost: 1 },
-    
     'broken':     { color: 0x8B4513, los: 'degrading', cost: 2 },
     'orchard':    { color: 0x00FF00, los: 'degrading', cost: 2 },
     'rural':      { color: 0xFF9999, los: 'degrading', cost: 2 },
-    
     'forest':     { color: 0x228B22, los: 'blocking',  cost: 3 },
     'urban':      { color: 0xCC0000, los: 'blocking',  cost: 3 },
     'industrial': { color: 0x808080, los: 'blocking',  cost: 3 },
-    
-    'water':      { color: 0x4169E1, los: 'clear',     cost: 999 } // Impassable
+    'water':      { color: 0x4169E1, los: 'clear',     cost: 999 }
 };
 
 const HEX_RADIUS = 40;
@@ -200,11 +187,11 @@ let units = [];
 let unitIdCounter = 0;
 
 // Interaction State
-let selectedUnit = null; // The unit object currently selected
-let currentAction = null; // 'TACTICAL', 'FAST', 'FIRE'
+let selectedUnit = null; 
+let currentAction = null; 
 
 // Phaser Objects
-let scene, graphics, losGraphics, unitGraphics, uiGraphics, hexMap = {};
+let scene, hexGroup, roadGraphics, losGraphics, unitGraphics, uiGraphics, hexMap = {};
 
 // --- Phaser Config ---
 const config = {
@@ -222,12 +209,27 @@ const config = {
 
 const game = new Phaser.Game(config);
 
-function preloadScene() { }
+function preloadScene() {
+    // 1. Point this to your GitHub Raw folder
+    // Note: Use 'raw.githubusercontent.com', not 'github.com'
+    const baseURL = 'https://raw.githubusercontent.com/trainJapan/HexWargame/main/artwork/map/';
+    
+    for (const [key, value] of Object.entries(TERRAIN_TYPES)) {
+        for (let i = 1; i <= 3; i++) {
+            // This now loads: baseURL + "forest" + 1 + ".png"
+            this.load.image(`${key}${i}`, `${baseURL}${key}${i}.png`);
+        }
+    }
+    
+    this.make.graphics({x:0,y:0,add:false}).fillStyle(0xffffff).fillRect(0,0,1,1).generateTexture('fallback', 1, 1);
+}
 
 function createScene() {
     scene = this;
     
-    graphics = this.add.graphics();
+    // Layers
+    hexGroup = this.add.group(); // Bottom layer: Terrain Images
+    roadGraphics = this.add.graphics().setDepth(100); // Roads on top of terrain
     losGraphics = this.add.graphics().setDepth(500);
     unitGraphics = this.add.graphics().setDepth(600);
     uiGraphics = this.add.graphics().setDepth(700);
@@ -244,7 +246,6 @@ function createScene() {
     
     // Global Click Handler
     this.input.on('pointerdown', (pointer) => {
-        // Close menu if clicking elsewhere
         if (!pointer.event.target.closest('#action-menu')) {
              document.getElementById('action-menu').style.display = 'none';
         }
@@ -255,7 +256,6 @@ function createScene() {
         
         if (pointer.rightButtonDown()) {
             showTooltip(pointer);
-            // Cancel current action
             if (currentAction) {
                 currentAction = null;
                 selectedUnit = null;
@@ -271,7 +271,6 @@ function createScene() {
 }
 
 function updateScene() {
-    // Pan logic
     if (this.input.activePointer.rightButtonDown()) {
         const pointer = this.input.activePointer;
         this.cameras.main.scrollX -= (pointer.x - pointer.prevPosition.x) / this.cameras.main.zoom;
@@ -279,7 +278,7 @@ function updateScene() {
     }
 }
 
-// --- Hex Math & Geometry ---
+// --- Coordinates & Geometry ---
 
 function getHexPosition(q, r) {
     const x = q * HEX_RADIUS * 1.5;
@@ -287,17 +286,19 @@ function getHexPosition(q, r) {
     return { x, y };
 }
 
+function offsetToCube(q, r) {
+    const col = q;
+    const row = r;
+    const x = col;
+    const z = row - (col - (col & 1)) / 2;
+    const y = -x - z;
+    return { x, y, z };
+}
+
 function getHexDistance(h1, h2) {
-    // Axial coords to Cube coords conversion for distance
-    const q1 = h1.q;
-    const r1 = h1.r;
-    const s1 = -q1 - r1;
-    
-    const q2 = h2.q;
-    const r2 = h2.r;
-    const s2 = -q2 - r2;
-    
-    return Math.max(Math.abs(q1 - q2), Math.abs(r1 - r2), Math.abs(s1 - s2));
+    const a = offsetToCube(h1.q, h1.r);
+    const b = offsetToCube(h2.q, h2.r);
+    return Math.max(Math.abs(a.x - b.x), Math.abs(a.y - b.y), Math.abs(a.z - b.z));
 }
 
 function getHexAtPoint(worldX, worldY) {
@@ -318,70 +319,112 @@ function getHexAtPoint(worldX, worldY) {
     return closestHex;
 }
 
+// --- NEW: Physical Path Count for Firing Range ---
+
+function getPhysicalRange(startHex, targetHex) {
+    const hexes = [];
+    const dx = targetHex.x - startHex.x;
+    const dy = targetHex.y - startHex.y;
+    const dist = Math.sqrt(dx * dx + dy * dy);
+    
+    // Supercover sampling step (small enough to catch corners)
+    const stepSize = 2; 
+    const steps = Math.ceil(dist / stepSize);
+    
+    for (let i = 0; i <= steps; i++) {
+        const t = i / steps;
+        const currX = startHex.x + dx * t;
+        const currY = startHex.y + dy * t;
+        
+        const h = getHexAtPoint(currX, currY);
+        if (h) {
+            const key = `${h.q},${h.r}`;
+            // Count any hex that is NOT the shooter's hex
+            if (!hexes.includes(key) && !(h.q === startHex.q && h.r === startHex.r)) {
+                hexes.push(key);
+            }
+        }
+    }
+    return hexes.length;
+}
+
 // --- Rendering ---
 
-function drawHex(x, y, color) {
-    graphics.lineStyle(2, 0x333333);
-    graphics.fillStyle(color);
-    graphics.beginPath();
-    for (let i = 0; i < 6; i++) {
-        const angle = (Math.PI / 3) * i;
-        const hx = x + HEX_RADIUS * Math.cos(angle);
-        const hy = y + HEX_RADIUS * Math.sin(angle);
-        if (i === 0) graphics.moveTo(hx, hy);
-        else graphics.lineTo(hx, hy);
+function drawHex(hex) {
+    const terrainType = hex.terrain;
+    const x = hex.x;
+    const y = hex.y;
+    
+    // 1. Pick Random Variant (1-3)
+    // We store the chosen variant in the hex object so it doesn't flicker on redraw
+    if (!hex.variant) hex.variant = Phaser.Math.Between(1, 3);
+    
+    const textureKey = `${terrainType}${hex.variant}`;
+    
+    // 2. Check if texture exists, otherwise fallback to color
+    if (scene.textures.exists(textureKey)) {
+        const img = scene.add.image(x, y, textureKey);
+        // Scale image to fit hex size roughly (assuming standard square textures)
+        // 2 * Radius is width of flat-to-flat, or height corner-to-corner
+        img.setDisplaySize(HEX_RADIUS * 2, HEX_RADIUS * 2);
+        
+        // Masking to Hexagon Shape
+        const shape = scene.make.graphics();
+        shape.fillStyle(0xffffff);
+        shape.beginPath();
+        for (let i = 0; i < 6; i++) {
+            const angle = (Math.PI / 3) * i;
+            const hx = x + HEX_RADIUS * Math.cos(angle);
+            const hy = y + HEX_RADIUS * Math.sin(angle);
+            if (i === 0) shape.moveTo(hx, hy);
+            else shape.lineTo(hx, hy);
+        }
+        shape.closePath();
+        shape.fillPath();
+        
+        const mask = shape.createGeometryMask();
+        img.setMask(mask);
+        hexGroup.add(img);
+        
+        // Draw Hex Outline (Stroke)
+        const outline = scene.add.graphics();
+        outline.lineStyle(2, 0x333333);
+        outline.beginPath();
+        for (let i = 0; i < 6; i++) {
+            const angle = (Math.PI / 3) * i;
+            const hx = x + HEX_RADIUS * Math.cos(angle);
+            const hy = y + HEX_RADIUS * Math.sin(angle);
+            if (i === 0) outline.moveTo(hx, hy);
+            else outline.lineTo(hx, hy);
+        }
+        outline.closePath();
+        outline.strokePath();
+        hexGroup.add(outline);
+
+    } else {
+        // Fallback: Draw colored polygon if image missing
+        const g = scene.add.graphics();
+        g.fillStyle(TERRAIN_TYPES[terrainType].color);
+        g.lineStyle(2, 0x333333);
+        g.beginPath();
+        for (let i = 0; i < 6; i++) {
+            const angle = (Math.PI / 3) * i;
+            const hx = x + HEX_RADIUS * Math.cos(angle);
+            const hy = y + HEX_RADIUS * Math.sin(angle);
+            if (i === 0) g.moveTo(hx, hy);
+            else g.lineTo(hx, hy);
+        }
+        g.closePath();
+        g.fillPath();
+        g.strokePath();
+        hexGroup.add(g);
     }
-    graphics.closePath();
-    graphics.fillPath();
-    graphics.strokePath();
-}
-
-function drawUnit(unit) {
-    // Determine position based on hex
-    const pos = getHexPosition(unit.q, unit.r);
-    
-    // Clear old graphics for this unit if it exists (simple redraw approach for this demo)
-    // Ideally we would update the container, but we redraw all units for simplicity
-}
-
-function redrawAllUnits() {
-    unitGraphics.clear();
-    
-    units.forEach(unit => {
-        if (unit.hp <= 0) return; // Dead units
-
-        const pos = getHexPosition(unit.q, unit.r);
-        const color = unit.side === 'blue' ? 0x0066cc : 0xcc0000;
-        
-        // Base
-        unitGraphics.fillStyle(color, 1);
-        unitGraphics.lineStyle(2, 0xffffff, 1);
-        unitGraphics.fillCircle(pos.x, pos.y, 20);
-        unitGraphics.strokeCircle(pos.x, pos.y, 20);
-        
-        // Selection Ring
-        if (selectedUnit === unit) {
-            unitGraphics.lineStyle(3, 0xffcc00, 1);
-            unitGraphics.strokeCircle(pos.x, pos.y, 25);
-        }
-        
-        // Stats Text (HP/MP)
-        // We can't do text easily in graphics, so we use scene.add.text but manage it carefully
-        // For this demo, we'll just check if text object exists
-        if (!unit.textObj) {
-            unit.textObj = scene.add.text(pos.x, pos.y, '', { 
-                fontSize: '10px', fontFamily: 'monospace', color: '#fff', align: 'center', stroke: '#000', strokeThickness: 3 
-            }).setOrigin(0.5).setDepth(601);
-        }
-        
-        unit.textObj.setPosition(pos.x, pos.y);
-        unit.textObj.setText(`HP:${unit.hp}\nMP:${unit.mp}`);
-    });
 }
 
 function displayMap() {
     if (!mapData) return;
-    graphics.clear();
+    hexGroup.clear(true, true);
+    roadGraphics.clear();
     hexMap = {};
     
     // Init Grid
@@ -390,7 +433,7 @@ function displayMap() {
         for (let r = 0; r < mapData.rows; r++) {
             const pos = getHexPosition(q, r);
             hexMap[q][r] = {
-                terrain: 'clear', x: pos.x, y: pos.y, q: q, r: r, hasRoad: false
+                terrain: 'clear', x: pos.x, y: pos.y, q: q, r: r, hasRoad: false, variant: null
             };
         }
     }
@@ -411,9 +454,7 @@ function displayMap() {
     // Draw Terrain
     for (let q = 0; q < mapData.cols; q++) {
         for (let r = 0; r < mapData.rows; r++) {
-            const hex = hexMap[q][r];
-            const terrainData = TERRAIN_TYPES[hex.terrain];
-            drawHex(hex.x, hex.y, terrainData.color);
+            drawHex(hexMap[q][r]);
         }
     }
     
@@ -423,29 +464,60 @@ function displayMap() {
 
 function drawRoads() {
     if (!mapData || !mapData.roads) return;
+    
+    // Roads are semi-transparent (alpha 0.8) and on top of artwork
+    roadGraphics.lineStyle(6, 0x555555, 0.8);
+    
     mapData.roads.forEach(seg => {
         const h1 = hexMap[seg.from.q][seg.from.r];
         const h2 = hexMap[seg.to.q][seg.to.r];
-        graphics.lineStyle(6, 0x555555); // Road color
-        graphics.beginPath();
-        graphics.moveTo(h1.x, h1.y);
-        graphics.lineTo(h2.x, h2.y);
-        graphics.strokePath();
+        roadGraphics.beginPath();
+        roadGraphics.moveTo(h1.x, h1.y);
+        roadGraphics.lineTo(h2.x, h2.y);
+        roadGraphics.strokePath();
     });
 }
 
-// --- Core Logic: Line of Sight (Calculations) ---
+function redrawAllUnits() {
+    unitGraphics.clear();
+    
+    units.forEach(unit => {
+        if (unit.hp <= 0) return;
+
+        const pos = getHexPosition(unit.q, unit.r);
+        const color = unit.side === 'blue' ? 0x0066cc : 0xcc0000;
+        
+        // Base
+        unitGraphics.fillStyle(color, 1);
+        unitGraphics.lineStyle(2, 0xffffff, 1);
+        unitGraphics.fillCircle(pos.x, pos.y, 20);
+        unitGraphics.strokeCircle(pos.x, pos.y, 20);
+        
+        // Selection Ring
+        if (selectedUnit === unit) {
+            unitGraphics.lineStyle(3, 0xffcc00, 1);
+            unitGraphics.strokeCircle(pos.x, pos.y, 25);
+        }
+        
+        // Stats Text
+        if (!unit.textObj) {
+            unit.textObj = scene.add.text(pos.x, pos.y, '', { 
+                fontSize: '10px', fontFamily: 'monospace', color: '#fff', align: 'center', stroke: '#000', strokeThickness: 3 
+            }).setOrigin(0.5).setDepth(601);
+        }
+        
+        unit.textObj.setPosition(pos.x, pos.y);
+        unit.textObj.setText(`HP:${unit.hp}\nMP:${unit.mp}`);
+    });
+}
+
+// --- Logic: Line of Sight (Calculations) ---
 
 function calculateLOS(startHex, targetHex) {
-    // 1. Check Road Bonus
     const hexesOnLine = getHexesAlongLine(startHex, targetHex);
     const roadLOS = checkRoadLOS(startHex, targetHex, hexesOnLine);
+    if (roadLOS) return { status: 'clear', isRoad: true };
     
-    if (roadLOS) {
-        return { status: 'clear', isRoad: true };
-    }
-    
-    // 2. Sample the line
     const dx = targetHex.x - startHex.x;
     const dy = targetHex.y - startHex.y;
     const distance = Math.sqrt(dx * dx + dy * dy);
@@ -464,13 +536,11 @@ function calculateLOS(startHex, targetHex) {
         const currentHex = getHexAtPoint(x, y);
         if (!currentHex) continue;
         
-        // Ignore start/end for blocking check
         if ((currentHex.q === startHex.q && currentHex.r === startHex.r) || 
             (currentHex.q === targetHex.q && currentHex.r === targetHex.r)) {
             continue;
         }
         
-        // Edge Detection
         const perpDx = -dy / distance;
         const perpDy = dx / distance;
         const checkDist = 3;
@@ -500,7 +570,6 @@ function calculateLOS(startHex, targetHex) {
     }
     if (edgeRunLength > 5) edgeSegments.push(edgeHexPair);
     
-    // 3. Analyze Terrain
     let degradingCount = 0;
     let hasBlocking = false;
     
@@ -523,11 +592,13 @@ function calculateLOS(startHex, targetHex) {
         const t2 = TERRAIN_TYPES[hexMap[q2][r2].terrain].los;
         
         if (t1 === 'blocking' && t2 === 'blocking') hasBlocking = true;
-        else if ((t1 === 'blocking' || t2 === 'blocking') && (t1 !== 'clear' && t2 !== 'clear')) degradingCount++;
+        else if ((t1 === 'blocking' || t2 === 'blocking')) {
+            // FIX: Blocking + Clear = 1 Degrading
+            degradingCount++;
+        }
         else if (t1 === 'degrading' && t2 === 'degrading') degradingCount++;
     }
     
-    // 4. Result
     if (hasBlocking || degradingCount >= 2) return { status: 'blocked', isRoad: false };
     if (degradingCount === 1) return { status: 'degraded', isRoad: false };
     return { status: 'clear', isRoad: false };
@@ -550,11 +621,9 @@ function getHexesAlongLine(startHex, targetHex) {
 function checkRoadLOS(startHex, targetHex, hexesOnLine) {
     if (!mapData || !mapData.roads) return false;
     if (!startHex.hasRoad || !targetHex.hasRoad) return false;
-    
     const roadPath = findRoadPath(startHex, targetHex);
     if (!roadPath || roadPath.length < 2) return false;
     
-    // Check straightness
     const idealDx = targetHex.x - startHex.x;
     const idealDy = targetHex.y - startHex.y;
     const idealLen = Math.sqrt(idealDx*idealDx + idealDy*idealDy);
@@ -568,10 +637,8 @@ function checkRoadLOS(startHex, targetHex, hexesOnLine) {
         const sdy = n.y - c.y;
         const slen = Math.sqrt(sdx*sdx + sdy*sdy);
         const dot = idealDirX * (sdx/slen) + idealDirY * (sdy/slen);
-        if (dot < 0.96) return false; // Bend too sharp
+        if (dot < 0.96) return false; 
     }
-    
-    // Check if line stays on road
     for (let h of hexesOnLine) {
         if (!roadPath.find(rh => rh.q === h.q && rh.r === h.r)) return false;
     }
@@ -594,7 +661,6 @@ function findRoadPath(start, target) {
             let next = null;
             if(r.from.q === curr.q && r.from.r === curr.r) next = hexMap[r.to.q][r.to.r];
             else if(r.to.q === curr.q && r.to.r === curr.r) next = hexMap[r.from.q][r.from.r];
-            
             if(next) queue.push([...path, next]);
         });
     }
@@ -607,7 +673,6 @@ function handleLeftClick(pointer) {
     const hex = getHexAtPoint(pointer.worldX, pointer.worldY);
     if (!hex) return;
 
-    // 1. Use LOS Tool if active
     if (losTool) {
         if (!losStartHex) {
             losStartHex = hex;
@@ -620,23 +685,18 @@ function handleLeftClick(pointer) {
         return;
     }
 
-    // 2. Check if a unit was clicked
     const clickedUnit = units.find(u => u.q === hex.q && u.r === hex.r && u.hp > 0);
 
-    // 3. Action State Machine
     if (currentAction && selectedUnit) {
-        // We are waiting for a target hex
         if (currentAction === 'FIRE') {
-            executeFire(selectedUnit, clickedUnit); // Fire target must be a unit
+            executeFire(selectedUnit, clickedUnit);
         } else if (currentAction === 'TACTICAL' || currentAction === 'FAST') {
             executeMove(selectedUnit, hex);
         }
     } else {
-        // Selecting a unit to open menu
         if (clickedUnit) {
             openActionMenu(clickedUnit, pointer);
         } else {
-            // Clicked empty space with no action -> Deselect
             selectedUnit = null;
             uiGraphics.clear();
             redrawAllUnits();
@@ -647,9 +707,7 @@ function handleLeftClick(pointer) {
 
 function openActionMenu(unit, pointer) {
     selectedUnit = unit;
-    redrawAllUnits(); // updates selection ring
-    
-    // Show stats in status bar
+    redrawAllUnits();
     showStatus(`Selected: ${unit.side.toUpperCase()} | HP: ${unit.hp} | MP: ${unit.mp} | FP: ${unit.fp}`);
     
     const menu = document.getElementById('action-menu');
@@ -668,7 +726,6 @@ function openActionMenu(unit, pointer) {
 function selectAction(action) {
     currentAction = action;
     document.getElementById('action-menu').style.display = 'none';
-    
     if (action === 'FIRE') {
         showStatus(`FIRE MODE: Select enemy target within ${selectedUnit.range} hexes.`);
     } else if (action === 'TACTICAL') {
@@ -676,27 +733,23 @@ function selectAction(action) {
     } else if (action === 'FAST') {
         showStatus(`FAST MOVE: Select adjacent hex (Costs Terrain MP).`);
     }
-    
-    // Highlight potential targets/moves could be added here
 }
 
 function executeMove(unit, targetHex) {
-    // Basic validation
     if (unit.mp <= 0) {
         alert("Unit has no Movement Points!");
         resetAction();
         return;
     }
     
+    // FIX: Use Cube Math for Adjacent Check (Always Correct for Grid)
     const dist = getHexDistance({q: unit.q, r: unit.r}, targetHex);
     
-    // Logic: In this prototype, we only support moving 1 hex at a time
     if (dist !== 1) {
-        alert("Please select an adjacent hex.");
+        alert("Please select an adjacent hex. Grid distance: " + dist);
         return;
     }
     
-    // Check occupancy
     const occupant = units.find(u => u.q === targetHex.q && u.r === targetHex.r && u.hp > 0);
     if (occupant) {
         alert("Hex is occupied!");
@@ -706,7 +759,6 @@ function executeMove(unit, targetHex) {
     const terrainCost = TERRAIN_TYPES[targetHex.terrain].cost;
 
     if (currentAction === 'TACTICAL') {
-        // Tactical: 1 hex max, costs all MP, ignores terrain cost (unless impassable)
         if (terrainCost >= 999) {
             alert("Terrain is impassable (Water).");
             return;
@@ -715,7 +767,6 @@ function executeMove(unit, targetHex) {
         moveUnitTo(unit, targetHex);
         
     } else if (currentAction === 'FAST') {
-        // Fast: Normal MP cost
         if (unit.mp < terrainCost) {
             alert(`Not enough MP. Cost: ${terrainCost}, Have: ${unit.mp}`);
             return;
@@ -738,32 +789,33 @@ function executeFire(attacker, targetUnit) {
         alert("You must select an enemy unit!");
         return;
     }
-    
     if (attacker.side === targetUnit.side) {
         alert("Cannot fire at friendly units!");
         return;
     }
     
-    const dist = getHexDistance(attacker, targetUnit);
-    if (dist > attacker.range) {
-        alert(`Target out of range! (${dist} > ${attacker.range})`);
+    const startHex = hexMap[attacker.q][attacker.r];
+    const targetHex = hexMap[targetUnit.q][targetUnit.r];
+
+    // FIX: Use Supercover Raycast (Physical Line) for Range
+    const physicalRange = getPhysicalRange(startHex, targetHex);
+    
+    if (physicalRange > attacker.range) {
+        alert(`Target out of range! Line crosses ${physicalRange} hexes (Max: ${attacker.range}).`);
+        resetAction();
         return;
     }
     
-    // Calculate LOS (Background)
-    const startHex = hexMap[attacker.q][attacker.r];
-    const targetHex = hexMap[targetUnit.q][targetUnit.r];
     const los = calculateLOS(startHex, targetHex);
     
     if (los.status === 'blocked') {
         showStatus("LOS BLOCKED! Cannot fire.", 'red');
-        drawVisualLOSLine(startHex, targetHex, 0xff0000); // Show player why
+        drawVisualLOSLine(startHex, targetHex, 0xff0000); 
         setTimeout(() => losGraphics.clear(), 1500);
         resetAction();
         return;
     }
     
-    // Fire!
     let damage = attacker.fp;
     let msg = "LOS CLEAR! Full Damage.";
     let color = 0x00ff00;
@@ -776,8 +828,7 @@ function executeFire(attacker, targetUnit) {
     
     targetUnit.hp -= damage;
     drawVisualLOSLine(startHex, targetHex, color);
-    
-    alert(`${msg}\nDealt ${damage} damage to ${targetUnit.side} unit.\nTarget HP: ${targetUnit.hp}`);
+    alert(`${msg}\nRange: ${physicalRange}\nDealt ${damage} damage to ${targetUnit.side} unit.`);
     
     if (targetUnit.hp <= 0) {
         alert("Target Destroyed!");
@@ -804,13 +855,11 @@ function drawVisualLOSLine(start, end, color) {
     losGraphics.strokePath();
 }
 
-// --- Tooling Functions ---
-
 function toggleLOSTool() {
     losTool = !losTool;
     losStartHex = null;
     losGraphics.clear();
-    currentAction = null; // Disable unit actions
+    currentAction = null; 
     document.getElementById('los-toggle').classList.toggle('active', losTool);
     showStatus(losTool ? 'LOS Tool: Select start hex' : 'Ready');
     document.getElementById('los-result').innerHTML = 'Click LOS tool, then select start and target hex';
@@ -856,11 +905,9 @@ function loadMap() {
 function addUnit(side) {
     if (!mapData) { alert('Load a map first!'); return; }
     
-    // Find empty spot near center
     let q = Math.floor(mapData.cols / 2);
     let r = Math.floor(mapData.rows / 2);
     
-    // Simple spiral search for empty spot
     let found = false;
     const maxDist = 5;
     
