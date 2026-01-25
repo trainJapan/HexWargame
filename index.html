@@ -152,10 +152,10 @@
     <div id="los-result">Click LOS tool, then select start and target hex</div>
     
     <div class="label">Units</div>
-    <button class="btn" onclick="addUnit('blue', 'infantry')">Add Blue Infantry</button>
-    <button class="btn" onclick="addUnit('blue', 'vehicle')">Add Blue Vehicle</button>
-    <button class="btn" onclick="addUnit('red', 'infantry')">Add Red Infantry</button>
-    <button class="btn" onclick="addUnit('red', 'vehicle')">Add Red Vehicle</button>
+    <button class="btn" onclick="addUnit('blue', 'infantry')">Add US Infantry</button>
+    <button class="btn" onclick="addUnit('blue', 'vehicle')">Add US Vehicle</button>
+    <button class="btn" onclick="addUnit('red', 'infantry')">Add German Infantry</button>
+    <button class="btn" onclick="addUnit('red', 'vehicle')">Add German Vehicle</button>
 </div>
 
 <div id="game-container">
@@ -181,7 +181,7 @@ const TERRAIN_TYPES = {
     'urban':      { color: 0xCC0000, los: 'blocking',  cost: 3,   terrainHeight: 2, infantryUsable: 2, vehicleUsable: 0 },
     'industrial': { color: 0x808080, los: 'blocking',  cost: 3,   terrainHeight: 2, infantryUsable: 2, vehicleUsable: 0 },
     'water':      { color: 0x4169E1, los: 'clear',     cost: 999, terrainHeight: 0, infantryUsable: 0, vehicleUsable: 0 },
-    'hill':       { color: 0x8B7355, los: 'degrading', cost: 2,   terrainHeight: 2, infantryUsable: 2, vehicleUsable: 2 }
+    'hill':       { color: 0x8B7355, los: 'clear',     cost: 2,   terrainHeight: 2, infantryUsable: 2, vehicleUsable: 2 }
 };
 
 const HEX_RADIUS = 40;
@@ -200,6 +200,7 @@ let currentAction = null;
 
 // Phaser Objects
 let scene, hexGroup, roadGraphics, losGraphics, unitGraphics, uiGraphics, hexMap = {};
+let unitSprites = {};
 
 // --- Phaser Config ---
 const config = {
@@ -225,6 +226,13 @@ function preloadScene() {
             this.load.image(`${key}${i}`, `${baseURL}${key}${i}.png`);
         }
     }
+    
+    // Load unit counter artwork
+    const counterURL = 'https://raw.githubusercontent.com/trainJapan/HexWargame/main/artwork/counters/';
+    this.load.image('US_Inf', `${counterURL}US_Inf.png`);
+    this.load.image('GER_Inf', `${counterURL}GER_Inf.png`);
+    this.load.image('US_Veh', `${counterURL}US_Veh.png`);
+    this.load.image('GER_Veh', `${counterURL}GER_Veh.png`);
     
     this.make.graphics({x:0,y:0,add:false}).fillStyle(0xffffff).fillRect(0,0,1,1).generateTexture('fallback', 1, 1);
 }
@@ -539,40 +547,35 @@ function drawRoads() {
 function redrawAllUnits() {
     unitGraphics.clear();
     
+    // Clear old sprites
+    Object.values(unitSprites).forEach(sprite => sprite.destroy());
+    unitSprites = {};
+    
     units.forEach(unit => {
         if (unit.hp <= 0) return;
 
         const pos = getHexPosition(unit.q, unit.r);
-        const color = unit.side === 'blue' ? 0x0066cc : 0xcc0000;
         
-        unitGraphics.fillStyle(color, 1);
-        unitGraphics.lineStyle(2, 0xffffff, 1);
+        // Determine counter image key
+        let counterKey = '';
+        if (unit.side === 'blue' && unit.unitType === 'infantry') counterKey = 'US_Inf';
+        else if (unit.side === 'blue' && unit.unitType === 'vehicle') counterKey = 'US_Veh';
+        else if (unit.side === 'red' && unit.unitType === 'infantry') counterKey = 'GER_Inf';
+        else if (unit.side === 'red' && unit.unitType === 'vehicle') counterKey = 'GER_Veh';
         
-        if (unit.unitType === 'infantry') {
-            unitGraphics.fillCircle(pos.x, pos.y, 20);
-            unitGraphics.strokeCircle(pos.x, pos.y, 20);
-        } else {
-            unitGraphics.fillRect(pos.x - 18, pos.y - 18, 36, 36);
-            unitGraphics.strokeRect(pos.x - 18, pos.y - 18, 36, 36);
+        // Create counter sprite
+        if (scene.textures.exists(counterKey)) {
+            const sprite = scene.add.image(pos.x, pos.y, counterKey);
+            sprite.setDisplaySize(HEX_RADIUS * 1.5, HEX_RADIUS * 1.5);
+            sprite.setDepth(600);
+            unitSprites[unit.id] = sprite;
         }
         
+        // Selection Ring
         if (selectedUnit === unit) {
             unitGraphics.lineStyle(3, 0xffcc00, 1);
-            if (unit.unitType === 'infantry') {
-                unitGraphics.strokeCircle(pos.x, pos.y, 25);
-            } else {
-                unitGraphics.strokeRect(pos.x - 23, pos.y - 23, 46, 46);
-            }
+            unitGraphics.strokeCircle(pos.x, pos.y, HEX_RADIUS * 0.85);
         }
-        
-        if (!unit.textObj) {
-            unit.textObj = scene.add.text(pos.x, pos.y, '', { 
-                fontSize: '10px', fontFamily: 'monospace', color: '#fff', align: 'center', stroke: '#000', strokeThickness: 3 
-            }).setOrigin(0.5).setDepth(601);
-        }
-        
-        unit.textObj.setPosition(pos.x, pos.y);
-        unit.textObj.setText(`HP:${unit.hp}\nMP:${unit.mp}`);
     });
 }
 
@@ -580,8 +583,17 @@ function redrawAllUnits() {
 
 function calculateLOS(startHex, targetHex, unitType = 'infantry') {
     const hexesOnLine = getHexesAlongLine(startHex, targetHex);
-    const roadLOS = checkRoadLOS(startHex, targetHex, hexesOnLine);
-    if (roadLOS) return { status: 'clear', isRoad: true };
+    const roadLOSResult = checkRoadLOS(startHex, targetHex, hexesOnLine);
+    if (roadLOSResult.isRoad) {
+        const distance = getHexDistance(startHex, targetHex);
+        if (distance > 10) {
+            return { status: 'blocked', isRoad: true };
+        } else if (distance > 5) {
+            return { status: 'degraded', isRoad: true };
+        } else {
+            return { status: 'clear', isRoad: true };
+        }
+    }
     
     const fromTerrain = TERRAIN_TYPES[startHex.terrain];
     const fromUsableHeight = unitType === 'vehicle' ? fromTerrain.vehicleUsable : fromTerrain.infantryUsable;
@@ -704,10 +716,10 @@ function getHexesAlongLine(startHex, targetHex) {
 }
 
 function checkRoadLOS(startHex, targetHex, hexesOnLine) {
-    if (!mapData || !mapData.roads) return false;
-    if (!startHex.hasRoad || !targetHex.hasRoad) return false;
+    if (!mapData || !mapData.roads) return { isRoad: false };
+    if (!startHex.hasRoad || !targetHex.hasRoad) return { isRoad: false };
     const roadPath = findRoadPath(startHex, targetHex);
-    if (!roadPath || roadPath.length < 2) return false;
+    if (!roadPath || roadPath.length < 2) return { isRoad: false };
     
     const idealDx = targetHex.x - startHex.x;
     const idealDy = targetHex.y - startHex.y;
@@ -722,12 +734,12 @@ function checkRoadLOS(startHex, targetHex, hexesOnLine) {
         const sdy = n.y - c.y;
         const slen = Math.sqrt(sdx*sdx + sdy*sdy);
         const dot = idealDirX * (sdx/slen) + idealDirY * (sdy/slen);
-        if (dot < 0.96) return false; 
+        if (dot < 0.96) return { isRoad: false }; 
     }
     for (let h of hexesOnLine) {
-        if (!roadPath.find(rh => rh.q === h.q && rh.r === h.r)) return false;
+        if (!roadPath.find(rh => rh.q === h.q && rh.r === h.r)) return { isRoad: false };
     }
-    return true;
+    return { isRoad: true };
 }
 
 function findRoadPath(start, target) {
@@ -793,11 +805,16 @@ function handleLeftClick(pointer) {
 function openActionMenu(unit, pointer) {
     selectedUnit = unit;
     redrawAllUnits();
-    showStatus(`Selected: ${unit.side.toUpperCase()} ${unit.unitType.toUpperCase()} | HP: ${unit.hp} | MP: ${unit.mp} | FP: ${unit.fp}`);
+    
+    const sideName = unit.side === 'blue' ? 'US' : 'GERMAN';
+    const unitTypeName = unit.unitType.toUpperCase();
     
     const menu = document.getElementById('action-menu');
     menu.innerHTML = `
-        <div class="menu-header">UNIT ACTIONS</div>
+        <div class="menu-header">${sideName} ${unitTypeName}</div>
+        <div style="padding: 8px 12px; font-size: 11px; color: #aaa; border-bottom: 1px solid #333;">
+            HP: ${unit.hp} | MP: ${unit.mp} | FP: ${unit.fp} | Range: ${unit.range}
+        </div>
         <div class="menu-item" onclick="selectAction('TACTICAL')">TACTICAL MOVE</div>
         <div class="menu-item" onclick="selectAction('FAST')">FAST MOVE</div>
         <div class="menu-item" onclick="selectAction('FIRE')">FIRE</div>
@@ -911,11 +928,18 @@ function executeFire(attacker, targetUnit) {
     
     targetUnit.hp -= damage;
     drawVisualLOSLine(startHex, targetHex, color);
-    alert(`${msg}\nRange: ${physicalRange}\nDealt ${damage} damage to ${targetUnit.side} unit.`);
+    
+    const attackerName = attacker.side === 'blue' ? 'US' : 'German';
+    const targetName = targetUnit.side === 'blue' ? 'US' : 'German';
+    
+    alert(`${msg}\nRange: ${physicalRange}\nDealt ${damage} damage to ${targetName} unit.`);
     
     if (targetUnit.hp <= 0) {
         alert("Target Destroyed!");
-        if (targetUnit.textObj) targetUnit.textObj.destroy();
+        if (unitSprites[targetUnit.id]) {
+            unitSprites[targetUnit.id].destroy();
+            delete unitSprites[targetUnit.id];
+        }
     }
     
     setTimeout(() => losGraphics.clear(), 1000);
@@ -963,12 +987,12 @@ function drawLOSResult(start, end) {
     
     if (result.status === 'clear') {
         color = 0x00ff00;
-        text = result.isRoad ? '<span class="los-clear">✓ CLEAR (Road Bonus)</span>' : '<span class="los-clear">✓ LOS CLEAR</span>';
+        text = result.isRoad ? '<span class="los-clear">✓ CLEAR (Road)</span>' : '<span class="los-clear">✓ LOS CLEAR</span>';
     } else if (result.status === 'degraded') {
         color = 0xffaa00;
-        text = '<span class="los-degraded">~ LOS DEGRADED</span>';
+        text = result.isRoad ? '<span class="los-degraded">~ DEGRADED (Road > 5 hexes)</span>' : '<span class="los-degraded">~ LOS DEGRADED</span>';
     } else {
-        text = '<span class="los-blocked">✗ LOS BLOCKED</span>';
+        text = result.isRoad ? '<span class="los-blocked">✗ BLOCKED (Road > 10 hexes)</span>' : '<span class="los-blocked">✗ LOS BLOCKED</span>';
     }
     
     drawVisualLOSLine(start, end, color);
@@ -1050,4 +1074,3 @@ function showStatus(msg, color='black') {
 </script>
 </body>
 </html>
-
