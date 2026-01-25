@@ -566,7 +566,7 @@ function redrawAllUnits() {
         // Create counter sprite
         if (scene.textures.exists(counterKey)) {
             const sprite = scene.add.image(pos.x, pos.y, counterKey);
-            sprite.setDisplaySize(HEX_RADIUS * 0.75, HEX_RADIUS * 0.75);
+            sprite.setDisplaySize(HEX_RADIUS * 1.25, HEX_RADIUS * 1.25);
             sprite.setDepth(600);
             unitSprites[unit.id] = sprite;
         }
@@ -574,7 +574,7 @@ function redrawAllUnits() {
         // Selection Ring
         if (selectedUnit === unit) {
             unitGraphics.lineStyle(3, 0xffcc00, 1);
-            unitGraphics.strokeCircle(pos.x, pos.y, HEX_RADIUS * 0.45);
+            unitGraphics.strokeCircle(pos.x, pos.y, HEX_RADIUS * 0.7);
         }
     });
 }
