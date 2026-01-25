@@ -181,7 +181,7 @@ const TERRAIN_TYPES = {
     'urban':      { color: 0xCC0000, los: 'blocking',  cost: 3,   terrainHeight: 2, infantryUsable: 2, vehicleUsable: 0 },
     'industrial': { color: 0x808080, los: 'blocking',  cost: 3,   terrainHeight: 2, infantryUsable: 2, vehicleUsable: 0 },
     'water':      { color: 0x4169E1, los: 'clear',     cost: 999, terrainHeight: 0, infantryUsable: 0, vehicleUsable: 0 },
-    'hill':       { color: 0x8B7355, los: 'clear',     cost: 2,   terrainHeight: 2, infantryUsable: 2, vehicleUsable: 2 }
+    'hill':       { color: 0x8B7355, los: 'degrading', cost: 2,   terrainHeight: 2, infantryUsable: 2, vehicleUsable: 2 }
 };
 
 const HEX_RADIUS = 40;
@@ -1074,3 +1074,4 @@ function showStatus(msg, color='black') {
 </script>
 </body>
 </html>
+
