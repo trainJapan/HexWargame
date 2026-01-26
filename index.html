@@ -181,7 +181,7 @@ const TERRAIN_TYPES = {
     'urban':      { color: 0xCC0000, los: 'blocking',  cost: 3,   terrainHeight: 2, infantryUsable: 2, vehicleUsable: 0 },
     'industrial': { color: 0x808080, los: 'blocking',  cost: 3,   terrainHeight: 2, infantryUsable: 2, vehicleUsable: 0 },
     'water':      { color: 0x4169E1, los: 'clear',     cost: 999, terrainHeight: 0, infantryUsable: 0, vehicleUsable: 0 },
-    'hill':       { color: 0x8B7355, los: 'degrading', cost: 2,   terrainHeight: 2, infantryUsable: 2, vehicleUsable: 2 }
+    'hill':       { color: 0x8B7355, los: 'clear',     cost: 2,   terrainHeight: 2, infantryUsable: 2, vehicleUsable: 2 }
 };
 
 const HEX_RADIUS = 40;
@@ -196,8 +196,7 @@ let unitIdCounter = 0;
 
 // Interaction State
 let selectedUnit = null; 
-let currentAction = null;
-let facingIndicators = {}; 
+let currentAction = null; 
 
 // Phaser Objects
 let scene, hexGroup, roadGraphics, losGraphics, unitGraphics, uiGraphics, hexMap = {};
@@ -567,10 +566,7 @@ function redrawAllUnits() {
         // Create counter sprite
         if (scene.textures.exists(counterKey)) {
             const sprite = scene.add.image(pos.x, pos.y, counterKey);
-            // Scale to fit nicely in hex (about 50px for default 40px hex radius)
-            const targetSize = HEX_RADIUS * 1.25;
-            const scale = targetSize / Math.max(sprite.width, sprite.height);
-            sprite.setScale(scale);
+            sprite.setDisplaySize(HEX_RADIUS * 1.25, HEX_RADIUS * 1.25);
             sprite.setDepth(600);
             unitSprites[unit.id] = sprite;
         }
@@ -793,8 +789,6 @@ function handleLeftClick(pointer) {
             executeFire(selectedUnit, clickedUnit);
         } else if (currentAction === 'TACTICAL' || currentAction === 'FAST') {
             executeMove(selectedUnit, hex);
-        } else if (currentAction === 'CHANGE_FACING') {
-            executeChangeFacing(selectedUnit, hex);
         }
     } else {
         if (clickedUnit) {
@@ -824,7 +818,6 @@ function openActionMenu(unit, pointer) {
         <div class="menu-item" onclick="selectAction('TACTICAL')">TACTICAL MOVE</div>
         <div class="menu-item" onclick="selectAction('FAST')">FAST MOVE</div>
         <div class="menu-item" onclick="selectAction('FIRE')">FIRE</div>
-        <div class="menu-item" onclick="selectAction('CHANGE_FACING')">CHANGE FACING</div>
     `;
     
     menu.style.display = 'block';
@@ -841,87 +834,10 @@ function selectAction(action) {
         showStatus(`TACTICAL MOVE: Select adjacent hex (Costs all ${selectedUnit.mp} MP).`);
     } else if (action === 'FAST') {
         showStatus(`FAST MOVE: Select adjacent hex (Costs Terrain MP).`);
-    } else if (action === 'CHANGE_FACING') {
-        showStatus(`CHANGE FACING: Click an adjacent hex to face that direction.`);
     }
 }
 
-function executeChangeFacing(unit, targetHex) {
-    // Check if clicked hex is adjacent
-    const dist = getHexDistance({q: unit.q, r: unit.r}, targetHex);
-    
-    if (dist !== 1) {
-        alert("Please select an adjacent hex to face.");
-        return;
-    }
-    
-    // Calculate which direction the target hex is (0-5)
-    const dq = targetHex.q - unit.q;
-    const dr = targetHex.r - unit.r;
-    
-    // Map offset coordinates to facing direction (0-5)
-    // This accounts for odd/even column offset in flat-top hex grid
-    let facing = 0;
-    
-    if (unit.q % 2 === 0) { // Even column
-        if (dq === 0 && dr === -1) facing = 0;      // North
-        else if (dq === 1 && dr === -1) facing = 1; // Northeast
-        else if (dq === 1 && dr === 0) facing = 2;  // Southeast
-        else if (dq === 0 && dr === 1) facing = 3;  // South
-        else if (dq === -1 && dr === 0) facing = 4; // Southwest
-        else if (dq === -1 && dr === -1) facing = 5;// Northwest
-    } else { // Odd column
-        if (dq === 0 && dr === -1) facing = 0;      // North
-        else if (dq === 1 && dr === 0) facing = 1;  // Northeast
-        else if (dq === 1 && dr === 1) facing = 2;  // Southeast
-        else if (dq === 0 && dr === 1) facing = 3;  // South
-        else if (dq === -1 && dr === 1) facing = 4; // Southwest
-        else if (dq === -1 && dr === 0) facing = 5; // Northwest
-    }
-    
-    unit.facing = facing;
-    redrawAllUnits();
-    showStatus(`Facing changed to direction ${facing}`);
-    resetAction();
-}
-
-function getFacingArc(defenderFacing, attackerDirection) {
-    // Returns 'front' or 'rear' based on which arc the attacker is in
-    // Front arc: facing ± 1 (3 hexes)
-    // Rear arc: opposite 3 hexes
-    
-    const diff = (attackerDirection - defenderFacing + 6) % 6;
-    
-    // Front arc: 0, 5, 1 (facing and ±1)
-    if (diff === 0 || diff === 1 || diff === 5) {
-        return 'front';
-    } else {
-        return 'rear';
-    }
-}
-
-function getDirectionBetweenHexes(fromHex, toHex) {
-    // Calculate which of the 6 directions toHex is from fromHex
-    const dq = toHex.q - fromHex.q;
-    const dr = toHex.r - fromHex.r;
-    
-    if (fromHex.q % 2 === 0) { // Even column
-        if (dq === 0 && dr === -1) return 0;      // North
-        else if (dq === 1 && dr === -1) return 1; // Northeast
-        else if (dq === 1 && dr === 0) return 2;  // Southeast
-        else if (dq === 0 && dr === 1) return 3;  // South
-        else if (dq === -1 && dr === 0) return 4; // Southwest
-        else if (dq === -1 && dr === -1) return 5;// Northwest
-    } else { // Odd column
-        if (dq === 0 && dr === -1) return 0;      // North
-        else if (dq === 1 && dr === 0) return 1;  // Northeast
-        else if (dq === 1 && dr === 1) return 2;  // Southeast
-        else if (dq === 0 && dr === 1) return 3;  // South
-        else if (dq === -1 && dr === 1) return 4; // Southwest
-        else if (dq === -1 && dr === 0) return 5; // Northwest
-    }
-    return 0; // Default
-}
+function executeMove(unit, targetHex) {
     if (unit.mp <= 0) {
         alert("Unit has no Movement Points!");
         resetAction();
@@ -1010,17 +926,6 @@ function executeFire(attacker, targetUnit) {
         color = 0xffaa00;
     }
     
-    // Check facing arc for rear/flank bonus
-    if (targetUnit.facing !== undefined) {
-        const attackDirection = getDirectionBetweenHexes(targetHex, startHex);
-        const arc = getFacingArc(targetUnit.facing, attackDirection);
-        
-        if (arc === 'rear') {
-            damage += 2;
-            msg += " REAR/FLANK HIT! +2 Damage!";
-        }
-    }
-    
     targetUnit.hp -= damage;
     drawVisualLOSLine(startHex, targetHex, color);
     
@@ -1034,10 +939,6 @@ function executeFire(attacker, targetUnit) {
         if (unitSprites[targetUnit.id]) {
             unitSprites[targetUnit.id].destroy();
             delete unitSprites[targetUnit.id];
-        }
-        if (facingIndicators[targetUnit.id]) {
-            facingIndicators[targetUnit.id].destroy();
-            delete facingIndicators[targetUnit.id];
         }
     }
     
@@ -1158,7 +1059,7 @@ function addUnit(side, unitType) {
         hp: 5,
         fp: 3,
         range: 6,
-        facing: 0
+        textObj: null
     };
     
     units.push(unit);
@@ -1173,4 +1074,3 @@ function showStatus(msg, color='black') {
 </script>
 </body>
 </html>
-
