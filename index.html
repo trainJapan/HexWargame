@@ -922,6 +922,8 @@ function getDirectionBetweenHexes(fromHex, toHex) {
     }
     return 0; // Default
 }
+
+function executeMove(unit, targetHex) {
     if (unit.mp <= 0) {
         alert("Unit has no Movement Points!");
         resetAction();
