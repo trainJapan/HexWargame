@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Facing Update</title>
+    <title>Hex & Counter Wargame - Corrected LOS Logic</title>
     <script src="https://cdn.jsdelivr.net/npm/phaser@3.60.0/dist/phaser.min.js"></script>
     <style>
         body { 
@@ -181,7 +181,7 @@ const TERRAIN_TYPES = {
     'urban':      { color: 0xCC0000, los: 'blocking',  cost: 3,   terrainHeight: 2, infantryUsable: 2, vehicleUsable: 0 },
     'industrial': { color: 0x808080, los: 'blocking',  cost: 3,   terrainHeight: 2, infantryUsable: 2, vehicleUsable: 0 },
     'water':      { color: 0x4169E1, los: 'clear',     cost: 999, terrainHeight: 0, infantryUsable: 0, vehicleUsable: 0 },
-    'hill':       { color: 0x8B7355, los: 'degrading',     cost: 2,   terrainHeight: 2, infantryUsable: 2, vehicleUsable: 2 }
+    'hill':       { color: 0x8B7355, los: 'clear',     cost: 2,   terrainHeight: 2, infantryUsable: 2, vehicleUsable: 2 }
 };
 
 const HEX_RADIUS = 40;
@@ -576,7 +576,7 @@ function redrawAllUnits() {
             unitGraphics.strokeCircle(pos.x, pos.y, HEX_RADIUS * 0.7);
         }
 
-        // --- 3. NEW: Draw Facing Triangle ---
+        // --- 3. Draw Facing Triangle ---
         // Mapping your 0-5 indices to Angles (in Degrees)
         // 0:Top(-90), 1:TopRight(-30), 2:BotRight(30), 3:Bot(90), 4:BotLeft(150), 5:TopLeft(-150)
         const facingAngles = [-90, -30, 30, 90, 150, -150];
@@ -620,19 +620,7 @@ function redrawAllUnits() {
 // --- Logic: Line of Sight (Calculations) ---
 
 function calculateLOS(startHex, targetHex, unitType = 'infantry') {
-    const hexesOnLine = getHexesAlongLine(startHex, targetHex);
-    const roadLOSResult = checkRoadLOS(startHex, targetHex, hexesOnLine);
-    if (roadLOSResult.isRoad) {
-        const distance = getHexDistance(startHex, targetHex);
-        if (distance > 10) {
-            return { status: 'blocked', isRoad: true };
-        } else if (distance > 5) {
-            return { status: 'degraded', isRoad: true };
-        } else {
-            return { status: 'clear', isRoad: true };
-        }
-    }
-    
+    // 1. STANDARD LOS Calculation (Height/Terrain Based)
     const fromTerrain = TERRAIN_TYPES[startHex.terrain];
     const fromUsableHeight = unitType === 'vehicle' ? fromTerrain.vehicleUsable : fromTerrain.infantryUsable;
     
@@ -691,12 +679,14 @@ function calculateLOS(startHex, targetHex, unitType = 'infantry') {
     let degradingCount = 0;
     let hasBlocking = false;
     
+    // Check Terrain Obstacles (Height logic)
     for (let key of hexesCrossed) {
         const [q, r] = key.split(',').map(Number);
         const terrain = TERRAIN_TYPES[hexMap[q][r].terrain];
         const terrainHeight = terrain.terrainHeight;
         let losEffect = terrain.los;
         
+        // This is the core height check you wanted to preserve
         if (terrainHeight < fromUsableHeight) {
             if (losEffect === 'blocking') losEffect = 'degrading';
             else if (losEffect === 'degrading') losEffect = 'clear';
@@ -706,6 +696,7 @@ function calculateLOS(startHex, targetHex, unitType = 'infantry') {
         else if (losEffect === 'degrading') degradingCount++;
     }
     
+    // Check Hexside/Edge Obstacles
     for (let edgePair of edgeSegments) {
         if (!edgePair) continue;
         const [k1, k2] = edgePair.split('|');
@@ -734,9 +725,36 @@ function calculateLOS(startHex, targetHex, unitType = 'infantry') {
         else if (los1 === 'degrading' && los2 === 'degrading') degradingCount++;
     }
     
-    if (hasBlocking || degradingCount >= 2) return { status: 'blocked', isRoad: false };
-    if (degradingCount === 1) return { status: 'degraded', isRoad: false };
-    return { status: 'clear', isRoad: false };
+    // Determine the result of the STANDARD Calculation
+    let standardStatus = 'clear';
+    if (hasBlocking || degradingCount >= 2) standardStatus = 'blocked';
+    else if (degradingCount === 1) standardStatus = 'degraded';
+
+    // 2. ROAD LOS Calculation (Bonus Check)
+    const hexesOnLine = getHexesAlongLine(startHex, targetHex);
+    const roadLOSResult = checkRoadLOS(startHex, targetHex, hexesOnLine);
+    
+    if (roadLOSResult.isRoad) {
+        const dist = getHexDistance(startHex, targetHex);
+        let roadStatus = 'blocked';
+        
+        // Apply Road Distance Rules
+        if (dist <= 5) roadStatus = 'clear';
+        else if (dist <= 10) roadStatus = 'degraded';
+        else roadStatus = 'blocked'; // > 10 hexes
+
+        // 3. COMPARISON: Apply "Best Case" Logic
+        // Hierarchy: clear (3) > degraded (2) > blocked (1)
+        const rank = { 'clear': 3, 'degraded': 2, 'blocked': 1 };
+        
+        // If the road offers a BETTER result than standard terrain, use the road.
+        if (rank[roadStatus] > rank[standardStatus]) {
+            return { status: roadStatus, isRoad: true };
+        }
+    }
+    
+    // Default to Standard Terrain Result
+    return { status: standardStatus, isRoad: false };
 }
 
 function getHexesAlongLine(startHex, targetHex) {
@@ -827,7 +845,7 @@ function handleLeftClick(pointer) {
             executeFire(selectedUnit, clickedUnit);
         } else if (currentAction === 'TACTICAL' || currentAction === 'FAST') {
             executeMove(selectedUnit, hex);
-        } else if (currentAction === 'FACING') { // <--- ADDED
+        } else if (currentAction === 'FACING') { // FACING LOGIC
             changeFacing(selectedUnit, hex);
         }
     } else {
@@ -842,28 +860,22 @@ function handleLeftClick(pointer) {
     }
 }
 
-// --- NEW Helper Function for Facing ---
+// --- Helper Function for Facing ---
 function changeFacing(unit, targetHex) {
-    // 1. Check if the clicked hex is actually different from unit hex
     if (unit.q === targetHex.q && unit.r === targetHex.r) return;
 
-    // 2. Calculate pixel positions to get accurate angle
     const startPos = getHexPosition(unit.q, unit.r);
     const targetPos = getHexPosition(targetHex.q, targetHex.r);
 
-    // 3. Get angle in radians, then degrees
     const angleRad = Phaser.Math.Angle.Between(startPos.x, startPos.y, targetPos.x, targetPos.y);
     let angleDeg = Phaser.Math.RadToDeg(angleRad);
     
-    // 4. Map Angle to your 0-5 Index system
-    // Your definitions: 0=Top(-90), 1=TR(-30), 2=BR(30), 3=Bot(90), 4=BL(150), 5=TL(-150/210)
-    
+    // Mapping: 0=Top(-90), 1=TR(-30), 2=BR(30), 3=Bot(90), 4=BL(150), 5=TL(-150)
     const idealAngles = [ -90, -30, 30, 90, 150, -150 ];
     let closestIndex = 0;
     let minDiff = 360;
 
     idealAngles.forEach((ideal, index) => {
-        // Handle the wrap-around for -150 vs 180 vs -180 logic
         let diff = Math.abs(Phaser.Math.Angle.WrapDegrees(angleDeg - ideal));
         if (diff < minDiff) {
             minDiff = diff;
@@ -910,7 +922,7 @@ function selectAction(action) {
         showStatus(`TACTICAL MOVE: Select adjacent hex (Costs all ${selectedUnit.mp} MP).`);
     } else if (action === 'FAST') {
         showStatus(`FAST MOVE: Select adjacent hex (Costs Terrain MP).`);
-    } else if (action === 'FACING') { // <--- ADDED
+    } else if (action === 'FACING') { 
         showStatus(`FACING: Click an adjacent hex to face that direction.`);
     }
 }
@@ -1132,7 +1144,7 @@ function addUnit(side, unitType) {
         unitType: unitType,
         q: q,
         r: r,
-        facing: 0, // <--- ADDED DEFAULT FACING
+        facing: 0,
         mp: 6,
         maxMp: 6,
         hp: 5,
