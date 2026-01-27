@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Wargame Editor v2.5 - Final LOS & Stacking</title>
+    <title>Wargame Editor v2.6 - Fixed LOS Heights</title>
     <script src="https://cdn.jsdelivr.net/npm/phaser@3.60.0/dist/phaser.min.js"></script>
     <style>
         :root {
@@ -442,14 +442,12 @@ function paintHex(hex) { const sprite = hexSprites[`${hex.q},${hex.r}`]; if(spri
 function refreshOverlays() {
     overlayGroup.clear(true, true); zoneGraphics.clear();
 
-    // 0. Update Road Data Flags
     for(let q in hexMap) for(let r in hexMap[q]) hexMap[q][r].hasRoad = false;
     roadSegments.forEach(s => {
         if(hexMap[s.from.q]) hexMap[s.from.q][s.from.r].hasRoad = true;
         if(hexMap[s.to.q]) hexMap[s.to.q][s.to.r].hasRoad = true;
     });
 
-    // 1. Zones
     for (let q = 0; q < mapData.cols; q++) {
         for (let r = 0; r < mapData.rows; r++) {
             const hex = hexMap[q][r];
@@ -461,7 +459,6 @@ function refreshOverlays() {
         }
     }
 
-    // 2. Roads
     const rg = scene.add.graphics();
     roadSegments.forEach(seg => {
         const p1 = getHexPoly(seg.from.q, seg.from.r);
@@ -471,15 +468,12 @@ function refreshOverlays() {
     });
     overlayGroup.add(rg);
 
-    // 3. Units
     const stacks = {};
     units.forEach(u => { const k = `${u.q},${u.r}`; if(!stacks[k]) stacks[k]=[]; stacks[k].push(u); });
 
     units.forEach(u => {
         const p = getHexPoly(u.q, u.r);
         let key = (u.side==='blue'?'UK_':'GER_') + (u.unitType==='infantry'?'Inf':'Veh');
-        // If stack, only top unit draws sprite, others hidden underneath (visually) or just draw all on top?
-        // Editor logic: Draw all in order.
         overlayGroup.add(scene.add.image(p.x, p.y, key).setDisplaySize(HEX_RADIUS*1.25, HEX_RADIUS*1.25));
 
         const arrow = scene.add.graphics();
@@ -492,14 +486,12 @@ function refreshOverlays() {
         );
         overlayGroup.add(arrow);
 
-        // Status
         if (u.status !== 'clear') {
             const bx = p.x+15; const by = p.y+15;
             overlayGroup.add(scene.add.graphics().fillStyle(0xcc0000).fillRect(bx-6, by-6, 12, 12).lineStyle(1,0xffffff).strokeRect(bx-6,by-6,12,12));
             overlayGroup.add(scene.add.text(bx, by, "!", {font:'10px Arial', fill:'#fff'}).setOrigin(0.5));
         }
 
-        // Stack Badge (Only on top unit of a stack > 1)
         const stack = stacks[`${u.q},${u.r}`];
         if (stack && stack.length > 1 && stack[stack.length-1] === u) {
              const bx = p.x+10; const by = p.y-18;
@@ -508,7 +500,6 @@ function refreshOverlays() {
         }
     });
 
-    // 4. VLs
     victoryLocations.forEach(vl => {
         const p = getHexPoly(vl.q, vl.r);
         overlayGroup.add(scene.add.star(p.x, p.y, 5, 8, 16, 0xffcc00).setStrokeStyle(2, 0x000000));
@@ -545,7 +536,6 @@ function drawFullLOS(start, end) {
     losGraphics.lineStyle(4, color, 0.8).lineBetween(p1.x, p1.y, p2.x, p2.y);
 }
 
-// Exact Port from game.html
 function offsetToCube(q, r) {
     const col = q; const row = r;
     const x = col; const z = row - (col - (col & 1)) / 2; const y = -x - z;
@@ -561,7 +551,6 @@ function findRoadPath(start, target) {
         const path = queue.shift(); const curr = path[path.length-1];
         if(curr.q === target.q && curr.r === target.r) return path;
         const key = `${curr.q},${curr.r}`; if(visited.has(key)) continue; visited.add(key);
-        // Find connected neighbors via roadSegments
         const neighbors = [];
         roadSegments.forEach(s => {
             if(s.from.q===curr.q && s.from.r===curr.r) neighbors.push(hexMap[s.to.q][s.to.r]);
@@ -587,7 +576,6 @@ function checkRoadLOS(startHex, targetHex, hexesOnLine) {
     const roadPath = findRoadPath(startHex, targetHex); 
     if (!roadPath || roadPath.length < 2) return { isRoad: false };
     
-    // Deviation check
     const p1 = getHexPoly(startHex.q, startHex.r); const p2 = getHexPoly(targetHex.q, targetHex.r);
     const dx = p2.x - p1.x; const dy = p2.y - p1.y; const len = Math.sqrt(dx*dx + dy*dy);
     
@@ -604,26 +592,23 @@ function checkRoadLOS(startHex, targetHex, hexesOnLine) {
 
 function calculateLOS(startHex, targetHex, unitType = 'infantry') {
     const fromTerrain = TERRAIN_TYPES[startHex.terrain];
-    const fromUsableHeight = unitType === 'vehicle' ? fromTerrain.vehicleUsable : fromTerrain.infantryUsable;
-    // Editor simplifies usable height to terrain height for static check
-    const startH = fromTerrain.terrainHeight; 
+    // Corrected height lookup for Observer
+    const startH = unitType === 'vehicle' ? fromTerrain.vehicleUsable : fromTerrain.infantryUsable;
     
     const p1 = getHexPoly(startHex.q, startHex.r); const p2 = getHexPoly(targetHex.q, targetHex.r);
     const distance = Phaser.Math.Distance.Between(p1.x, p1.y, p2.x, p2.y);
-    const steps = Math.ceil(distance / (HEX_RADIUS/10)); // Higher precision for edge check
+    const steps = Math.ceil(distance / (HEX_RADIUS/10)); 
 
     const hexesCrossed = new Set();
     const edgeSegments = [];
     let edgeRunLength = 0; let edgeHexPair = null;
 
-    // Raycast
     for (let i = 0; i <= steps; i++) {
         const t = i / steps; const x = p1.x + (p2.x - p1.x) * t; const y = p1.y + (p2.y - p1.y) * t;
         const currentHex = getHexAtPoint(x, y);
         if (!currentHex) continue;
         if ((currentHex.q === startHex.q && currentHex.r === startHex.r) || (currentHex.q === targetHex.q && currentHex.r === targetHex.r)) continue;
 
-        // Edge detection (Perpendicular check)
         const perpDx = -(p2.y - p1.y) / distance; const perpDy = (p2.x - p1.x) / distance;
         const h1 = getHexAtPoint(x + perpDx * 3, y + perpDy * 3);
         const h2 = getHexAtPoint(x - perpDx * 3, y - perpDy * 3);
@@ -642,7 +627,6 @@ function calculateLOS(startHex, targetHex, unitType = 'infantry') {
 
     let degradingCount = 0; let hasBlocking = false;
 
-    // Check Hexes
     for (let key of hexesCrossed) {
         const [q, r] = key.split(',').map(Number); const terrain = TERRAIN_TYPES[hexMap[q][r].terrain];
         let losEffect = terrain.los;
@@ -650,7 +634,6 @@ function calculateLOS(startHex, targetHex, unitType = 'infantry') {
         if (losEffect === 'blocking') hasBlocking = true; else if (losEffect === 'degrading') degradingCount++;
     }
 
-    // Check Edges (Squeeze)
     for (let edgePair of edgeSegments) {
         if (!edgePair) continue; const [k1, k2] = edgePair.split('|'); const [q1, r1] = k1.split(',').map(Number); const [q2, r2] = k2.split(',').map(Number);
         const t1 = TERRAIN_TYPES[hexMap[q1][r1].terrain]; const t2 = TERRAIN_TYPES[hexMap[q2][r2].terrain];
@@ -663,7 +646,6 @@ function calculateLOS(startHex, targetHex, unitType = 'infantry') {
     let standardStatus = 'clear';
     if (hasBlocking || degradingCount >= 2) standardStatus = 'blocked'; else if (degradingCount === 1) standardStatus = 'degraded';
 
-    // Road Override
     const hexesOnLine = getHexesAlongLine(startHex, targetHex);
     const roadRes = checkRoadLOS(startHex, targetHex, hexesOnLine);
     if (roadRes.isRoad) {
