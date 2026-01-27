@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Wargame Editor v2.4 - Final Logic</title>
+    <title>Wargame Editor v2.5 - Final LOS & Stacking</title>
     <script src="https://cdn.jsdelivr.net/npm/phaser@3.60.0/dist/phaser.min.js"></script>
     <style>
         :root {
@@ -339,13 +339,12 @@ function handleMapClick(pointer) {
         paintHex(hex);
     }
     else if (currentMode === 'road') {
-        // Continuous Road Logic: Starts new chain only on tool select
         if (!lastRoadNode) {
             lastRoadNode = hex;
         } else {
             if (lastRoadNode.q !== hex.q || lastRoadNode.r !== hex.r) {
                 roadSegments.push({ from: {q:lastRoadNode.q, r:lastRoadNode.r}, to: {q:hex.q, r:hex.r} });
-                lastRoadNode = hex; // CONTINUE drawing from this new node
+                lastRoadNode = hex; 
                 refreshOverlays();
             }
         }
@@ -382,18 +381,12 @@ function handleMapClick(pointer) {
 }
 
 // --- INSPECTOR ---
-
 function updateInspector() {
     const p = document.getElementById('hex-inspector-panel');
     if (!selectedHex) { p.innerHTML = '<div style="font-size:11px; color:#666; font-style:italic">Select a hex...</div>'; return; }
-    
     const hexUnits = units.filter(u => u.q === selectedHex.q && u.r === selectedHex.r);
     const displayUnits = [...hexUnits].reverse();
-
-    if (displayUnits.length === 0) {
-        p.innerHTML = `<div style="font-size:11px; margin-bottom:5px; color:#aaa;">HEX [${selectedHex.q}, ${selectedHex.r}]</div><div style="font-size:11px; color:#666;">Empty</div>`;
-        return;
-    }
+    if (displayUnits.length === 0) { p.innerHTML = `<div style="font-size:11px; margin-bottom:5px; color:#aaa;">HEX [${selectedHex.q}, ${selectedHex.r}]</div><div style="font-size:11px; color:#666;">Empty</div>`; return; }
 
     let html = `<div style="font-size:11px; margin-bottom:5px; color:#aaa;">HEX [${selectedHex.q}, ${selectedHex.r}] (${displayUnits.length} Units)</div>`;
     html += displayUnits.map(u => {
@@ -411,26 +404,20 @@ function updateInspector() {
     }).join('');
     p.innerHTML = html;
 }
-
-window.promoteUnit = (id) => {
-    const idx = units.findIndex(u => u.id === id);
-    if(idx > -1) { const u = units.splice(idx, 1)[0]; units.push(u); refreshOverlays(); updateInspector(); }
-};
+window.promoteUnit = (id) => { const idx = units.findIndex(u => u.id === id); if(idx > -1) { const u = units.splice(idx, 1)[0]; units.push(u); refreshOverlays(); updateInspector(); } };
 window.rotateUnit = (id) => { const u = units.find(x=>x.id===id); if(u){ u.facing=(u.facing+1)%6; updateInspector(); refreshOverlays(); } };
 window.deleteUnit = (id) => { units = units.filter(x=>x.id!==id); updateInspector(); refreshOverlays(); };
 
 // --- RENDERING ---
-
 function regenerateMap() {
     mapData.cols = parseInt(document.getElementById('cols').value);
     mapData.rows = parseInt(document.getElementById('rows').value);
     hexMap = {};
     for (let q = 0; q < mapData.cols; q++) {
         hexMap[q] = {};
-        for (let r = 0; r < mapData.rows; r++) hexMap[q][r] = { q, r, terrain: 'clear', variant: 1, setupZone: null };
+        for (let r = 0; r < mapData.rows; r++) hexMap[q][r] = { q, r, terrain: 'clear', variant: 1, setupZone: null, hasRoad: false };
     }
-    hexGroup.clear(true, true);
-    hexSprites = {};
+    hexGroup.clear(true, true); hexSprites = {};
     for (let q = 0; q < mapData.cols; q++) {
         for (let r = 0; r < mapData.rows; r++) {
             const hex = hexMap[q][r];
@@ -450,12 +437,19 @@ function regenerateMap() {
     }
     refreshOverlays();
 }
-
 function paintHex(hex) { const sprite = hexSprites[`${hex.q},${hex.r}`]; if(sprite) sprite.setTexture(`${hex.terrain}${hex.variant}`); }
 
 function refreshOverlays() {
     overlayGroup.clear(true, true); zoneGraphics.clear();
 
+    // 0. Update Road Data Flags
+    for(let q in hexMap) for(let r in hexMap[q]) hexMap[q][r].hasRoad = false;
+    roadSegments.forEach(s => {
+        if(hexMap[s.from.q]) hexMap[s.from.q][s.from.r].hasRoad = true;
+        if(hexMap[s.to.q]) hexMap[s.to.q][s.to.r].hasRoad = true;
+    });
+
+    // 1. Zones
     for (let q = 0; q < mapData.cols; q++) {
         for (let r = 0; r < mapData.rows; r++) {
             const hex = hexMap[q][r];
@@ -467,6 +461,7 @@ function refreshOverlays() {
         }
     }
 
+    // 2. Roads
     const rg = scene.add.graphics();
     roadSegments.forEach(seg => {
         const p1 = getHexPoly(seg.from.q, seg.from.r);
@@ -476,9 +471,15 @@ function refreshOverlays() {
     });
     overlayGroup.add(rg);
 
+    // 3. Units
+    const stacks = {};
+    units.forEach(u => { const k = `${u.q},${u.r}`; if(!stacks[k]) stacks[k]=[]; stacks[k].push(u); });
+
     units.forEach(u => {
         const p = getHexPoly(u.q, u.r);
         let key = (u.side==='blue'?'UK_':'GER_') + (u.unitType==='infantry'?'Inf':'Veh');
+        // If stack, only top unit draws sprite, others hidden underneath (visually) or just draw all on top?
+        // Editor logic: Draw all in order.
         overlayGroup.add(scene.add.image(p.x, p.y, key).setDisplaySize(HEX_RADIUS*1.25, HEX_RADIUS*1.25));
 
         const arrow = scene.add.graphics();
@@ -491,26 +492,35 @@ function refreshOverlays() {
         );
         overlayGroup.add(arrow);
 
+        // Status
         if (u.status !== 'clear') {
             const bx = p.x+15; const by = p.y+15;
             overlayGroup.add(scene.add.graphics().fillStyle(0xcc0000).fillRect(bx-6, by-6, 12, 12).lineStyle(1,0xffffff).strokeRect(bx-6,by-6,12,12));
             overlayGroup.add(scene.add.text(bx, by, "!", {font:'10px Arial', fill:'#fff'}).setOrigin(0.5));
         }
+
+        // Stack Badge (Only on top unit of a stack > 1)
+        const stack = stacks[`${u.q},${u.r}`];
+        if (stack && stack.length > 1 && stack[stack.length-1] === u) {
+             const bx = p.x+10; const by = p.y-18;
+             overlayGroup.add(scene.add.graphics().fillStyle(0xffffff).fillRect(bx, by, 16, 14).lineStyle(1,0x000000).strokeRect(bx,by,16,14));
+             overlayGroup.add(scene.add.text(bx+8, by+7, `+${stack.length-1}`, {font:'11px Arial', fill:'#000', fontStyle:'bold'}).setOrigin(0.5));
+        }
     });
 
+    // 4. VLs
     victoryLocations.forEach(vl => {
         const p = getHexPoly(vl.q, vl.r);
         overlayGroup.add(scene.add.star(p.x, p.y, 5, 8, 16, 0xffcc00).setStrokeStyle(2, 0x000000));
         overlayGroup.add(scene.add.text(p.x, p.y+10, vl.points, {fontSize:'10px', stroke:'#000', strokeThickness:3}).setOrigin(0.5));
     });
-
     if (currentMode==='road' && lastRoadNode) {
         const p = getHexPoly(lastRoadNode.q, lastRoadNode.r);
         overlayGroup.add(scene.add.circle(p.x, p.y, 8, 0xffffff));
     }
 }
 
-// --- FULL GAME LOS LOGIC ---
+// --- EXACT GAME LOS ENGINE ---
 
 function toggleLOSTool() {
     losTool = !losTool; losStartHex = null; losGraphics.clear();
@@ -535,42 +545,136 @@ function drawFullLOS(start, end) {
     losGraphics.lineStyle(4, color, 0.8).lineBetween(p1.x, p1.y, p2.x, p2.y);
 }
 
-function calculateLOS(startHex, targetHex, unitType) {
-    const fromTerrain = TERRAIN_TYPES[startHex.terrain];
-    const fromHeight = unitType === 'vehicle' ? fromTerrain.vehicleUsable : fromTerrain.infantryUsable; // Simplification (Editor uses terrain height)
-    const startH = TERRAIN_TYPES[startHex.terrain].terrainHeight;
-
+// Exact Port from game.html
+function offsetToCube(q, r) {
+    const col = q; const row = r;
+    const x = col; const z = row - (col - (col & 1)) / 2; const y = -x - z;
+    return { x, y, z };
+}
+function getHexDistance(h1, h2) {
+    const a = offsetToCube(h1.q, h1.r); const b = offsetToCube(h2.q, h2.r);
+    return Math.max(Math.abs(a.x - b.x), Math.abs(a.y - b.y), Math.abs(a.z - b.z));
+}
+function findRoadPath(start, target) {
+    const visited = new Set(); const queue = [[start]];
+    while(queue.length > 0) {
+        const path = queue.shift(); const curr = path[path.length-1];
+        if(curr.q === target.q && curr.r === target.r) return path;
+        const key = `${curr.q},${curr.r}`; if(visited.has(key)) continue; visited.add(key);
+        // Find connected neighbors via roadSegments
+        const neighbors = [];
+        roadSegments.forEach(s => {
+            if(s.from.q===curr.q && s.from.r===curr.r) neighbors.push(hexMap[s.to.q][s.to.r]);
+            else if(s.to.q===curr.q && s.to.r===curr.r) neighbors.push(hexMap[s.from.q][s.from.r]);
+        });
+        neighbors.forEach(n => { if(n) queue.push([...path, n]); });
+    }
+    return null;
+}
+function getHexesAlongLine(startHex, targetHex) {
+    const hexes = []; 
     const p1 = getHexPoly(startHex.q, startHex.r); const p2 = getHexPoly(targetHex.q, targetHex.r);
     const dist = Phaser.Math.Distance.Between(p1.x, p1.y, p2.x, p2.y);
-    const steps = Math.ceil(dist / (HEX_RADIUS/2));
-    
-    let degradedCount = 0; let blocked = false;
-
-    for (let i = 1; i < steps; i++) {
-        const t = i/steps;
-        const wx = p1.x + (p2.x - p1.x)*t; const wy = p1.y + (p2.y - p1.y)*t;
-        const h = getHexAtPoint(wx, wy);
-        if (!h || (h.q===startHex.q && h.r===startHex.r) || (h.q===targetHex.q && h.r===targetHex.r)) continue;
-        
-        const terr = TERRAIN_TYPES[h.terrain];
-        // 1. Height Block
-        if (terr.terrainHeight > startH) blocked = true;
-        // 2. Obstacle Block (Forest/City)
-        if (terr.los === 'blocking' && terr.terrainHeight >= startH) blocked = true;
-        // 3. Degrading (Fields/Orchards)
-        if (terr.los === 'degrading') degradedCount++;
+    const steps = Math.ceil(dist / 10);
+    for(let i=0; i<=steps; i++) { 
+        const t = i/steps; const wx = p1.x + (p2.x-p1.x)*t; const wy = p1.y + (p2.y-p1.y)*t;
+        const h = getHexAtPoint(wx, wy); if(h && !hexes.includes(h)) hexes.push(h); 
     }
+    return hexes;
+}
+function checkRoadLOS(startHex, targetHex, hexesOnLine) {
+    if (!startHex.hasRoad || !targetHex.hasRoad) return { isRoad: false };
+    const roadPath = findRoadPath(startHex, targetHex); 
+    if (!roadPath || roadPath.length < 2) return { isRoad: false };
     
-    // Check Destination Terrain (Target)
-    const targetTerr = TERRAIN_TYPES[targetHex.terrain];
-    if (targetTerr.los === 'blocking' && targetTerr.terrainHeight >= startH) { /* Target inside forest is visible, behind is blocked */ }
-    // BUT: If target is degraded terrain, that counts as 1 degradation
-    if (targetTerr.los === 'degrading') degradedCount++;
+    // Deviation check
+    const p1 = getHexPoly(startHex.q, startHex.r); const p2 = getHexPoly(targetHex.q, targetHex.r);
+    const dx = p2.x - p1.x; const dy = p2.y - p1.y; const len = Math.sqrt(dx*dx + dy*dy);
+    
+    for (let i=0; i<roadPath.length-1; i++) {
+        const c = getHexPoly(roadPath[i].q, roadPath[i].r); 
+        const n = getHexPoly(roadPath[i+1].q, roadPath[i+1].r);
+        const sdx = n.x - c.x; const sdy = n.y - c.y; const slen = Math.sqrt(sdx*sdx + sdy*sdy);
+        const dot = (dx/len) * (sdx/slen) + (dy/len) * (sdy/slen);
+        if (dot < 0.96) return { isRoad: false };
+    }
+    for (let h of hexesOnLine) { if (!roadPath.find(rh => rh.q === h.q && rh.r === h.r)) return { isRoad: false }; }
+    return { isRoad: true };
+}
 
-    if (blocked) return { status: 'blocked' };
-    if (degradedCount >= 2) return { status: 'blocked' };
-    if (degradedCount === 1) return { status: 'degraded' };
-    return { status: 'clear' };
+function calculateLOS(startHex, targetHex, unitType = 'infantry') {
+    const fromTerrain = TERRAIN_TYPES[startHex.terrain];
+    const fromUsableHeight = unitType === 'vehicle' ? fromTerrain.vehicleUsable : fromTerrain.infantryUsable;
+    // Editor simplifies usable height to terrain height for static check
+    const startH = fromTerrain.terrainHeight; 
+    
+    const p1 = getHexPoly(startHex.q, startHex.r); const p2 = getHexPoly(targetHex.q, targetHex.r);
+    const distance = Phaser.Math.Distance.Between(p1.x, p1.y, p2.x, p2.y);
+    const steps = Math.ceil(distance / (HEX_RADIUS/10)); // Higher precision for edge check
+
+    const hexesCrossed = new Set();
+    const edgeSegments = [];
+    let edgeRunLength = 0; let edgeHexPair = null;
+
+    // Raycast
+    for (let i = 0; i <= steps; i++) {
+        const t = i / steps; const x = p1.x + (p2.x - p1.x) * t; const y = p1.y + (p2.y - p1.y) * t;
+        const currentHex = getHexAtPoint(x, y);
+        if (!currentHex) continue;
+        if ((currentHex.q === startHex.q && currentHex.r === startHex.r) || (currentHex.q === targetHex.q && currentHex.r === targetHex.r)) continue;
+
+        // Edge detection (Perpendicular check)
+        const perpDx = -(p2.y - p1.y) / distance; const perpDy = (p2.x - p1.x) / distance;
+        const h1 = getHexAtPoint(x + perpDx * 3, y + perpDy * 3);
+        const h2 = getHexAtPoint(x - perpDx * 3, y - perpDy * 3);
+        
+        if (h1 && h2 && (h1.q !== h2.q || h1.r !== h2.r)) {
+            const pairKey = [`${h1.q},${h1.r}`, `${h2.q},${h2.r}`].sort().join('|');
+            if (edgeHexPair === pairKey) edgeRunLength++;
+            else { if (edgeRunLength > 5) edgeSegments.push(edgeHexPair); edgeHexPair = pairKey; edgeRunLength = 1; }
+        } else {
+            if (edgeRunLength > 5) edgeSegments.push(edgeHexPair);
+            edgeRunLength = 0; edgeHexPair = null;
+            hexesCrossed.add(`${currentHex.q},${currentHex.r}`);
+        }
+    }
+    if (edgeRunLength > 5) edgeSegments.push(edgeHexPair);
+
+    let degradingCount = 0; let hasBlocking = false;
+
+    // Check Hexes
+    for (let key of hexesCrossed) {
+        const [q, r] = key.split(',').map(Number); const terrain = TERRAIN_TYPES[hexMap[q][r].terrain];
+        let losEffect = terrain.los;
+        if (terrain.terrainHeight < startH) { if (losEffect === 'blocking') losEffect = 'degrading'; else if (losEffect === 'degrading') losEffect = 'clear'; }
+        if (losEffect === 'blocking') hasBlocking = true; else if (losEffect === 'degrading') degradingCount++;
+    }
+
+    // Check Edges (Squeeze)
+    for (let edgePair of edgeSegments) {
+        if (!edgePair) continue; const [k1, k2] = edgePair.split('|'); const [q1, r1] = k1.split(',').map(Number); const [q2, r2] = k2.split(',').map(Number);
+        const t1 = TERRAIN_TYPES[hexMap[q1][r1].terrain]; const t2 = TERRAIN_TYPES[hexMap[q2][r2].terrain];
+        let l1 = t1.los; let l2 = t2.los;
+        if (t1.terrainHeight < startH) l1 = (l1==='blocking'?'degrading':(l1==='degrading'?'clear':l1));
+        if (t2.terrainHeight < startH) l2 = (l2==='blocking'?'degrading':(l2==='degrading'?'clear':l2));
+        if (l1 === 'blocking' && l2 === 'blocking') hasBlocking = true; else if (l1 === 'blocking' || l2 === 'blocking') degradingCount++; else if (l1 === 'degrading' && l2 === 'degrading') degradingCount++;
+    }
+
+    let standardStatus = 'clear';
+    if (hasBlocking || degradingCount >= 2) standardStatus = 'blocked'; else if (degradingCount === 1) standardStatus = 'degraded';
+
+    // Road Override
+    const hexesOnLine = getHexesAlongLine(startHex, targetHex);
+    const roadRes = checkRoadLOS(startHex, targetHex, hexesOnLine);
+    if (roadRes.isRoad) {
+        const dist = getHexDistance(startHex, targetHex);
+        let roadStatus = 'blocked';
+        if (dist <= 5) roadStatus = 'clear'; else if (dist <= 10) roadStatus = 'degraded';
+        const rank = { 'clear': 3, 'degraded': 2, 'blocked': 1 };
+        if (rank[roadStatus] > rank[standardStatus]) return { status: roadStatus, isRoad: true };
+    }
+
+    return { status: standardStatus, isRoad: false };
 }
 
 // --- LIST HELPERS ---
@@ -627,8 +731,7 @@ function initUI() {
     }
 }
 window.setMode = (m) => {
-    currentMode = m; selectedHex = null; losTool=false; // Auto-disable LOS
-    lastRoadNode = null; // ALWAYS reset road chain on new mode selection
+    currentMode = m; selectedHex = null; losTool=false; lastRoadNode=null; // Reset road chain
     updateInspector(); refreshOverlays(); 
     document.getElementById('status-bar').style.display='block'; document.getElementById('status-bar').innerText = "MODE: "+m.toUpperCase();
     ['btn-select','btn-road','btn-road-del','btn-vl','btn-zone-uk','btn-zone-ger'].forEach(id=>document.getElementById(id).classList.remove('active'));
