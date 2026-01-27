@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Wargame Editor v2.1 - Visual Fixes</title>
+    <title>Wargame Editor v2.2 - High Performance</title>
     <script src="https://cdn.jsdelivr.net/npm/phaser@3.60.0/dist/phaser.min.js"></script>
     <style>
         :root {
@@ -51,15 +51,14 @@
         .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 5px; }
         .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 5px; }
 
-        /* RICH LIST ITEMS (Inspector / Tray / Reinf) */
+        /* LISTS (Tray/Reinf/Inspector) */
         .rich-list { border: 1px solid #444; background: #111; height: 140px; overflow-y: auto; margin-bottom: 10px; padding: 5px; }
         
-        .stack-item, .list-item { 
+        .list-item { 
             display: flex; align-items: center; justify-content: space-between; 
             background: #333; margin-bottom: 4px; padding: 4px; border-radius: 3px; border: 1px solid transparent;
         }
-        .stack-item:hover, .list-item:hover { border-color: #666; }
-        
+        .list-item:hover { border-color: #666; }
         .item-icon { width: 32px; height: 32px; margin-right: 8px; object-fit: contain; }
         .item-info { flex-grow: 1; }
         .item-title { font-weight: bold; font-size: 11px; color: #fff; }
@@ -86,17 +85,22 @@
     <div style="padding:10px; background:#222; border-bottom:1px solid #444; font-weight:bold; color:var(--accent);">MAP EDITOR</div>
     <div style="padding:10px; overflow-y:auto; flex-grow:1;">
         
-        <div class="label">MAP DIMENSIONS</div>
+        <div class="grid-2">
+            <button id="btn-select" class="btn active" onclick="setMode('select')">SELECT / INSPECT</button>
+            <button id="btn-los" class="btn" style="border-color:#4488ff; color:#4488ff" onclick="toggleLOSTool()">LOS TOOL</button>
+        </div>
+
+        <div class="section-header">MAP DIMENSIONS</div>
         <div class="grid-2">
             <input type="number" id="cols" value="15" min="5">
             <input type="number" id="rows" value="12" min="5">
         </div>
         <button class="btn" onclick="regenerateMap()">Resize Map</button>
 
-        <div class="section-header">TERRAIN PALETTE</div>
+        <div class="section-header">TERRAIN</div>
         <div class="palette-grid" id="terrain-palette"></div>
 
-        <div class="section-header">TOOLS & ZONES</div>
+        <div class="section-header">ZONES & OBJECTS</div>
         <button id="btn-road" class="btn" style="margin-bottom:5px; border-left:3px solid #ccaa00" onclick="setMode('road')">DRAW ROADS</button>
         <button id="btn-vl" class="btn" style="margin-bottom:5px; border-left:3px solid #ffcc00; color:#ffcc00" onclick="setMode('vl')">VICTORY LOCATION (★)</button>
         <div class="grid-2">
@@ -104,7 +108,7 @@
             <button id="btn-zone-ger" class="btn" style="border-left:3px solid var(--ger-red); color:var(--ger-red)" onclick="setMode('zone-ger')">GER SETUP</button>
         </div>
 
-        <div class="section-header">PLACE UNIT (ON MAP)</div>
+        <div class="section-header">PLACE UNIT</div>
         <div class="grid-2">
             <div><label class="label">SIDE</label><select id="placer-side"><option value="blue">UK</option><option value="red">GERMAN</option></select></div>
             <div><label class="label">TYPE</label><select id="placer-type"><option value="infantry">Infantry</option><option value="vehicle">Vehicle</option></select></div>
@@ -119,14 +123,15 @@
         <button id="btn-unit" class="btn btn-primary" onclick="setMode('unit')">PLACE UNIT</button>
 
         <div class="section-header">HEX INSPECTOR</div>
-        <div id="hex-inspector-info" style="font-size:11px; color:#aaa; margin-bottom:5px;">Select a hex to see contents.</div>
-        <div id="hex-inspector-panel"></div>
+        <div id="hex-inspector-panel" class="rich-list" style="height:auto; min-height:50px;">
+            <div style="font-size:11px; color:#666; font-style:italic">Select a hex to inspect.</div>
+        </div>
 
     </div>
 </div>
 
 <div id="game-container">
-    <div id="status-bar">MODE: PAINT</div>
+    <div id="status-bar">MODE: SELECT</div>
     <div id="json-modal">
         <h3 style="margin-top:0; color:var(--accent)">Import / Export</h3>
         <textarea id="json-input" rows="10"></textarea>
@@ -233,12 +238,19 @@
 // --- CONFIGURATION ---
 const ASSETS_URL = 'https://raw.githubusercontent.com/trainJapan/HexWargame/main/artwork/';
 const TERRAIN_TYPES = {
-    'clear': { color: 0x98FB98 }, 'fields': { color: 0xCCAA00 }, 'beach': { color: 0xFFFF99 },
-    'broken': { color: 0x8B4513 }, 'orchard': { color: 0x00FF00 }, 'rural': { color: 0xFF9999 },
-    'forest': { color: 0x228B22 }, 'urban': { color: 0xCC0000 }, 'industrial': { color: 0x808080 },
-    'water': { color: 0x4169E1 }, 'hill': { color: 0x8B7355 }
+    'clear':      { color: 0x98FB98, los: 'clear',     cost: 1,   terrainHeight: 0, infantryUsable: 0, vehicleUsable: 0 },
+    'fields':     { color: 0xCCAA00, los: 'degrading', cost: 1,   terrainHeight: 1, infantryUsable: 0, vehicleUsable: 0 },
+    'beach':      { color: 0xFFFF99, los: 'clear',     cost: 1,   terrainHeight: 0, infantryUsable: 0, vehicleUsable: 0 },
+    'broken':     { color: 0x8B4513, los: 'degrading', cost: 2,   terrainHeight: 1, infantryUsable: 0, vehicleUsable: 0 },
+    'orchard':    { color: 0x00FF00, los: 'degrading', cost: 2,   terrainHeight: 1, infantryUsable: 0, vehicleUsable: 0 },
+    'rural':      { color: 0xFF9999, los: 'degrading', cost: 2,   terrainHeight: 1, infantryUsable: 0, vehicleUsable: 0 },
+    'forest':     { color: 0x228B22, los: 'blocking',  cost: 3,   terrainHeight: 2, infantryUsable: 0, vehicleUsable: 0 },
+    'urban':      { color: 0xCC0000, los: 'blocking',  cost: 3,   terrainHeight: 2, infantryUsable: 2, vehicleUsable: 0 },
+    'industrial': { color: 0x808080, los: 'blocking',  cost: 3,   terrainHeight: 2, infantryUsable: 2, vehicleUsable: 0 },
+    'water':      { color: 0x4169E1, los: 'clear',     cost: 999, terrainHeight: 0, infantryUsable: 0, vehicleUsable: 0 },
+    'hill':       { color: 0x8B7355, los: 'degrading', cost: 2,   terrainHeight: 2, infantryUsable: 2, vehicleUsable: 2 }
 };
-const HEX_RADIUS = 40; // Exact match to Game v0.6
+const HEX_RADIUS = 40;
 
 // --- DATA MODEL ---
 let mapData = { cols: 15, rows: 12 };
@@ -253,12 +265,15 @@ let lastRoadNode = null;
 let idCounter = 1;
 
 // Editor State
-let currentMode = 'paint'; 
+let currentMode = 'select'; 
 let activeTerrain = 'clear';
 let selectedHex = null;
+let losTool = false;
+let losStartHex = null;
 
 // Phaser
-let scene, hexGroup, overlayGroup, zoneGraphics;
+let scene, hexGroup, overlayGroup, zoneGraphics, losGraphics;
+let hexSprites = {}; // Cache for performance
 
 const config = {
     type: Phaser.AUTO, parent: 'game-container',
@@ -276,16 +291,17 @@ function preload() {
 function create() {
     scene = this;
     hexGroup = this.add.group();
-    overlayGroup = this.add.group();
-    zoneGraphics = this.add.graphics().setDepth(500); 
-    
+    zoneGraphics = this.add.graphics().setDepth(100);
+    overlayGroup = this.add.group().setDepth(200);
+    losGraphics = this.add.graphics().setDepth(500);
+
     this.cameras.main.setBounds(-1000, -1000, 5000, 5000);
     this.input.mouse.disableContextMenu();
     this.input.on('wheel', (p, g, x, y) => scene.cameras.main.setZoom(Phaser.Math.Clamp(scene.cameras.main.zoom - y*0.001, 0.3, 2)));
     this.input.on('pointerdown', handleMapClick);
 
     initUI();
-    regenerateMap();
+    regenerateMap(); // Builds initial grid
 }
 
 function update() {
@@ -303,16 +319,32 @@ function handleMapClick(pointer) {
     const hex = getHexAtPoint(pointer.worldX, pointer.worldY);
     if (!hex) { selectedHex = null; updateInspector(); return; }
 
-    selectedHex = hex;
-    updateInspector();
+    // LOS Tool Priority
+    if (losTool) {
+        if (!losStartHex) {
+            losStartHex = hex;
+            losGraphics.clear();
+            losGraphics.lineStyle(2, 0xffffff).strokeCircle(getHexPoly(hex.q,hex.r).x, getHexPoly(hex.q,hex.r).y, 10);
+        } else {
+            drawLOS(losStartHex, hex);
+            losStartHex = null;
+        }
+        return;
+    }
 
-    if (currentMode === 'paint') {
-        hex.terrain = activeTerrain; hex.variant = Phaser.Math.Between(1,3); drawMap(); 
+    if (currentMode === 'select') {
+        selectedHex = hex;
+        updateInspector();
+        refreshOverlays(); // Redraw selection outline
+    }
+    else if (currentMode === 'paint') {
+        hex.terrain = activeTerrain; hex.variant = Phaser.Math.Between(1,3); 
+        paintHex(hex); // Performance: Update ONLY this hex sprite
     }
     else if (currentMode === 'road') {
         if (lastRoadNode && (lastRoadNode.q !== hex.q || lastRoadNode.r !== hex.r)) {
             roadSegments.push({ from: {q:lastRoadNode.q, r:lastRoadNode.r}, to: {q:hex.q, r:hex.r} });
-            drawMap();
+            refreshOverlays();
         }
         lastRoadNode = hex;
     }
@@ -324,7 +356,9 @@ function handleMapClick(pointer) {
             id: idCounter++, side, unitType: type, q: hex.q, r: hex.r,
             facing: 0, status, hp: 5, mp: 6, maxMp: 6, fp: 3, range: 6
         });
-        updateInspector(); drawMap();
+        selectedHex = hex; // Auto-select to inspect
+        updateInspector();
+        refreshOverlays();
     }
     else if (currentMode === 'vl') {
         const existing = victoryLocations.findIndex(v => v.q === hex.q && v.r === hex.r);
@@ -333,94 +367,122 @@ function handleMapClick(pointer) {
             const points = prompt("Victory Points (100, 200, 500):", "100");
             if(points) victoryLocations.push({ q: hex.q, r: hex.r, points: parseInt(points) });
         }
-        updateLists(); drawMap();
+        updateLists(); refreshOverlays();
     }
-    else if (currentMode === 'zone-uk') { hex.setupZone = (hex.setupZone==='blue') ? null : 'blue'; drawMap(); }
-    else if (currentMode === 'zone-ger') { hex.setupZone = (hex.setupZone==='red') ? null : 'red'; drawMap(); }
+    else if (currentMode === 'zone-uk') { hex.setupZone = (hex.setupZone==='blue') ? null : 'blue'; refreshOverlays(); }
+    else if (currentMode === 'zone-ger') { hex.setupZone = (hex.setupZone==='red') ? null : 'red'; refreshOverlays(); }
 }
 
 function updateInspector() {
     const p = document.getElementById('hex-inspector-panel');
-    const info = document.getElementById('hex-inspector-info');
-    if (!selectedHex) { p.innerHTML = ''; info.innerText = "Select a hex to see contents."; return; }
-
-    info.innerText = `Selected Hex: (${selectedHex.q}, ${selectedHex.r})`;
+    if (!selectedHex) { p.innerHTML = '<div style="font-size:11px; color:#666; font-style:italic">Select a hex to inspect.</div>'; return; }
     
     const hexUnits = units.filter(u => u.q === selectedHex.q && u.r === selectedHex.r);
+    
+    let html = `<div style="font-size:11px; margin-bottom:5px; color:#aaa;">HEX [${selectedHex.q}, ${selectedHex.r}] (${selectedHex.terrain.toUpperCase()})</div>`;
+    
     if (hexUnits.length === 0) {
-        p.innerHTML = '<div style="font-size:11px; color:#666; font-style:italic">No locked units.</div>';
-        return;
-    }
-
-    p.innerHTML = hexUnits.map(u => {
-        let name = (u.side==='blue' ? 'UK ' : 'GER ') + u.unitType.charAt(0).toUpperCase() + u.unitType.slice(1);
-        let imgKey = (u.side==='blue' ? 'UK_' : 'GER_') + (u.unitType==='infantry'?'Inf':'Veh');
-        let facingDir = ["N","NE","SE","S","SW","NW"][u.facing];
-        return `
-        <div class="stack-item">
-            <div style="display:flex; align-items:center;">
-                <img src="${ASSETS_URL}counters/${imgKey}.png">
-                <div>
-                    <div class="item-title">${name}</div>
-                    <div class="item-meta">Face: ${facingDir} | ${u.status}</div>
+        html += '<div style="font-size:11px; color:#666;">No locked units.</div>';
+    } else {
+        html += hexUnits.map(u => {
+            let name = (u.side==='blue' ? 'UK ' : 'GER ') + u.unitType.charAt(0).toUpperCase() + u.unitType.slice(1);
+            let imgKey = (u.side==='blue' ? 'UK_' : 'GER_') + (u.unitType==='infantry'?'Inf':'Veh');
+            let facingDir = ["N","NE","SE","S","SW","NW"][u.facing];
+            return `
+            <div class="list-item">
+                <div style="display:flex; align-items:center;">
+                    <img src="${ASSETS_URL}counters/${imgKey}.png" class="item-icon">
+                    <div class="item-info">
+                        <div class="item-title">${name}</div>
+                        <div class="item-meta">Face: ${facingDir} | ${u.status}</div>
+                    </div>
                 </div>
-            </div>
-            <div class="stack-controls">
-                <button class="btn-mini" onclick="rotateUnit(${u.id})">↻</button>
-                <button class="btn-mini btn-danger-mini" onclick="deleteUnit(${u.id})">X</button>
-            </div>
-        </div>`;
-    }).join('');
-}
-
-window.rotateUnit = (id) => { const u = units.find(x=>x.id===id); if(u){ u.facing=(u.facing+1)%6; updateInspector(); drawMap(); } };
-window.deleteUnit = (id) => { units = units.filter(x=>x.id!==id); updateInspector(); drawMap(); };
-
-// --- RENDERING (EXACT GAME MATH) ---
-
-function getHexPoly(q, r) {
-    const x = q * HEX_RADIUS * 1.5;
-    const y = r * HEX_RADIUS * Math.sqrt(3) + (q % 2 === 1 ? HEX_RADIUS * Math.sqrt(3) / 2 : 0);
-    const points = [];
-    for (let i = 0; i < 6; i++) {
-        const angle = (Math.PI / 3) * i;
-        points.push({ x: x + HEX_RADIUS * Math.cos(angle), y: y + HEX_RADIUS * Math.sin(angle) });
+                <div>
+                    <button class="btn-mini" onclick="rotateUnit(${u.id})">↻</button>
+                    <button class="btn-mini btn-danger-mini" onclick="deleteUnit(${u.id})">X</button>
+                </div>
+            </div>`;
+        }).join('');
     }
-    return { x, y, points };
+    p.innerHTML = html;
 }
 
-function drawMap() {
-    overlayGroup.clear(); hexGroup.clear(); zoneGraphics.clear();
+window.rotateUnit = (id) => { const u = units.find(x=>x.id===id); if(u){ u.facing=(u.facing+1)%6; updateInspector(); refreshOverlays(); } };
+window.deleteUnit = (id) => { units = units.filter(x=>x.id!==id); updateInspector(); refreshOverlays(); };
 
-    // 1. Hexes & Zones
+// --- RENDERING OPTIMIZATION ---
+
+function regenerateMap() {
+    // 1. Build Data
+    mapData.cols = parseInt(document.getElementById('cols').value);
+    mapData.rows = parseInt(document.getElementById('rows').value);
+    hexMap = {};
+    for (let q = 0; q < mapData.cols; q++) {
+        hexMap[q] = {};
+        for (let r = 0; r < mapData.rows; r++) hexMap[q][r] = { q, r, terrain: 'clear', variant: 1, setupZone: null };
+    }
+    units = units.filter(u => u.q < mapData.cols && u.r < mapData.rows);
+
+    // 2. Build Terrain Grid ONCE
+    hexGroup.clear(true, true);
+    hexSprites = {}; // Reset Cache
+    
     for (let q = 0; q < mapData.cols; q++) {
         for (let r = 0; r < mapData.rows; r++) {
             const hex = hexMap[q][r];
-            const pos = getHexPoly(hex.q, hex.r);
-            
-            // Texture
+            const pos = getHexPoly(q, r);
             const key = `${hex.terrain}${hex.variant||1}`;
+            
             if(scene.textures.exists(key)) {
-                // FIXED: Visual size now matches Game logic exactly
                 const img = scene.add.image(pos.x, pos.y, key);
                 img.setDisplaySize(HEX_RADIUS * 2, HEX_RADIUS * 2);
                 
-                // Masking to make it perfectly hexagonal (fixes overlaps)
+                // Mask for Hex Shape
                 const shape = scene.make.graphics().fillStyle(0xffffff).beginPath();
                 pos.points.forEach((p, i) => i===0 ? shape.moveTo(p.x, p.y) : shape.lineTo(p.x, p.y));
                 shape.closePath().fillPath();
                 img.setMask(shape.createGeometryMask());
+                
                 hexGroup.add(img);
+                hexSprites[`${q},${r}`] = img; // Cache for paintHex
             }
-            // Grid
+            
+            // Grid Lines (Static)
             const g = scene.add.graphics().lineStyle(1, 0x333333).strokePoints(pos.points, true, true);
             hexGroup.add(g);
+        }
+    }
+    refreshOverlays();
+}
 
-            // Setup Zones Overlay
+function paintHex(hex) {
+    // Optimize: Only update one sprite texture
+    const sprite = hexSprites[`${hex.q},${hex.r}`];
+    const key = `${hex.terrain}${hex.variant}`;
+    if(sprite && scene.textures.exists(key)) {
+        sprite.setTexture(key);
+    }
+}
+
+function refreshOverlays() {
+    overlayGroup.clear(true, true); 
+    zoneGraphics.clear();
+
+    // 1. Setup Zones & Selection Highlighting
+    for (let q = 0; q < mapData.cols; q++) {
+        for (let r = 0; r < mapData.rows; r++) {
+            const hex = hexMap[q][r];
+            if (!hex) continue;
+            const pos = getHexPoly(q, r);
+            
             if (hex.setupZone === 'blue') {
                 zoneGraphics.fillStyle(0x4488ff, 0.3); zoneGraphics.fillPoints(pos.points, true);
             } else if (hex.setupZone === 'red') {
                 zoneGraphics.fillStyle(0xff4444, 0.3); zoneGraphics.fillPoints(pos.points, true);
+            }
+
+            if (selectedHex && selectedHex.q === q && selectedHex.r === r) {
+                zoneGraphics.lineStyle(3, 0xffffff, 1).strokePoints(pos.points, true, true);
             }
         }
     }
@@ -435,24 +497,56 @@ function drawMap() {
     });
     overlayGroup.add(rg);
 
-    // 3. Units
+    // 3. Units (Top of Stack)
+    // Group units by hex to find top one
+    const stacks = {};
     units.forEach(u => {
-        const p = getHexPoly(u.q, u.r);
-        let key = (u.side==='blue'?'UK_':'GER_') + (u.unitType==='infantry'?'Inf':'Veh');
-        overlayGroup.add(scene.add.image(p.x, p.y, key).setDisplaySize(HEX_RADIUS*1.4, HEX_RADIUS*1.4));
-        
-        // Arrow
-        const arrow = scene.add.graphics();
-        const a = Phaser.Math.DegToRad([-90,-30,30,90,150,-150][u.facing]);
-        arrow.fillStyle(0xdd0000).fillTriangle(
-            p.x+Math.cos(a)*30, p.y+Math.sin(a)*30,
-            p.x+Math.cos(a+2.6)*10, p.y+Math.sin(a+2.6)*10,
-            p.x+Math.cos(a-2.6)*10, p.y+Math.sin(a-2.6)*10
-        );
-        overlayGroup.add(arrow);
+        const k = `${u.q},${u.r}`;
+        if (!stacks[k]) stacks[k] = [];
+        stacks[k].push(u);
     });
 
-    // 4. Victory Stars
+    for (const k in stacks) {
+        const stack = stacks[k];
+        const u = stack[stack.length - 1]; // Top unit
+        const p = getHexPoly(u.q, u.r);
+        
+        // Counter
+        let key = (u.side==='blue'?'UK_':'GER_') + (u.unitType==='infantry'?'Inf':'Veh');
+        overlayGroup.add(scene.add.image(p.x, p.y, key).setDisplaySize(HEX_RADIUS*1.25, HEX_RADIUS*1.25));
+
+        // Facing Arrow (Vector)
+        const arrow = scene.add.graphics();
+        const a = Phaser.Math.DegToRad([-90,-30,30,90,150,-150][u.facing]);
+        const dist = HEX_RADIUS*0.75;
+        const tx = p.x + Math.cos(a)*dist; const ty = p.y + Math.sin(a)*dist;
+        arrow.fillStyle(0x8B0000).fillTriangle(
+            tx + Math.cos(a)*8, ty + Math.sin(a)*8,
+            tx + Math.cos(a+2.5)*8, ty + Math.sin(a+2.5)*8,
+            tx + Math.cos(a-2.5)*8, ty + Math.sin(a-2.5)*8
+        );
+        overlayGroup.add(arrow);
+
+        // Stack Badge (+1)
+        if (stack.length > 1) {
+            const bx = p.x+10; const by = p.y-18;
+            const bg = scene.add.graphics().fillStyle(0xffffff).fillRect(bx, by, 16, 14).lineStyle(1,0x000000).strokeRect(bx,by,16,14);
+            overlayGroup.add(bg);
+            const txt = scene.add.text(bx+8, by+7, `+${stack.length-1}`, {font:'11px Arial', fill:'#000', fontStyle:'bold'}).setOrigin(0.5);
+            overlayGroup.add(txt);
+        }
+
+        // Status
+        if (u.status !== 'clear') {
+            const bx = p.x+15; const by = p.y+15;
+            const bg = scene.add.graphics().fillStyle(0xcc0000).fillRect(bx-8, by-8, 16, 16).lineStyle(1,0xffffff).strokeRect(bx-8,by-8,16,16);
+            overlayGroup.add(bg);
+            const txt = scene.add.text(bx, by, "!", {font:'11px Arial', fill:'#fff', fontStyle:'bold'}).setOrigin(0.5);
+            overlayGroup.add(txt);
+        }
+    }
+
+    // 4. VLs
     victoryLocations.forEach(vl => {
         const p = getHexPoly(vl.q, vl.r);
         overlayGroup.add(scene.add.star(p.x, p.y, 5, 8, 16, 0xffcc00).setStrokeStyle(2, 0x000000));
@@ -460,119 +554,78 @@ function drawMap() {
     });
 }
 
-// --- DATA HELPERS & UI UPDATE ---
+// --- LOS LOGIC ---
 
-function addTrayUnit() {
-    const side = document.getElementById('tray-side').value;
-    const type = document.getElementById('tray-type').value;
-    trayUnits.push({ id: idCounter++, side, type });
-    updateLists();
+function toggleLOSTool() {
+    losTool = !losTool; losStartHex = null; losGraphics.clear();
+    document.getElementById('btn-los').style.backgroundColor = losTool ? '#4488ff' : '#444';
+    document.getElementById('btn-los').style.color = losTool ? 'white' : '#4488ff';
 }
-function addReinf() {
-    const side = document.getElementById('reinf-side').value;
-    const type = document.getElementById('reinf-type').value;
-    reinforcements.push({
-        id: idCounter++, side, type,
-        turn: document.getElementById('reinf-turn').value, chance: document.getElementById('reinf-chance').value,
-        locType: document.getElementById('reinf-loc-type').value, locVal: document.getElementById('reinf-val').value
-    });
-    updateLists();
+
+function drawLOS(start, end) {
+    // Simplifed Raycast (Visual Check)
+    losGraphics.clear();
+    losGraphics.lineStyle(2, 0xffff00, 0.8).lineBetween(
+        getHexPoly(start.q, start.r).x, getHexPoly(start.q, start.r).y,
+        getHexPoly(end.q, end.r).x, getHexPoly(end.q, end.r).y
+    );
+    // Note: Full game engine LOS logic can be pasted here if needed, 
+    // but usually a straight visual line is enough for designers to check angles.
 }
-function addOffBoard() {
-    offBoardAssets.push({
-        id: idCounter++, type: document.getElementById('off-type').value, side: document.getElementById('off-side').value,
-        turn: document.getElementById('off-turn').value, chance: document.getElementById('off-chance').value
-    });
-    updateLists();
-}
+
+// --- UI / DATA HELPERS ---
 
 function updateLists() {
-    // Helper to generate Rich HTML for items
-    const renderUnitItem = (u, extraText, deleteFn) => {
+    const renderUnitItem = (u, meta, delFn) => {
         let name = (u.side==='blue' ? 'UK ' : 'GER ') + u.type.charAt(0).toUpperCase() + u.type.slice(1);
         let imgKey = (u.side==='blue' ? 'UK_' : 'GER_') + (u.type==='infantry'?'Inf':'Veh');
         return `
         <div class="list-item">
             <div style="display:flex; align-items:center;">
                 <img src="${ASSETS_URL}counters/${imgKey}.png" class="item-icon">
-                <div class="item-info">
-                    <div class="item-title">${name}</div>
-                    <div class="item-meta">${extraText}</div>
-                </div>
+                <div class="item-info"><div class="item-title">${name}</div><div class="item-meta">${meta}</div></div>
             </div>
-            <span class="del-x" onclick="${deleteFn}(${u.id})">X</span>
+            <span class="del-x" onclick="${delFn}(${u.id})">X</span>
         </div>`;
     };
 
-    // Tray Lists
-    document.getElementById('list-tray-blue').innerHTML = trayUnits.filter(u=>u.side==='blue').map(u => renderUnitItem(u, "Setup Tray", "remTray")).join('');
-    document.getElementById('list-tray-red').innerHTML = trayUnits.filter(u=>u.side==='red').map(u => renderUnitItem(u, "Setup Tray", "remTray")).join('');
+    document.getElementById('list-tray-blue').innerHTML = trayUnits.filter(u=>u.side==='blue').map(u=>renderUnitItem(u, "Tray", "remTray")).join('');
+    document.getElementById('list-tray-red').innerHTML = trayUnits.filter(u=>u.side==='red').map(u=>renderUnitItem(u, "Tray", "remTray")).join('');
     
-    // Reinforcements
-    document.getElementById('list-reinf').innerHTML = reinforcements.map(r => {
-        let loc = r.locType==='setup' ? "SETUP ZONE" : r.locVal;
-        return renderUnitItem(r, `Turn ${r.turn} (${r.chance}%) @ ${loc}`, "remReinf");
-    }).join('');
+    document.getElementById('list-reinf').innerHTML = reinforcements.map(r => renderUnitItem(r, `T${r.turn} (${r.chance}%) @ ${r.locType==='setup'?'ZONE':r.locVal}`, "remReinf")).join('');
 
-    // Offboard
     document.getElementById('list-offboard').innerHTML = offBoardAssets.map(o => {
-        let name = (o.side==='blue'?'UK ':'GER ') + (o.type==='artillery'?'Artillery':'Air Strike');
-        return `<div class="list-item">
-            <div class="item-info"><div class="item-title">${name}</div><div class="item-meta">Turn ${o.turn} (${o.chance}%)</div></div>
-            <span class="del-x" onclick="remOff(${o.id})">X</span>
-        </div>`;
+        let name = (o.side==='blue'?'UK ':'GER ') + (o.type==='artillery'?'Artillery':'Air');
+        return `<div class="list-item"><div class="item-info"><div class="item-title">${name}</div><div class="item-meta">T${o.turn} (${o.chance}%)</div></div><span class="del-x" onclick="remOff(${o.id})">X</span></div>`;
     }).join('');
 
-    // Victory
     document.getElementById('list-vl').innerHTML = victoryLocations.map(v => 
-        `<div class="list-item"><div class="item-info"><div class="item-title">Hex [${v.q},${v.r}]</div><div class="item-meta">${v.points} Points</div></div></div>`
+        `<div class="list-item"><div class="item-info"><div class="item-title">Hex [${v.q},${v.r}]</div><div class="item-meta">${v.points} Pts</div></div></div>`
     ).join('');
 }
 
+window.addTrayUnit = () => { trayUnits.push({ id: idCounter++, side: document.getElementById('tray-side').value, type: document.getElementById('tray-type').value }); updateLists(); };
+window.addReinf = () => { reinforcements.push({ id: idCounter++, side: document.getElementById('reinf-side').value, type: document.getElementById('reinf-type').value, turn: document.getElementById('reinf-turn').value, chance: document.getElementById('reinf-chance').value, locType: document.getElementById('reinf-loc-type').value, locVal: document.getElementById('reinf-val').value }); updateLists(); };
+window.addOffBoard = () => { offBoardAssets.push({ id: idCounter++, type: document.getElementById('off-type').value, side: document.getElementById('off-side').value, turn: document.getElementById('off-turn').value, chance: document.getElementById('off-chance').value }); updateLists(); };
 window.remTray = (id) => { trayUnits = trayUnits.filter(u=>u.id!==id); updateLists(); };
 window.remReinf = (id) => { reinforcements = reinforcements.filter(u=>u.id!==id); updateLists(); };
 window.remOff = (id) => { offBoardAssets = offBoardAssets.filter(u=>u.id!==id); updateLists(); };
 
-function regenerateMap() {
-    mapData.cols = parseInt(document.getElementById('cols').value);
-    mapData.rows = parseInt(document.getElementById('rows').value);
-    hexMap = {};
-    for (let q = 0; q < mapData.cols; q++) {
-        hexMap[q] = {};
-        for (let r = 0; r < mapData.rows; r++) hexMap[q][r] = { q, r, terrain: 'clear', variant: 1, setupZone: null };
-    }
-    units = units.filter(u => u.q < mapData.cols && u.r < mapData.rows);
-    drawMap();
-}
-
 function exportScenario() {
-    const terrainExp = [];
-    const zonesExp = [];
-    for(let q in hexMap) {
-        for(let r in hexMap[q]) {
-            if(hexMap[q][r].terrain !== 'clear') terrainExp.push({q:parseInt(q), r:parseInt(r), type:hexMap[q][r].terrain});
-            if(hexMap[q][r].setupZone) zonesExp.push({q:parseInt(q), r:parseInt(r), side:hexMap[q][r].setupZone});
-        }
+    const terrainExp = []; const zonesExp = [];
+    for(let q in hexMap) for(let r in hexMap[q]) {
+        if(hexMap[q][r].terrain!=='clear') terrainExp.push({q:parseInt(q),r:parseInt(r),type:hexMap[q][r].terrain});
+        if(hexMap[q][r].setupZone) zonesExp.push({q:parseInt(q),r:parseInt(r),side:hexMap[q][r].setupZone});
     }
     const scenario = {
-        info: {
-            title: document.getElementById('scen-title').value,
-            author: document.getElementById('scen-author').value,
-            description: document.getElementById('scen-desc').value,
-            maxTurns: parseInt(document.getElementById('scen-turns').value),
-            environment: { visibility: document.getElementById('env-vis').value, time: document.getElementById('env-time').value },
-            cp: { blue: document.getElementById('cp-blue').value, red: document.getElementById('cp-red').value }
-        },
+        info: { title: document.getElementById('scen-title').value, author: document.getElementById('scen-author').value, description: document.getElementById('scen-desc').value, maxTurns: parseInt(document.getElementById('scen-turns').value), environment: { visibility: document.getElementById('env-vis').value, time: document.getElementById('env-time').value }, cp: { blue: document.getElementById('cp-blue').value, red: document.getElementById('cp-red').value } },
         map: { cols: mapData.cols, rows: mapData.rows, terrain: terrainExp, roads: roadSegments, zones: zonesExp },
-        units: { locked: units, tray: trayUnits, reinforcements: reinforcements },
-        support: offBoardAssets,
-        victory: { locations: victoryLocations, thresholds: { blue: document.getElementById('thresh-blue').value, red: document.getElementById('thresh-red').value } }
+        units: { locked: units, tray: trayUnits, reinforcements: reinforcements }, support: offBoardAssets, victory: { locations: victoryLocations, thresholds: { blue: document.getElementById('thresh-blue').value, red: document.getElementById('thresh-red').value } }
     };
-    document.getElementById('json-input').value = JSON.stringify(scenario, null, 2);
-    toggleModal();
+    document.getElementById('json-input').value = JSON.stringify(scenario, null, 2); toggleModal();
 }
 
-// --- UTILS ---
+// --- SYSTEM ---
 function initUI() {
     const pal = document.getElementById('terrain-palette');
     for(const k in TERRAIN_TYPES) {
@@ -583,12 +636,17 @@ function initUI() {
     }
 }
 window.setMode = (m) => {
-    currentMode = m;
+    currentMode = m; selectedHex = null; updateInspector(); refreshOverlays(); // Clear select highlight
     document.getElementById('status-bar').style.display='block'; document.getElementById('status-bar').innerText = "MODE: "+m.toUpperCase();
-    document.getElementById('btn-road').classList.toggle('btn-active', m==='road');
-    document.getElementById('btn-vl').classList.toggle('btn-active', m==='vl');
-    document.getElementById('btn-zone-uk').classList.toggle('btn-active', m==='zone-uk');
-    document.getElementById('btn-zone-ger').classList.toggle('btn-active', m==='zone-ger');
+    document.getElementById('btn-select').classList.toggle('active', m==='select');
+    document.getElementById('btn-road').classList.toggle('active', m==='road');
+    document.getElementById('btn-vl').classList.toggle('active', m==='vl');
+    document.getElementById('btn-zone-uk').classList.toggle('active', m==='zone-uk');
+    document.getElementById('btn-zone-ger').classList.toggle('active', m==='zone-ger');
+}
+window.switchTab = (id) => {
+    document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active')); document.querySelectorAll('.tab-content').forEach(c=>c.classList.remove('active'));
+    event.target.classList.add('active'); document.getElementById('tab-'+id).classList.add('active');
 }
 window.toggleModal = () => document.getElementById('json-modal').style.display = document.getElementById('json-modal').style.display==='block' ? 'none':'block';
 
@@ -597,15 +655,20 @@ window.loadJSON = () => {
         const data = JSON.parse(document.getElementById('json-input').value);
         document.getElementById('cols').value = data.map.cols; document.getElementById('rows').value = data.map.rows;
         regenerateMap();
-        data.map.terrain.forEach(t => { if(hexMap[t.q]) hexMap[t.q][t.r].terrain = t.type; });
+        data.map.terrain.forEach(t => { if(hexMap[t.q]) { hexMap[t.q][t.r].terrain = t.type; paintHex(hexMap[t.q][t.r]); } }); // Efficient load
         if(data.map.zones) data.map.zones.forEach(z => { if(hexMap[z.q]) hexMap[z.q][z.r].setupZone = z.side; });
         roadSegments = data.map.roads || [];
         units = data.units.locked || []; trayUnits = data.units.tray || []; reinforcements = data.units.reinforcements || [];
         if(data.victory) victoryLocations = data.victory.locations || [];
-        updateLists(); drawMap(); toggleModal();
+        updateLists(); refreshOverlays(); toggleModal();
     } catch(e) { alert("Invalid JSON"); }
 }
 
+function getHexPoly(q, r) {
+    const x = q * HEX_RADIUS * 1.5 + HEX_RADIUS; const y = r * HEX_RADIUS * Math.sqrt(3) + (q%2===1 ? HEX_RADIUS*Math.sqrt(3)/2 : 0) + HEX_RADIUS;
+    const points = []; for(let i=0; i<6; i++) { const a = Math.PI/3 * i; points.push({ x: x + HEX_RADIUS*Math.cos(a), y: y + HEX_RADIUS*Math.sin(a) }); }
+    return { x, y, points };
+}
 function getHexAtPoint(wx, wy) {
     let closest = null, minDist = Infinity;
     for(let q=0; q<mapData.cols; q++) for(let r=0; r<mapData.rows; r++) {
