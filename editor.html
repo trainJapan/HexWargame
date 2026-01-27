@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Wargame Editor v2.3 - Full Logic</title>
+    <title>Wargame Editor v2.4 - Final Logic</title>
     <script src="https://cdn.jsdelivr.net/npm/phaser@3.60.0/dist/phaser.min.js"></script>
     <style>
         :root {
@@ -20,7 +20,7 @@
             font-family: 'Segoe UI', Tahoma, sans-serif;
             background: var(--bg-dark); color: var(--text-main);
             height: 100vh; display: grid;
-            grid-template-columns: 300px 1fr 360px; /* Wider right panel */
+            grid-template-columns: 300px 1fr 360px;
             overflow: hidden;
         }
 
@@ -31,7 +31,6 @@
         .tab { flex: 1; padding: 10px; cursor: pointer; text-align: center; font-size: 11px; background: #333; border-right: 1px solid var(--border); }
         .tab.active { background: var(--bg-panel); color: var(--accent); border-bottom: 2px solid var(--accent); font-weight: bold; }
         
-        /* Flex content for tabs to fill height */
         .tab-content { display: none; padding: 15px; flex-direction: column; height: 100%; overflow: hidden; }
         .tab-content.active { display: flex; }
         
@@ -52,7 +51,6 @@
         .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 5px; }
         .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 5px; }
 
-        /* SCROLLABLE LISTS FILLING SPACE */
         .rich-list-container { flex-grow: 1; overflow-y: auto; border: 1px solid #444; background: #111; padding: 5px; margin-bottom: 10px; }
         .list-item { 
             display: flex; align-items: center; justify-content: space-between; 
@@ -88,7 +86,7 @@
             <button id="btn-los" class="btn" style="border-color:#4488ff; color:#4488ff" onclick="toggleLOSTool()">LOS TOOL</button>
         </div>
         <div id="los-options" style="display:none; margin-top:5px; background:#222; padding:5px; border:1px solid #4488ff;">
-            <div class="label" style="color:#4488ff">LOS TYPE</div>
+            <div class="label" style="color:#4488ff">LOS MODE</div>
             <div class="grid-2">
                 <button class="btn btn-mini" onclick="setLOSType('infantry')" id="los-btn-inf">INFANTRY</button>
                 <button class="btn btn-mini" onclick="setLOSType('vehicle')" id="los-btn-veh">VEHICLE</button>
@@ -133,7 +131,6 @@
         <div id="hex-inspector-panel" class="rich-list-container" style="max-height:200px; flex-grow:0;">
             <div style="font-size:11px; color:#666; font-style:italic">Select a hex...</div>
         </div>
-
     </div>
 </div>
 
@@ -206,10 +203,12 @@
         <div id="list-reinf" class="rich-list-container"></div>
 
         <div class="section-header">OFF-BOARD ASSETS</div>
+        <label class="label">TYPE</label>
+        <select id="off-type"><option value="artillery">Artillery</option><option value="air">Air</option></select>
         <div class="grid-3">
-            <select id="off-type"><option value="artillery">Artillery</option><option value="air">Air</option></select>
-            <input type="number" id="off-turn" value="1">
-            <input type="number" id="off-chance" value="50">
+            <div><label class="label">SIDE</label><select id="off-side"><option value="blue">UK</option><option value="red">GER</option></select></div>
+            <div><label class="label">TURN</label><input type="number" id="off-turn" value="1"></div>
+            <div><label class="label">%</label><input type="number" id="off-chance" value="50"></div>
         </div>
         <button class="btn btn-primary" onclick="addOffBoard()">+ Add Asset</button>
         <div id="list-offboard" class="rich-list-container" style="flex-grow:0; height:80px;"></div>
@@ -232,7 +231,7 @@
 </div>
 
 <script>
-// --- CONFIG & TERRAIN DEFS (Identical to Game) ---
+// --- GAME DATA (Exact match) ---
 const ASSETS_URL = 'https://raw.githubusercontent.com/trainJapan/HexWargame/main/artwork/';
 const TERRAIN_TYPES = {
     'clear':      { color: 0x98FB98, los: 'clear',     cost: 1,   terrainHeight: 0, infantryUsable: 0, vehicleUsable: 0 },
@@ -249,7 +248,7 @@ const TERRAIN_TYPES = {
 };
 const HEX_RADIUS = 40;
 
-// --- DATA ---
+// --- STATE ---
 let mapData = { cols: 15, rows: 12 };
 let hexMap = {}; 
 let units = [];
@@ -260,7 +259,6 @@ let victoryLocations = [];
 let roadSegments = [];
 let idCounter = 1;
 
-// Editor State
 let currentMode = 'select'; 
 let activeTerrain = 'clear';
 let selectedHex = null;
@@ -300,7 +298,7 @@ function create() {
 
     initUI();
     regenerateMap();
-    setLOSType('infantry'); // default
+    setLOSType('infantry');
 }
 
 function update() {
@@ -318,7 +316,6 @@ function handleMapClick(pointer) {
     const hex = getHexAtPoint(pointer.worldX, pointer.worldY);
     if (!hex) { selectedHex = null; updateInspector(); return; }
 
-    // LOS Tool Priority
     if (losTool) {
         if (!losStartHex) {
             losStartHex = hex;
@@ -327,7 +324,7 @@ function handleMapClick(pointer) {
             losGraphics.lineStyle(2, 0xffffff).strokeCircle(p.x, p.y, 15);
         } else {
             drawFullLOS(losStartHex, hex);
-            losStartHex = null; // Auto-reset after calculation
+            losStartHex = null;
         }
         return;
     }
@@ -342,21 +339,19 @@ function handleMapClick(pointer) {
         paintHex(hex);
     }
     else if (currentMode === 'road') {
+        // Continuous Road Logic: Starts new chain only on tool select
         if (!lastRoadNode) {
             lastRoadNode = hex;
         } else {
             if (lastRoadNode.q !== hex.q || lastRoadNode.r !== hex.r) {
                 roadSegments.push({ from: {q:lastRoadNode.q, r:lastRoadNode.r}, to: {q:hex.q, r:hex.r} });
+                lastRoadNode = hex; // CONTINUE drawing from this new node
                 refreshOverlays();
             }
-            lastRoadNode = null; // RESET after 2 clicks (disconnected roads allowed)
         }
     }
     else if (currentMode === 'road-del') {
-        // Remove ANY road touching this hex
-        roadSegments = roadSegments.filter(s => 
-            !((s.from.q===hex.q && s.from.r===hex.r) || (s.to.q===hex.q && s.to.r===hex.r))
-        );
+        roadSegments = roadSegments.filter(s => !((s.from.q===hex.q && s.from.r===hex.r) || (s.to.q===hex.q && s.to.r===hex.r)));
         refreshOverlays();
     }
     else if (currentMode === 'unit') {
@@ -375,9 +370,8 @@ function handleMapClick(pointer) {
     }
     else if (currentMode === 'vl') {
         const existing = victoryLocations.findIndex(v => v.q === hex.q && v.r === hex.r);
-        if (existing >= 0) {
-            victoryLocations.splice(existing, 1); // REMOVE if exists
-        } else {
+        if (existing >= 0) victoryLocations.splice(existing, 1);
+        else {
             const points = prompt("Victory Points (100, 200, 500):", "100");
             if(points) victoryLocations.push({ q: hex.q, r: hex.r, points: parseInt(points) });
         }
@@ -387,15 +381,13 @@ function handleMapClick(pointer) {
     else if (currentMode === 'zone-ger') { hex.setupZone = (hex.setupZone==='red') ? null : 'red'; refreshOverlays(); }
 }
 
-// --- INSPECTOR & STACKING ---
+// --- INSPECTOR ---
 
 function updateInspector() {
     const p = document.getElementById('hex-inspector-panel');
     if (!selectedHex) { p.innerHTML = '<div style="font-size:11px; color:#666; font-style:italic">Select a hex...</div>'; return; }
     
-    // Find units in hex
     const hexUnits = units.filter(u => u.q === selectedHex.q && u.r === selectedHex.r);
-    // Reverse display so Top of stack is at top of list (visual intuitive)
     const displayUnits = [...hexUnits].reverse();
 
     if (displayUnits.length === 0) {
@@ -412,29 +404,17 @@ function updateInspector() {
         <div class="list-item" onclick="promoteUnit(${u.id})">
             <div style="display:flex; align-items:center;">
                 <img src="${ASSETS_URL}counters/${imgKey}.png" class="item-icon">
-                <div class="item-info">
-                    <div class="item-title">${name}</div>
-                    <div class="item-meta">Face: ${facingDir} | ${u.status}</div>
-                </div>
+                <div class="item-info"><div class="item-title">${name}</div><div class="item-meta">Face: ${facingDir} | ${u.status}</div></div>
             </div>
-            <div>
-                <button class="btn-mini" onclick="event.stopPropagation(); rotateUnit(${u.id})">↻</button>
-                <button class="btn-mini btn-danger-mini" onclick="event.stopPropagation(); deleteUnit(${u.id})">X</button>
-            </div>
+            <div><button class="btn-mini" onclick="event.stopPropagation(); rotateUnit(${u.id})">↻</button><button class="btn-mini btn-danger-mini" onclick="event.stopPropagation(); deleteUnit(${u.id})">X</button></div>
         </div>`;
     }).join('');
     p.innerHTML = html;
 }
 
 window.promoteUnit = (id) => {
-    // Moves unit to end of array (Top of stack)
     const idx = units.findIndex(u => u.id === id);
-    if(idx > -1) {
-        const u = units.splice(idx, 1)[0];
-        units.push(u);
-        refreshOverlays();
-        updateInspector();
-    }
+    if(idx > -1) { const u = units.splice(idx, 1)[0]; units.push(u); refreshOverlays(); updateInspector(); }
 };
 window.rotateUnit = (id) => { const u = units.find(x=>x.id===id); if(u){ u.facing=(u.facing+1)%6; updateInspector(); refreshOverlays(); } };
 window.deleteUnit = (id) => { units = units.filter(x=>x.id!==id); updateInspector(); refreshOverlays(); };
@@ -449,7 +429,6 @@ function regenerateMap() {
         hexMap[q] = {};
         for (let r = 0; r < mapData.rows; r++) hexMap[q][r] = { q, r, terrain: 'clear', variant: 1, setupZone: null };
     }
-    // Static Terrain Layer
     hexGroup.clear(true, true);
     hexSprites = {};
     for (let q = 0; q < mapData.cols; q++) {
@@ -466,22 +445,17 @@ function regenerateMap() {
                 hexGroup.add(img);
                 hexSprites[`${q},${r}`] = img;
             }
-            // Grid (Thinner, slight alpha)
             hexGroup.add(scene.add.graphics().lineStyle(1, 0x333333, 0.5).strokePoints(pos.points, true, true));
         }
     }
     refreshOverlays();
 }
 
-function paintHex(hex) {
-    const sprite = hexSprites[`${hex.q},${hex.r}`];
-    if(sprite) sprite.setTexture(`${hex.terrain}${hex.variant}`);
-}
+function paintHex(hex) { const sprite = hexSprites[`${hex.q},${hex.r}`]; if(sprite) sprite.setTexture(`${hex.terrain}${hex.variant}`); }
 
 function refreshOverlays() {
     overlayGroup.clear(true, true); zoneGraphics.clear();
 
-    // Zones
     for (let q = 0; q < mapData.cols; q++) {
         for (let r = 0; r < mapData.rows; r++) {
             const hex = hexMap[q][r];
@@ -489,12 +463,10 @@ function refreshOverlays() {
             const pos = getHexPoly(q, r);
             if (hex.setupZone === 'blue') zoneGraphics.fillStyle(0x4488ff, 0.3).fillPoints(pos.points, true);
             else if (hex.setupZone === 'red') zoneGraphics.fillStyle(0xff4444, 0.3).fillPoints(pos.points, true);
-            
             if (selectedHex && selectedHex.q===q && selectedHex.r===r) zoneGraphics.lineStyle(2, 0xffffff).strokePoints(pos.points, true, true);
         }
     }
 
-    // Roads
     const rg = scene.add.graphics();
     roadSegments.forEach(seg => {
         const p1 = getHexPoly(seg.from.q, seg.from.r);
@@ -504,13 +476,11 @@ function refreshOverlays() {
     });
     overlayGroup.add(rg);
 
-    // Units
     units.forEach(u => {
         const p = getHexPoly(u.q, u.r);
         let key = (u.side==='blue'?'UK_':'GER_') + (u.unitType==='infantry'?'Inf':'Veh');
         overlayGroup.add(scene.add.image(p.x, p.y, key).setDisplaySize(HEX_RADIUS*1.25, HEX_RADIUS*1.25));
 
-        // Facing Arrow (ALL UNITS)
         const arrow = scene.add.graphics();
         const a = Phaser.Math.DegToRad([-90,-30,30,90,150,-150][u.facing]);
         const d = HEX_RADIUS*0.75;
@@ -521,7 +491,6 @@ function refreshOverlays() {
         );
         overlayGroup.add(arrow);
 
-        // Status
         if (u.status !== 'clear') {
             const bx = p.x+15; const by = p.y+15;
             overlayGroup.add(scene.add.graphics().fillStyle(0xcc0000).fillRect(bx-6, by-6, 12, 12).lineStyle(1,0xffffff).strokeRect(bx-6,by-6,12,12));
@@ -529,7 +498,6 @@ function refreshOverlays() {
         }
     });
 
-    // VLs
     victoryLocations.forEach(vl => {
         const p = getHexPoly(vl.q, vl.r);
         overlayGroup.add(scene.add.star(p.x, p.y, 5, 8, 16, 0xffcc00).setStrokeStyle(2, 0x000000));
@@ -542,7 +510,7 @@ function refreshOverlays() {
     }
 }
 
-// --- LOS ENGINE ---
+// --- FULL GAME LOS LOGIC ---
 
 function toggleLOSTool() {
     losTool = !losTool; losStartHex = null; losGraphics.clear();
@@ -558,8 +526,8 @@ window.setLOSType = (t) => {
 
 function drawFullLOS(start, end) {
     const res = calculateLOS(start, end, losUnitType);
-    let color = 0x00ff00; // Clear
-    if (res.status === 'degraded') color = 0xffff00;
+    let color = 0x00ff00; 
+    if (res.status === 'degraded') color = 0xffff00; 
     if (res.status === 'blocked') color = 0xff0000;
     
     losGraphics.clear();
@@ -567,15 +535,11 @@ function drawFullLOS(start, end) {
     losGraphics.lineStyle(4, color, 0.8).lineBetween(p1.x, p1.y, p2.x, p2.y);
 }
 
-// Full LOS Logic ported from Game
 function calculateLOS(startHex, targetHex, unitType) {
     const fromTerrain = TERRAIN_TYPES[startHex.terrain];
-    const fromHeight = unitType === 'vehicle' ? fromTerrain.vehicleUsable : fromTerrain.infantryUsable; // Simplification: using usable height as viewer height
-    // Actually, editor data doesn't track units per hex for LOS source height, so we assume base terrain height
-    // For editor visualization, use Terrain Height:
+    const fromHeight = unitType === 'vehicle' ? fromTerrain.vehicleUsable : fromTerrain.infantryUsable; // Simplification (Editor uses terrain height)
     const startH = TERRAIN_TYPES[startHex.terrain].terrainHeight;
-    
-    // Geometry
+
     const p1 = getHexPoly(startHex.q, startHex.r); const p2 = getHexPoly(targetHex.q, targetHex.r);
     const dist = Phaser.Math.Distance.Between(p1.x, p1.y, p2.x, p2.y);
     const steps = Math.ceil(dist / (HEX_RADIUS/2));
@@ -589,10 +553,19 @@ function calculateLOS(startHex, targetHex, unitType) {
         if (!h || (h.q===startHex.q && h.r===startHex.r) || (h.q===targetHex.q && h.r===targetHex.r)) continue;
         
         const terr = TERRAIN_TYPES[h.terrain];
-        if (terr.terrainHeight > startH) blocked = true; // Simple blockage by higher ground
+        // 1. Height Block
+        if (terr.terrainHeight > startH) blocked = true;
+        // 2. Obstacle Block (Forest/City)
         if (terr.los === 'blocking' && terr.terrainHeight >= startH) blocked = true;
+        // 3. Degrading (Fields/Orchards)
         if (terr.los === 'degrading') degradedCount++;
     }
+    
+    // Check Destination Terrain (Target)
+    const targetTerr = TERRAIN_TYPES[targetHex.terrain];
+    if (targetTerr.los === 'blocking' && targetTerr.terrainHeight >= startH) { /* Target inside forest is visible, behind is blocked */ }
+    // BUT: If target is degraded terrain, that counts as 1 degradation
+    if (targetTerr.los === 'degrading') degradedCount++;
 
     if (blocked) return { status: 'blocked' };
     if (degradedCount >= 2) return { status: 'blocked' };
@@ -600,7 +573,7 @@ function calculateLOS(startHex, targetHex, unitType) {
     return { status: 'clear' };
 }
 
-// --- UI LISTS ---
+// --- LIST HELPERS ---
 
 function updateLists() {
     const renderUnitItem = (u, meta, delFn) => {
@@ -616,18 +589,31 @@ function updateLists() {
         </div>`;
     };
 
-    document.getElementById('list-tray-blue').innerHTML = trayUnits.filter(u=>u.side==='blue').map(u=>renderUnitItem(u, "Tray", "remTray")).join('');
-    document.getElementById('list-tray-red').innerHTML = trayUnits.filter(u=>u.side==='red').map(u=>renderUnitItem(u, "Tray", "remTray")).join('');
-    document.getElementById('list-reinf').innerHTML = reinforcements.map(r => renderUnitItem(r, `T${r.turn} (${r.chance}%)`, "remReinf")).join('');
-    document.getElementById('list-vl').innerHTML = victoryLocations.map(v => `<div class="list-item"><div class="item-info"><div class="item-title">Hex [${v.q},${v.r}]</div></div><span class="del-x" onclick="remVL(${v.q},${v.r})">X</span></div>`).join('');
+    document.getElementById('list-tray-blue').innerHTML = trayUnits.filter(u=>u.side==='blue').map(u=>renderUnitItem(u, "Setup Tray", "remTray")).join('');
+    document.getElementById('list-tray-red').innerHTML = trayUnits.filter(u=>u.side==='red').map(u=>renderUnitItem(u, "Setup Tray", "remTray")).join('');
+    
+    document.getElementById('list-reinf').innerHTML = reinforcements.map(r => {
+        let locText = "";
+        if (r.locType === 'setup') locText = "[Setup Zone]";
+        else if (r.locType === 'hex') locText = `Hex [${r.locVal}]`;
+        else locText = `Edge [${r.locVal}]`;
+        return renderUnitItem(r, `Turn ${r.turn} (${r.chance}%) ${locText}`, "remReinf");
+    }).join('');
+
+    document.getElementById('list-offboard').innerHTML = offBoardAssets.map(o => {
+        let name = (o.side==='blue'?'UK ':'GER ') + (o.type==='artillery'?'Artillery':'Air');
+        return `<div class="list-item"><div class="item-info"><div class="item-title">${name}</div><div class="item-meta">Turn ${o.turn} (${o.chance}%)</div></div><span class="del-x" onclick="remOff(${o.id})">X</span></div>`;
+    }).join('');
+
+    document.getElementById('list-vl').innerHTML = victoryLocations.map(v => `<div class="list-item"><div class="item-info"><div class="item-title">Hex [${v.q},${v.r}]</div><div class="item-meta">${v.points} Pts</div></div><span class="del-x" onclick="remVL(${v.q},${v.r})">X</span></div>`).join('');
 }
 
 window.addTrayUnit = () => { trayUnits.push({ id: idCounter++, side: document.getElementById('tray-side').value, type: document.getElementById('tray-type').value }); updateLists(); };
 window.addReinf = () => { reinforcements.push({ id: idCounter++, side: document.getElementById('reinf-side').value, type: document.getElementById('reinf-type').value, turn: document.getElementById('reinf-turn').value, chance: document.getElementById('reinf-chance').value, locType: document.getElementById('reinf-loc-type').value, locVal: document.getElementById('reinf-val').value }); updateLists(); };
-window.addOffBoard = () => { offBoardAssets.push({ id: idCounter++, type: document.getElementById('off-type').value, side: document.getElementById('off-side').value, turn: document.getElementById('off-turn').value, chance: document.getElementById('off-chance').value }); updateLists(); }; // Note: Still using text list for offboard as no icons exist
+window.addOffBoard = () => { offBoardAssets.push({ id: idCounter++, type: document.getElementById('off-type').value, side: document.getElementById('off-side').value, turn: document.getElementById('off-turn').value, chance: document.getElementById('off-chance').value }); updateLists(); };
 window.remTray = (id) => { trayUnits = trayUnits.filter(u=>u.id!==id); updateLists(); };
 window.remReinf = (id) => { reinforcements = reinforcements.filter(u=>u.id!==id); updateLists(); };
-window.remOff = (id) => { offBoardAssets = offBoardAssets.filter(u=>u.id!==id); updateLists(); }; // Update helper required
+window.remOff = (id) => { offBoardAssets = offBoardAssets.filter(u=>u.id!==id); updateLists(); };
 window.remVL = (q,r) => { victoryLocations = victoryLocations.filter(v=>!(v.q===q && v.r===r)); refreshOverlays(); updateLists(); };
 
 // --- SYSTEM ---
@@ -641,7 +627,8 @@ function initUI() {
     }
 }
 window.setMode = (m) => {
-    currentMode = m; selectedHex = null; lastRoadNode=null; losTool=false; // Auto-disable LOS
+    currentMode = m; selectedHex = null; losTool=false; // Auto-disable LOS
+    lastRoadNode = null; // ALWAYS reset road chain on new mode selection
     updateInspector(); refreshOverlays(); 
     document.getElementById('status-bar').style.display='block'; document.getElementById('status-bar').innerText = "MODE: "+m.toUpperCase();
     ['btn-select','btn-road','btn-road-del','btn-vl','btn-zone-uk','btn-zone-ger'].forEach(id=>document.getElementById(id).classList.remove('active'));
