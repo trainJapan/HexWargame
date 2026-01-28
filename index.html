@@ -599,44 +599,76 @@ function checkReinforcements() {
 // --- SCENARIO LOADING ---
 
 function loadScenario() {
-    const txt = document.getElementById('json-input').value;
+    let raw = document.getElementById('json-input').value;
+
+    // --- STEP 1: AGGRESSIVE SANITIZATION ---
+    // 1. Replace Non-Breaking Spaces (\u00A0) with normal spaces
+    let clean = raw.replace(/\u00A0/g, ' ');
+    // 2. Replace logical line breaks with spaces (for descriptions)
+    clean = clean.replace(/[\n\r]+/g, ' ');
+    // 3. Trim outer whitespace
+    clean = clean.trim();
+
+    // --- STEP 2: PARSE JSON ---
     try {
-        scenarioData = JSON.parse(txt);
-        // Map
-        document.getElementById('cols').value = scenarioData.map.cols; // Not used but logic remains
+        scenarioData = JSON.parse(clean);
+    } catch (e) {
+        // If this fails, it is definitely a syntax error in the text
+        alert("JSON Syntax Error: " + e.message + "\n\n(Check for missing commas or brackets)");
+        console.error("Parsing Failed:", e);
+        console.log("Cleaned Input:", clean); // check console to see what was parsed
+        return;
+    }
+
+    // --- STEP 3: EXECUTE GAME LOGIC ---
+    try {
+        mapData = scenarioData.map; // Set global mapData
         
-        // Build Map Grid
-        buildMapGrid(scenarioData.map.cols, scenarioData.map.rows, scenarioData.map.terrain);
+        // Reset Arrays
+        units = []; 
+        trayUnits = [];
         
-        // Info
+        // Load Fixed Units
+        if (scenarioData.units.locked) {
+            scenarioData.units.locked.forEach(u => {
+                u.isFixed = true; 
+                units.push(u);
+            });
+        }
+        
+        // Load Tray Units
+        if (scenarioData.units.tray) {
+            trayUnits = [...scenarioData.units.tray];
+        }
+        
+        // Setup Info Display
         document.getElementById('scenario-info-box').innerHTML = `
             <strong style="color:white">${scenarioData.info.title}</strong><br>
             <span style="color:#aaa">${scenarioData.info.author}</span><br>
-            <p style="margin:5px 0 0 0; font-size:11px; color:#888">${scenarioData.info.description}</p>
+            <div style="margin:5px 0 0 0; font-size:11px; color:#888; max-height:100px; overflow-y:auto">
+                ${scenarioData.info.description}
+            </div>
         `;
         document.getElementById('max-turns').innerText = scenarioData.info.maxTurns;
-        maxTurns = scenarioData.info.maxTurns;
 
-        // Units
-        units = []; 
-        if (scenarioData.units.locked) units = [...scenarioData.units.locked];
-        
-        trayUnits = [];
-        if (scenarioData.units.tray) trayUnits = [...scenarioData.units.tray];
-
-        // Reset State
+        // Start Setup Phase
         currentPhase = 'SETUP';
         document.getElementById('phase-display').innerText = 'SETUP';
-        document.getElementById('btn-phase').innerText = "Finish Setup";
+        document.getElementById('btn-phase').innerText = 'Finish Setup';
         
-        redrawMap();
-        renderTray();
-        toggleMapLoader();
-        addToLog("Scenario Loaded.");
+        // Clear previous UI
+        document.getElementById('left-content-area').innerHTML = '';
 
+        // Render Everything
+        displayMap(); 
+        renderTray(); 
+        toggleMapLoader();
+        addToLog("Scenario Loaded Successfully.");
+        
     } catch (e) {
-        console.error(e);
-        alert("Invalid JSON");
+        // If this fails, the JSON was valid, but the data structure didn't match what the game expects
+        alert("Game Logic Error: " + e.message);
+        console.error("Logic Failed:", e);
     }
 }
 
@@ -807,3 +839,4 @@ function drawLOSLine(start, end, color) {
 </script>
 </body>
 </html>
+
