@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Wargame Engine v0.8.3 - Fixed & Stable</title>
+    <title>Wargame Engine v0.8.4 - Victory Locations</title>
     <script src="https://cdn.jsdelivr.net/npm/phaser@3.60.0/dist/phaser.min.js"></script>
     <style>
         :root {
@@ -301,8 +301,8 @@ let selectedTrayUnit = null; // Selected from Tray
 let currentAction = null; 
 
 // Phaser Objects
-// FIX: Replaced overlayGroup with zoneGraphics
-let scene, hexGroup, zoneGraphics, roadGraphics, losGraphics, unitGraphics, selectionGraphics, badgeGraphics, hexMap = {};
+// FIX: Added objGraphics for Victory Locations
+let scene, hexGroup, zoneGraphics, objGraphics, roadGraphics, losGraphics, unitGraphics, selectionGraphics, badgeGraphics, hexMap = {};
 let unitSprites = {};
 
 // --- Phaser Config ---
@@ -334,9 +334,10 @@ function preloadScene() {
 function createScene() {
     scene = this;
     hexGroup = this.add.group(); // Depth 0
-    // FIX: Using single Graphics object for zones (visible fix)
     zoneGraphics = this.add.graphics().setDepth(20); 
     roadGraphics = this.add.graphics().setDepth(100);
+    // FIX: New layer for Objectives/Victory Hexes
+    objGraphics = this.add.graphics().setDepth(150); 
     
     // Depth Ordering
     selectionGraphics = this.add.graphics().setDepth(500); // Rings BELOW units
@@ -1075,6 +1076,8 @@ function displayMap() {
     
     // FIX: Use zoneGraphics instead of overlayGroup
     zoneGraphics.clear();
+    // FIX: Clear Objective Graphics
+    objGraphics.clear();
     
     hexMap = {};
     
@@ -1114,6 +1117,23 @@ function displayMap() {
                 // FIX: Use single zoneGraphics object to draw
                 zoneGraphics.fillStyle(color, 0.2).fillPoints(pts, true);
             }
+        });
+    }
+
+    // FIX: Draw Objectives (Victory Locations) - Check both common keys
+    const objectives = mapData.objectives || mapData.victoryHexes || [];
+    if (objectives.length > 0) {
+        objGraphics.lineStyle(3, 0xFFD700, 1); // Gold Line
+        objectives.forEach(obj => {
+            const p = getHexPosition(obj.q, obj.r);
+            // Draw a Gold Ring inside the hex
+            objGraphics.strokeCircle(p.x, p.y, HEX_RADIUS * 0.6);
+            
+            // Optional: Draw a small star in center (simple cross for now)
+            objGraphics.beginPath();
+            objGraphics.moveTo(p.x - 5, p.y - 5); objGraphics.lineTo(p.x + 5, p.y + 5);
+            objGraphics.moveTo(p.x + 5, p.y - 5); objGraphics.lineTo(p.x - 5, p.y + 5);
+            objGraphics.strokePath();
         });
     }
 
