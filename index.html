@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Wargame Engine v0.8.4 - Victory Locations</title>
+    <title>Wargame Engine v0.8.5 - Victory Locations Fixed</title>
     <script src="https://cdn.jsdelivr.net/npm/phaser@3.60.0/dist/phaser.min.js"></script>
     <style>
         :root {
@@ -301,7 +301,6 @@ let selectedTrayUnit = null; // Selected from Tray
 let currentAction = null; 
 
 // Phaser Objects
-// FIX: Added objGraphics for Victory Locations
 let scene, hexGroup, zoneGraphics, objGraphics, roadGraphics, losGraphics, unitGraphics, selectionGraphics, badgeGraphics, hexMap = {};
 let unitSprites = {};
 
@@ -1120,11 +1119,18 @@ function displayMap() {
         });
     }
 
-    // FIX: Draw Objectives (Victory Locations) - Check both common keys
-    const objectives = mapData.objectives || mapData.victoryHexes || [];
-    if (objectives.length > 0) {
+    // FIX: Draw Objectives (Victory Locations)
+    // 1. Check in mapData.objectives (old format/embedded)
+    const oldObjectives = mapData.objectives || mapData.victoryHexes || [];
+    
+    // 2. Check in scenarioData.victory.locations (new editor format)
+    const newObjectives = (scenarioData && scenarioData.victory && scenarioData.victory.locations) ? scenarioData.victory.locations : [];
+    
+    const allObjectives = [...oldObjectives, ...newObjectives];
+
+    if (allObjectives.length > 0) {
         objGraphics.lineStyle(3, 0xFFD700, 1); // Gold Line
-        objectives.forEach(obj => {
+        allObjectives.forEach(obj => {
             const p = getHexPosition(obj.q, obj.r);
             // Draw a Gold Ring inside the hex
             objGraphics.strokeCircle(p.x, p.y, HEX_RADIUS * 0.6);
