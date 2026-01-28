@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Wargame Engine v0.8.6 - Star & VP Badges</title>
+    <title>Wargame Engine v0.8.6 - Stars & VP Badges</title>
     <script src="https://cdn.jsdelivr.net/npm/phaser@3.60.0/dist/phaser.min.js"></script>
     <style>
         :root {
@@ -304,10 +304,9 @@ let selectedTrayUnit = null; // Selected from Tray
 let currentAction = null; 
 
 // Phaser Objects
-let scene, hexGroup, zoneGraphics, roadGraphics, losGraphics, unitGraphics, selectionGraphics, badgeGraphics, hexMap = {};
+let scene, hexGroup, zoneGraphics, objGraphics, roadGraphics, losGraphics, unitGraphics, selectionGraphics, badgeGraphics, hexMap = {};
 let unitSprites = {};
-// Store objectives group separately to manage images
-let objectiveSprites = [];
+let objectiveSprites = []; // Holds the star text and graphics
 
 // --- Phaser Config ---
 const config = {
@@ -332,9 +331,6 @@ function preloadScene() {
     this.load.image('UK_Veh', `${ASSETS_URL}counters/UK_Veh.png`);
     this.load.image('GER_Veh', `${ASSETS_URL}counters/GER_Veh.png`);
     
-    // Load Star for Objectives (Assumes star.png is in the root artwork folder)
-    this.load.image('star', `${ASSETS_URL}star.png`);
-    
     this.make.graphics({x:0,y:0,add:false}).fillStyle(0xffffff).fillRect(0,0,1,1).generateTexture('fallback', 1, 1);
 }
 
@@ -343,6 +339,8 @@ function createScene() {
     hexGroup = this.add.group(); // Depth 0
     zoneGraphics = this.add.graphics().setDepth(20); 
     roadGraphics = this.add.graphics().setDepth(100);
+    // FIX: New layer for Objectives/Victory Hexes
+    objGraphics = this.add.graphics().setDepth(150); 
     
     // Depth Ordering
     selectionGraphics = this.add.graphics().setDepth(500); // Rings BELOW units
@@ -552,6 +550,14 @@ function showTerrainPanel(hex) {
     // FIX: Display badges in Terrain Panel (needed for VP)
     const badgeContainer = document.getElementById('ctx-badges');
     badgeContainer.innerHTML = '';
+    
+    // Standard Terrain Badge
+    const tBadge = document.createElement('span');
+    tBadge.className = 'badge badge-terrain';
+    tBadge.innerText = terrain.toUpperCase();
+    tBadge.style.backgroundColor = '#' + props.color.toString(16);
+    tBadge.style.color = (props.color > 0x888888) ? '#000' : '#fff';
+    badgeContainer.appendChild(tBadge);
 
     // FIX: Add Victory Point Badge here too
     if (hex.victoryPoints) {
@@ -1104,6 +1110,7 @@ function displayMap() {
     zoneGraphics.clear();
     
     // FIX: Clear old objective images
+    objGraphics.clear();
     objectiveSprites.forEach(s => s.destroy());
     objectiveSprites = [];
     
@@ -1148,7 +1155,7 @@ function displayMap() {
         });
     }
 
-    // FIX: Place Star Images for Objectives
+    // FIX: Place Star Images for Objectives using PHASER STARS (Like Editor)
     const oldObjectives = mapData.objectives || mapData.victoryHexes || [];
     const newObjectives = (scenarioData && scenarioData.victory && scenarioData.victory.locations) ? scenarioData.victory.locations : [];
     const allObjectives = [...oldObjectives, ...newObjectives];
@@ -1160,13 +1167,18 @@ function displayMap() {
                 // Stamp VP data onto hex for UI to use later
                 hex.victoryPoints = obj.points || 100;
 
-                // Place the star image
-                if (scene.textures.exists('star')) {
-                    const star = scene.add.image(hex.x, hex.y, 'star');
-                    star.setDisplaySize(HEX_RADIUS * 0.8, HEX_RADIUS * 0.8);
-                    star.setDepth(150); // Above roads, below units
-                    objectiveSprites.push(star);
-                }
+                // Place the STAR Programmatically (No image file needed)
+                // Using objGraphics (Depth 150) so it's below units
+                const star = scene.add.star(hex.x, hex.y, 5, 8, 16, 0xffcc00);
+                star.setStrokeStyle(2, 0x000000);
+                star.setDepth(150);
+                objectiveSprites.push(star);
+                
+                // Add Text Label
+                const txt = scene.add.text(hex.x, hex.y + 10, hex.victoryPoints.toString(), {
+                    fontSize: '10px', stroke: '#000', strokeThickness: 3, fill: '#fff', fontStyle: 'bold'
+                }).setOrigin(0.5).setDepth(151);
+                objectiveSprites.push(txt);
             }
         });
     }
