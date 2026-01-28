@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Wargame Engine v0.8.5 - Victory Locations Fixed</title>
+    <title>Wargame Engine v0.8.6 - Star & VP Badges</title>
     <script src="https://cdn.jsdelivr.net/npm/phaser@3.60.0/dist/phaser.min.js"></script>
     <style>
         :root {
@@ -129,6 +129,9 @@
         .badge-terrain:hover { border-color: white; }
         .badge-shaken { background: #c62828; color: white; }
         .badge-damage { background: #333; border: 1px solid #c62828; color: #ff8888; }
+        
+        /* New Victory Badge Style */
+        .badge-vp { background: #000; color: #FFD700; border: 1px solid #FFD700; }
 
         /* Stats Grid */
         #context-stats { padding: 15px; overflow-y: auto; }
@@ -301,8 +304,10 @@ let selectedTrayUnit = null; // Selected from Tray
 let currentAction = null; 
 
 // Phaser Objects
-let scene, hexGroup, zoneGraphics, objGraphics, roadGraphics, losGraphics, unitGraphics, selectionGraphics, badgeGraphics, hexMap = {};
+let scene, hexGroup, zoneGraphics, roadGraphics, losGraphics, unitGraphics, selectionGraphics, badgeGraphics, hexMap = {};
 let unitSprites = {};
+// Store objectives group separately to manage images
+let objectiveSprites = [];
 
 // --- Phaser Config ---
 const config = {
@@ -327,6 +332,9 @@ function preloadScene() {
     this.load.image('UK_Veh', `${ASSETS_URL}counters/UK_Veh.png`);
     this.load.image('GER_Veh', `${ASSETS_URL}counters/GER_Veh.png`);
     
+    // Load Star for Objectives (Assumes star.png is in the root artwork folder)
+    this.load.image('star', `${ASSETS_URL}star.png`);
+    
     this.make.graphics({x:0,y:0,add:false}).fillStyle(0xffffff).fillRect(0,0,1,1).generateTexture('fallback', 1, 1);
 }
 
@@ -335,8 +343,6 @@ function createScene() {
     hexGroup = this.add.group(); // Depth 0
     zoneGraphics = this.add.graphics().setDepth(20); 
     roadGraphics = this.add.graphics().setDepth(100);
-    // FIX: New layer for Objectives/Victory Hexes
-    objGraphics = this.add.graphics().setDepth(150); 
     
     // Depth Ordering
     selectionGraphics = this.add.graphics().setDepth(500); // Rings BELOW units
@@ -457,7 +463,8 @@ function showUnitPanel(unit) {
         badgeContainer.appendChild(b);
     }
 
-    const terrain = hexMap[unit.q][unit.r].terrain;
+    const hex = hexMap[unit.q][unit.r];
+    const terrain = hex.terrain;
     const tProps = TERRAIN_TYPES[terrain];
     const tBadge = document.createElement('span');
     tBadge.className = 'badge badge-terrain';
@@ -466,6 +473,14 @@ function showUnitPanel(unit) {
     tBadge.style.color = (tProps.color > 0x888888) ? '#000' : '#fff';
     tBadge.onclick = () => { selectedUnit = null; selectedHex = hexMap[unit.q][unit.r]; uiUpdate(); };
     badgeContainer.appendChild(tBadge);
+
+    // FIX: Add Victory Point Badge if unit is on an objective
+    if (hex.victoryPoints) {
+        const vpBadge = document.createElement('span');
+        vpBadge.className = 'badge badge-vp';
+        vpBadge.innerText = `VP: ${hex.victoryPoints}`;
+        badgeContainer.appendChild(vpBadge);
+    }
 
     if (unit.status === 'shaken') {
         const b = document.createElement('span'); b.className = 'badge badge-shaken'; b.innerText = 'SHAKEN';
@@ -533,7 +548,19 @@ function showTerrainPanel(hex) {
     document.getElementById('ctx-title').innerText = terrain.toUpperCase();
     document.getElementById('ctx-subtitle').innerText = `COORD: ${hex.q}, ${hex.r}`;
     document.getElementById('unit-actions').style.display = 'none';
-    document.getElementById('ctx-badges').innerHTML = '';
+    
+    // FIX: Display badges in Terrain Panel (needed for VP)
+    const badgeContainer = document.getElementById('ctx-badges');
+    badgeContainer.innerHTML = '';
+
+    // FIX: Add Victory Point Badge here too
+    if (hex.victoryPoints) {
+        const vpBadge = document.createElement('span');
+        vpBadge.className = 'badge badge-vp';
+        vpBadge.innerText = `VP: ${hex.victoryPoints}`;
+        badgeContainer.appendChild(vpBadge);
+    }
+    
     document.getElementById('stack-container').style.display = 'none';
 
     const statsHtml = `
@@ -1075,8 +1102,10 @@ function displayMap() {
     
     // FIX: Use zoneGraphics instead of overlayGroup
     zoneGraphics.clear();
-    // FIX: Clear Objective Graphics
-    objGraphics.clear();
+    
+    // FIX: Clear old objective images
+    objectiveSprites.forEach(s => s.destroy());
+    objectiveSprites = [];
     
     hexMap = {};
     
@@ -1119,27 +1148,26 @@ function displayMap() {
         });
     }
 
-    // FIX: Draw Objectives (Victory Locations)
-    // 1. Check in mapData.objectives (old format/embedded)
+    // FIX: Place Star Images for Objectives
     const oldObjectives = mapData.objectives || mapData.victoryHexes || [];
-    
-    // 2. Check in scenarioData.victory.locations (new editor format)
     const newObjectives = (scenarioData && scenarioData.victory && scenarioData.victory.locations) ? scenarioData.victory.locations : [];
-    
     const allObjectives = [...oldObjectives, ...newObjectives];
 
     if (allObjectives.length > 0) {
-        objGraphics.lineStyle(3, 0xFFD700, 1); // Gold Line
         allObjectives.forEach(obj => {
-            const p = getHexPosition(obj.q, obj.r);
-            // Draw a Gold Ring inside the hex
-            objGraphics.strokeCircle(p.x, p.y, HEX_RADIUS * 0.6);
-            
-            // Optional: Draw a small star in center (simple cross for now)
-            objGraphics.beginPath();
-            objGraphics.moveTo(p.x - 5, p.y - 5); objGraphics.lineTo(p.x + 5, p.y + 5);
-            objGraphics.moveTo(p.x + 5, p.y - 5); objGraphics.lineTo(p.x - 5, p.y + 5);
-            objGraphics.strokePath();
+            if (hexMap[obj.q] && hexMap[obj.q][obj.r]) {
+                const hex = hexMap[obj.q][obj.r];
+                // Stamp VP data onto hex for UI to use later
+                hex.victoryPoints = obj.points || 100;
+
+                // Place the star image
+                if (scene.textures.exists('star')) {
+                    const star = scene.add.image(hex.x, hex.y, 'star');
+                    star.setDisplaySize(HEX_RADIUS * 0.8, HEX_RADIUS * 0.8);
+                    star.setDepth(150); // Above roads, below units
+                    objectiveSprites.push(star);
+                }
+            }
         });
     }
 
