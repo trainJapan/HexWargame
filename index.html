@@ -602,8 +602,6 @@ function loadScenario() {
     const txt = document.getElementById('json-input').value;
     try {
         scenarioData = JSON.parse(txt);
-        // Map
-        document.getElementById('cols').value = scenarioData.map.cols; // Not used but logic remains
         
         // Build Map Grid
         buildMapGrid(scenarioData.map.cols, scenarioData.map.rows, scenarioData.map.terrain);
@@ -807,3 +805,4 @@ function drawLOSLine(start, end, color) {
 </script>
 </body>
 </html>
+
