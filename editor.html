@@ -565,7 +565,7 @@ function refreshOverlays() {
         const d = HEX_RADIUS*0.75;
         
         let triColor = 0x8B0000; // fallback
-        if(u.stance === 'moving') triColor = 0x8F0017; 
+        if(u.stance === 'moving') triColor = 0x0055ff; 
         else if(u.stance === 'deployed') triColor = 0xFF0000; 
         else if(u.stance === 'cover') triColor = 0xFF8095;
         
@@ -882,6 +882,7 @@ function getHexAtPoint(wx, wy) {
 </script>
 </body>
 </html>
+
 
 
 
