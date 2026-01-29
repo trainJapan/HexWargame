@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Wargame Engine v0.9.3 - Distinct Logic States</title>
+    <title>Wargame Engine v0.9.4 - Updated UI Labels</title>
     <script src="https://cdn.jsdelivr.net/npm/phaser@3.60.0/dist/phaser.min.js"></script>
     <style>
         :root {
@@ -136,6 +136,10 @@
             padding: 4px;
             border-radius: 4px;
             background: #222;
+            /* Allow text to wrap if long like IMMOBILIZED */
+            word-wrap: break-word;
+            display: flex; align-items: center; justify-content: center;
+            min-height: 24px;
         }
 
         .ctx-title { font-size: 16px; font-weight: bold; color: white; }
@@ -447,11 +451,27 @@ function showUnitPanel(unit) {
     // -- LEFT STATUS TEXT --
     const leftEl = document.getElementById('ctx-status-left');
     let sColor = '#aaa'; let sText = "OPERATIONAL";
-    if(unit.status === 'clear') { sColor='#fff'; sText="READY"; }
-    else if(unit.status === 'shaken') { sColor='#ff4444'; sText="SHAKEN"; }
-    else if(unit.status === 'damaged') { sColor='#cc00cc'; sText="DAMAGED"; }
-    else if(unit.status === 'immobilized') { sColor='#cc00cc'; sText="IMMOB"; }
-    else if(unit.status.startsWith('suppressed')) { sColor='#ffff00'; sText="SUPP " + unit.status.split('_')[1]; }
+    
+    if(unit.status === 'clear') { 
+        sColor='#fff'; 
+        sText="OPERATIONAL"; 
+    }
+    else if(unit.status === 'shaken') { 
+        sColor='#ff4444'; 
+        sText="SHAKEN"; 
+    }
+    else if(unit.status === 'damaged') { 
+        sColor='#cc00cc'; 
+        sText="DAMAGED"; 
+    }
+    else if(unit.status === 'immobilized') { 
+        sColor='#cc00cc'; 
+        sText="IMMOBILIZED"; 
+    }
+    else if(unit.status.startsWith('suppressed')) { 
+        sColor='#ffff00'; 
+        sText="SUPPRESSED +" + unit.status.split('_')[1]; 
+    }
     
     leftEl.innerText = sText;
     leftEl.style.color = sColor;
@@ -460,10 +480,9 @@ function showUnitPanel(unit) {
     // -- RIGHT STANCE TEXT --
     const rightEl = document.getElementById('ctx-stance-right');
     
-    // LOGIC: Map internal variables to Display Text
     let stTextVal = unit.stance || 'deployed';
     if(unit.stance === 'cover') stTextVal = 'Cover';
-    if(unit.stance === 'setup') stTextVal = 'Set Up'; // NEW DISTINCT STATE
+    if(unit.stance === 'setup') stTextVal = 'Set Up';
     if(unit.stance === 'moving') stTextVal = 'Moving';
     
     let stColor = '#fff';
@@ -546,7 +565,7 @@ function showUnitPanel(unit) {
             let stText = "Deployed";
             if(u.stance === 'moving') stText = "Moving";
             else if(u.stance === 'cover') stText = "Cover";
-            else if(u.stance === 'setup') stText = "Set Up"; // NEW DISTINCT STATE
+            else if(u.stance === 'setup') stText = "Set Up";
             else if(u.stance === 'deployed') stText = "Deployed";
             
             // Resolve Status for Stack List
@@ -556,7 +575,7 @@ function showUnitPanel(unit) {
             else if(u.status === 'damaged') { statText="Damaged"; statColor="#cc00cc"; }
             else if(u.status === 'immobilized') { statText="Immobilized"; statColor="#cc00cc"; }
             else if(u.status.startsWith('suppressed')) { 
-                statText="Suppressed " + u.status.split('_')[1]; 
+                statText="Suppressed +" + u.status.split('_')[1]; 
                 statColor="#ffff00"; 
             }
 
