@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Wargame Engine v0.9.0 - Advanced States</title>
+    <title>Wargame Engine v0.9.3 - Distinct Logic States</title>
     <script src="https://cdn.jsdelivr.net/npm/phaser@3.60.0/dist/phaser.min.js"></script>
     <style>
         :root {
@@ -113,7 +113,6 @@
             min-height: 140px;
         }
         
-        /* New Container for Left Status | Image | Right Stance */
         .ctx-header-row {
             display: flex;
             align-items: center;
@@ -129,7 +128,6 @@
         }
         .ctx-portrait img { width: 100%; height: 100%; object-fit: contain; }
 
-        /* Side Info Text */
         .ctx-side-info {
             width: 60px;
             font-size: 10px;
@@ -399,7 +397,6 @@ function updateScene() {
 
 // --- Helper: Asset Keys & Logic ---
 function getUnitKey(unit) {
-    // Fallback if category missing
     if(!unit.category) unit.category = unit.unitType; 
     
     const isVeh = (unit.category === 'vehicle' || unit.category === 'hwt');
@@ -442,7 +439,6 @@ function showUnitPanel(unit) {
     document.getElementById('ctx-img').innerHTML = `<img src="${getUnitImageURL(unit)}">`;
     const side = unit.side === 'blue' ? 'UK' : 'German';
     
-    // Nice Display Name
     let catName = unit.category ? unit.category.charAt(0).toUpperCase() + unit.category.slice(1) : "Unit";
     document.getElementById('ctx-title').innerText = `${side} ${catName}`;
     document.getElementById('ctx-subtitle').innerText = `${unit.category.toUpperCase()} PLATOON`;
@@ -463,12 +459,19 @@ function showUnitPanel(unit) {
 
     // -- RIGHT STANCE TEXT --
     const rightEl = document.getElementById('ctx-stance-right');
-    let stColor = '#fff'; let stText = (unit.stance || 'deployed').toUpperCase();
+    
+    // LOGIC: Map internal variables to Display Text
+    let stTextVal = unit.stance || 'deployed';
+    if(unit.stance === 'cover') stTextVal = 'Cover';
+    if(unit.stance === 'setup') stTextVal = 'Set Up'; // NEW DISTINCT STATE
+    if(unit.stance === 'moving') stTextVal = 'Moving';
+    
+    let stColor = '#fff';
     if(unit.stance === 'moving') stColor = '#0055ff';
     else if(unit.stance === 'deployed') stColor = '#ff0000';
-    else if(unit.stance === 'cover') stColor = '#ff8095';
+    else if(unit.stance === 'cover' || unit.stance === 'setup') stColor = '#ff8095';
     
-    rightEl.innerText = stText;
+    rightEl.innerText = stTextVal.toUpperCase();
     rightEl.style.color = stColor;
     rightEl.style.border = `1px solid ${stColor}`;
 
@@ -538,12 +541,32 @@ function showUnitPanel(unit) {
             item.className = 'stack-item';
             if (u === unit) item.style.borderColor = 'var(--accent)';
             const facingDir = ["N","NE","SE","S","SW","NW"][u.facing];
+            
+            // Resolve Stance for Stack List
+            let stText = "Deployed";
+            if(u.stance === 'moving') stText = "Moving";
+            else if(u.stance === 'cover') stText = "Cover";
+            else if(u.stance === 'setup') stText = "Set Up"; // NEW DISTINCT STATE
+            else if(u.stance === 'deployed') stText = "Deployed";
+            
+            // Resolve Status for Stack List
+            let statText = "Operational";
+            let statColor = "#fff";
+            if(u.status === 'shaken') { statText="Shaken"; statColor="#ff4444"; }
+            else if(u.status === 'damaged') { statText="Damaged"; statColor="#cc00cc"; }
+            else if(u.status === 'immobilized') { statText="Immobilized"; statColor="#cc00cc"; }
+            else if(u.status.startsWith('suppressed')) { 
+                statText="Suppressed " + u.status.split('_')[1]; 
+                statColor="#ffff00"; 
+            }
+
             item.innerHTML = `
                 <img class="stack-img" src="${getUnitImageURL(u)}">
                 <div class="stack-info">
                     <div style="font-weight:bold; color:white;">${u.category.toUpperCase()}</div>
                     <div>MP: ${u.mp} | Face: ${facingDir}</div>
-                    <div>Stance: ${(u.stance||'dep').substr(0,3).toUpperCase()}</div>
+                    <div>Stance: ${stText}</div>
+                    <div style="color:${statColor}; font-weight:bold; font-size:10px;">Status: ${statText}</div>
                 </div>
             `;
             item.onclick = () => { selectUnitInStack(u); };
@@ -833,7 +856,7 @@ function drawFacingIndicator(unit, pos) {
     let triColor = 0xffffff;
     if(unit.stance === 'moving') triColor = 0x0055ff;
     else if(unit.stance === 'deployed') triColor = 0xff0000;
-    else if(unit.stance === 'cover') triColor = 0xff8095;
+    else if(unit.stance === 'cover' || unit.stance === 'setup') triColor = 0xff8095;
 
     unitGraphics.fillStyle(triColor, 1);
     const size = 8;
@@ -1089,6 +1112,10 @@ function loadScenario() {
                 u.isFixed = true; 
                 if(!u.category) u.category = u.type; // Backwards compat
                 if(!u.stance) u.stance = 'deployed';
+                
+                // IMPORTANT LOGIC: Split "cover" based on category
+                if(u.stance === 'cover' && u.category === 'hwt') u.stance = 'setup';
+                
                 units.push(u);
             });
         }
