@@ -564,7 +564,7 @@ function refreshOverlays() {
         const a = Phaser.Math.DegToRad([-90,-30,30,90,150,-150][u.facing]);
         const d = HEX_RADIUS*0.75;
         
-        let triColor = 0x8B0000; // fallback
+        let triColor = 0xFFFFFF; // fallback
         if(u.stance === 'moving') triColor = 0x0055ff; 
         else if(u.stance === 'deployed') triColor = 0xFF0000; 
         else if(u.stance === 'cover') triColor = 0xFF8095;
@@ -882,6 +882,7 @@ function getHexAtPoint(wx, wy) {
 </script>
 </body>
 </html>
+
 
 
 
