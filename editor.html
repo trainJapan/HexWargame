@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Wargame Editor v2.6 - Fixed LOS Heights</title>
+    <title>Wargame Editor v2.7 - Advanced Unit States</title>
     <script src="https://cdn.jsdelivr.net/npm/phaser@3.60.0/dist/phaser.min.js"></script>
     <style>
         :root {
@@ -78,7 +78,7 @@
 <body>
 
 <div class="panel" style="border-left:none;">
-    <div style="padding:10px; background:#222; border-bottom:1px solid #444; font-weight:bold; color:var(--accent);">MAP EDITOR</div>
+    <div style="padding:10px; background:#222; border-bottom:1px solid #444; font-weight:bold; color:var(--accent);">MAP EDITOR v2.7</div>
     <div style="padding:10px; overflow-y:auto; flex-grow:1;">
         
         <div class="grid-2">
@@ -88,8 +88,8 @@
         <div id="los-options" style="display:none; margin-top:5px; background:#222; padding:5px; border:1px solid #4488ff;">
             <div class="label" style="color:#4488ff">LOS MODE</div>
             <div class="grid-2">
-                <button class="btn btn-mini" onclick="setLOSType('infantry')" id="los-btn-inf">INFANTRY</button>
-                <button class="btn btn-mini" onclick="setLOSType('vehicle')" id="los-btn-veh">VEHICLE</button>
+                <button class="btn btn-mini" onclick="setLOSType('infantry')" id="los-btn-inf">INFANTRY HT</button>
+                <button class="btn btn-mini" onclick="setLOSType('vehicle')" id="los-btn-veh">VEHICLE HT</button>
             </div>
         </div>
 
@@ -117,14 +117,34 @@
         <div class="section-header">PLACE UNIT</div>
         <div class="grid-2">
             <select id="placer-side"><option value="blue">UK</option><option value="red">GERMAN</option></select>
-            <select id="placer-type"><option value="infantry">Infantry</option><option value="vehicle">Vehicle</option></select>
+            <select id="placer-cat">
+                <option value="squad">Squad (Inf)</option>
+                <option value="team">Weapon Team (Inf)</option>
+                <option value="hwt">Heavy Wpn Team (HWT)</option>
+                <option value="vehicle">Vehicle (Veh)</option>
+            </select>
         </div>
-        <select id="placer-status">
-            <option value="clear">Ready</option>
-            <option value="shaken">Shaken</option>
-            <option value="damaged">Damaged (Veh)</option>
-            <option value="immobilized">Immobilized (Veh)</option>
-        </select>
+        
+        <div class="grid-2">
+            <div>
+                <label class="label">STANCE</label>
+                <select id="placer-stance">
+                    <option value="moving">Moving</option>
+                    <option value="deployed">Deployed</option>
+                    <option value="cover">Cover / Set Up</option>
+                </select>
+            </div>
+            <div>
+                <label class="label">STATUS</label>
+                <select id="placer-status">
+                    <option value="clear">Operational</option>
+                    <option value="suppressed">Suppressed</option>
+                    <option value="shaken">Shaken</option>
+                    <option value="damaged">Damaged (Veh)</option>
+                    <option value="immobilized">Immob (Veh)</option>
+                </select>
+            </div>
+        </div>
         <button id="btn-unit" class="btn btn-primary" onclick="setMode('unit')">PLACE UNIT</button>
 
         <div class="section-header">HEX INSPECTOR</div>
@@ -177,7 +197,12 @@
         <div class="section-header">COUNTER TRAY</div>
         <div class="grid-2">
             <select id="tray-side"><option value="blue">UK</option><option value="red">GERMAN</option></select>
-            <select id="tray-type"><option value="infantry">Infantry</option><option value="vehicle">Vehicle</option></select>
+            <select id="tray-cat">
+                <option value="squad">Squad</option>
+                <option value="team">Weapon Team</option>
+                <option value="hwt">Heavy Wpn Team</option>
+                <option value="vehicle">Vehicle</option>
+            </select>
         </div>
         <button class="btn btn-primary" onclick="addTrayUnit()">+ Add to Tray</button>
         
@@ -191,7 +216,12 @@
         <div class="section-header">REINFORCEMENTS</div>
         <div class="grid-2">
             <select id="reinf-side"><option value="blue">UK</option><option value="red">GER</option></select>
-            <select id="reinf-type"><option value="infantry">Infantry</option><option value="vehicle">Vehicle</option></select>
+            <select id="reinf-cat">
+                <option value="squad">Squad</option>
+                <option value="team">Weapon Team</option>
+                <option value="hwt">Heavy Wpn Team</option>
+                <option value="vehicle">Vehicle</option>
+            </select>
         </div>
         <div class="grid-3">
             <div><label class="label">TURN</label><input type="number" id="reinf-turn" value="3"></div>
@@ -231,7 +261,7 @@
 </div>
 
 <script>
-// --- GAME DATA (Exact match) ---
+// --- GAME DATA ---
 const ASSETS_URL = 'https://raw.githubusercontent.com/trainJapan/HexWargame/main/artwork/';
 const TERRAIN_TYPES = {
     'clear':      { color: 0x98FB98, los: 'clear',     cost: 1,   terrainHeight: 0, infantryUsable: 0, vehicleUsable: 0 },
@@ -354,10 +384,12 @@ function handleMapClick(pointer) {
         refreshOverlays();
     }
     else if (currentMode === 'unit') {
+        const cat = document.getElementById('placer-cat').value;
         units.push({
             id: idCounter++, 
             side: document.getElementById('placer-side').value, 
-            unitType: document.getElementById('placer-type').value, 
+            category: cat,
+            stance: document.getElementById('placer-stance').value,
             q: hex.q, r: hex.r,
             facing: 0, 
             status: document.getElementById('placer-status').value, 
@@ -390,14 +422,19 @@ function updateInspector() {
 
     let html = `<div style="font-size:11px; margin-bottom:5px; color:#aaa;">HEX [${selectedHex.q}, ${selectedHex.r}] (${displayUnits.length} Units)</div>`;
     html += displayUnits.map(u => {
-        let name = (u.side==='blue' ? 'UK ' : 'GER ') + u.unitType.charAt(0).toUpperCase() + u.unitType.slice(1);
-        let imgKey = (u.side==='blue' ? 'UK_' : 'GER_') + (u.unitType==='infantry'?'Inf':'Veh');
+        let name = (u.side==='blue' ? 'UK ' : 'GER ') + u.category.charAt(0).toUpperCase() + u.category.slice(1);
+        // Map category to Image
+        let isVeh = (u.category === 'vehicle' || u.category === 'hwt');
+        let imgKey = (u.side==='blue' ? 'UK_' : 'GER_') + (isVeh?'Veh':'Inf');
         let facingDir = ["N","NE","SE","S","SW","NW"][u.facing];
         return `
         <div class="list-item" onclick="promoteUnit(${u.id})">
             <div style="display:flex; align-items:center;">
                 <img src="${ASSETS_URL}counters/${imgKey}.png" class="item-icon">
-                <div class="item-info"><div class="item-title">${name}</div><div class="item-meta">Face: ${facingDir} | ${u.status}</div></div>
+                <div class="item-info">
+                    <div class="item-title">${name}</div>
+                    <div class="item-meta">${u.stance} | ${u.status}</div>
+                </div>
             </div>
             <div><button class="btn-mini" onclick="event.stopPropagation(); rotateUnit(${u.id})">↻</button><button class="btn-mini btn-danger-mini" onclick="event.stopPropagation(); deleteUnit(${u.id})">X</button></div>
         </div>`;
@@ -473,23 +510,41 @@ function refreshOverlays() {
 
     units.forEach(u => {
         const p = getHexPoly(u.q, u.r);
-        let key = (u.side==='blue'?'UK_':'GER_') + (u.unitType==='infantry'?'Inf':'Veh');
+        // Logic: HWT & Vehicles use Vehicle Icon. Squad & Team use Inf icon.
+        let isVeh = (u.category === 'vehicle' || u.category === 'hwt');
+        let key = (u.side==='blue'?'UK_':'GER_') + (isVeh?'Veh':'Inf');
+        
         overlayGroup.add(scene.add.image(p.x, p.y, key).setDisplaySize(HEX_RADIUS*1.25, HEX_RADIUS*1.25));
 
+        // Facing Triangle Color based on Stance
         const arrow = scene.add.graphics();
         const a = Phaser.Math.DegToRad([-90,-30,30,90,150,-150][u.facing]);
         const d = HEX_RADIUS*0.75;
-        arrow.fillStyle(0x8B0000).fillTriangle(
+        
+        let triColor = 0x8B0000; // fallback
+        if(u.stance === 'moving') triColor = 0x00cc00; // Green
+        else if(u.stance === 'deployed') triColor = 0x4488ff; // Light Blue
+        else if(u.stance === 'cover') triColor = 0x000088; // Dark Blue
+        
+        arrow.fillStyle(triColor).fillTriangle(
             p.x+Math.cos(a)*d, p.y+Math.sin(a)*d,
             p.x+Math.cos(a)*d + Math.cos(a+2.5)*8, p.y+Math.sin(a)*d + Math.sin(a+2.5)*8,
             p.x+Math.cos(a)*d + Math.cos(a-2.5)*8, p.y+Math.sin(a)*d + Math.sin(a-2.5)*8
         );
         overlayGroup.add(arrow);
 
+        // Status Box Color (White=Operational, Yellow=Suppressed, Red=Shaken, Purple=Damaged/Immob)
         if (u.status !== 'clear') {
             const bx = p.x+15; const by = p.y+15;
-            overlayGroup.add(scene.add.graphics().fillStyle(0xcc0000).fillRect(bx-6, by-6, 12, 12).lineStyle(1,0xffffff).strokeRect(bx-6,by-6,12,12));
-            overlayGroup.add(scene.add.text(bx, by, "!", {font:'10px Arial', fill:'#fff'}).setOrigin(0.5));
+            let statColor = 0xffffff;
+            let label = "!";
+            
+            if(u.status === 'suppressed') { statColor = 0xffff00; label="S"; }
+            else if(u.status === 'shaken') { statColor = 0xff0000; label="!"; }
+            else if(u.status === 'damaged' || u.status === 'immobilized') { statColor = 0x8800cc; label="X"; }
+
+            overlayGroup.add(scene.add.graphics().fillStyle(statColor).fillRect(bx-6, by-6, 12, 12).lineStyle(1,0x000000).strokeRect(bx-6,by-6,12,12));
+            overlayGroup.add(scene.add.text(bx, by, label, {font:'9px Arial', fill:'#000', fontWeight:'bold'}).setOrigin(0.5));
         }
 
         const stack = stacks[`${u.q},${u.r}`];
@@ -663,8 +718,9 @@ function calculateLOS(startHex, targetHex, unitType = 'infantry') {
 
 function updateLists() {
     const renderUnitItem = (u, meta, delFn) => {
-        let name = (u.side==='blue' ? 'UK ' : 'GER ') + u.type.charAt(0).toUpperCase() + u.type.slice(1);
-        let imgKey = (u.side==='blue' ? 'UK_' : 'GER_') + (u.type==='infantry'?'Inf':'Veh');
+        let name = (u.side==='blue' ? 'UK ' : 'GER ') + u.category.charAt(0).toUpperCase() + u.category.slice(1);
+        let isVeh = (u.category === 'vehicle' || u.category === 'hwt');
+        let imgKey = (u.side==='blue' ? 'UK_' : 'GER_') + (isVeh?'Veh':'Inf');
         return `
         <div class="list-item">
             <div style="display:flex; align-items:center;">
@@ -694,8 +750,8 @@ function updateLists() {
     document.getElementById('list-vl').innerHTML = victoryLocations.map(v => `<div class="list-item"><div class="item-info"><div class="item-title">Hex [${v.q},${v.r}]</div><div class="item-meta">${v.points} Pts</div></div><span class="del-x" onclick="remVL(${v.q},${v.r})">X</span></div>`).join('');
 }
 
-window.addTrayUnit = () => { trayUnits.push({ id: idCounter++, side: document.getElementById('tray-side').value, type: document.getElementById('tray-type').value }); updateLists(); };
-window.addReinf = () => { reinforcements.push({ id: idCounter++, side: document.getElementById('reinf-side').value, type: document.getElementById('reinf-type').value, turn: document.getElementById('reinf-turn').value, chance: document.getElementById('reinf-chance').value, locType: document.getElementById('reinf-loc-type').value, locVal: document.getElementById('reinf-val').value }); updateLists(); };
+window.addTrayUnit = () => { trayUnits.push({ id: idCounter++, side: document.getElementById('tray-side').value, category: document.getElementById('tray-cat').value }); updateLists(); };
+window.addReinf = () => { reinforcements.push({ id: idCounter++, side: document.getElementById('reinf-side').value, category: document.getElementById('reinf-cat').value, turn: document.getElementById('reinf-turn').value, chance: document.getElementById('reinf-chance').value, locType: document.getElementById('reinf-loc-type').value, locVal: document.getElementById('reinf-val').value }); updateLists(); };
 window.addOffBoard = () => { offBoardAssets.push({ id: idCounter++, type: document.getElementById('off-type').value, side: document.getElementById('off-side').value, turn: document.getElementById('off-turn').value, chance: document.getElementById('off-chance').value }); updateLists(); };
 window.remTray = (id) => { trayUnits = trayUnits.filter(u=>u.id!==id); updateLists(); };
 window.remReinf = (id) => { reinforcements = reinforcements.filter(u=>u.id!==id); updateLists(); };
@@ -735,8 +791,18 @@ window.loadJSON = () => {
         roadSegments = data.map.roads || [];
         units = data.units.locked || []; trayUnits = data.units.tray || []; reinforcements = data.units.reinforcements || [];
         if(data.victory) victoryLocations = data.victory.locations || [];
+        
+        // BACKWARD COMPATIBILITY: Map old 'type' to new 'category' and default stance
+        [...units, ...trayUnits, ...reinforcements].forEach(u => {
+            if(u.type && !u.category) {
+                 u.category = u.type; // Map old 'infantry'/'vehicle' to category
+                 delete u.type;
+            }
+            if(!u.stance) u.stance = "deployed"; 
+        });
+
         updateLists(); refreshOverlays(); toggleModal();
-    } catch(e) { alert("Invalid JSON"); }
+    } catch(e) { alert("Invalid JSON: " + e.message); }
 }
 
 function exportScenario() {
