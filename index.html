@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Wargame Engine v0.8.6 - Stars & VP Badges</title>
+    <title>Wargame Engine v0.9.0 - Advanced States</title>
     <script src="https://cdn.jsdelivr.net/npm/phaser@3.60.0/dist/phaser.min.js"></script>
     <style>
         :root {
@@ -113,12 +113,32 @@
             min-height: 140px;
         }
         
+        /* New Container for Left Status | Image | Right Stance */
+        .ctx-header-row {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            margin-bottom: 5px;
+        }
+
         .ctx-portrait {
             width: 80px; height: 80px;
-            margin: 0 auto 10px auto;
             display: flex; align-items: center; justify-content: center;
+            background: #222; border-radius: 4px; border: 1px solid #444;
         }
         .ctx-portrait img { width: 100%; height: 100%; object-fit: contain; }
+
+        /* Side Info Text */
+        .ctx-side-info {
+            width: 60px;
+            font-size: 10px;
+            font-weight: bold;
+            text-align: center;
+            padding: 4px;
+            border-radius: 4px;
+            background: #222;
+        }
 
         .ctx-title { font-size: 16px; font-weight: bold; color: white; }
         .ctx-subtitle { font-size: 12px; color: var(--accent); margin-bottom: 5px; }
@@ -127,10 +147,6 @@
         .badge { font-size: 10px; padding: 3px 8px; border-radius: 3px; font-weight: bold; cursor: default; }
         .badge-terrain { cursor: pointer; border: 1px solid rgba(255,255,255,0.2); }
         .badge-terrain:hover { border-color: white; }
-        .badge-shaken { background: #c62828; color: white; }
-        .badge-damage { background: #333; border: 1px solid #c62828; color: #ff8888; }
-        
-        /* New Victory Badge Style */
         .badge-vp { background: #000; color: #FFD700; border: 1px solid #FFD700; }
 
         /* Stats Grid */
@@ -207,16 +223,15 @@
 
     <button class="btn btn-primary" id="btn-phase" onclick="nextPhase()">Start Game</button>
     
-    <div id="left-content-area" style="flex-grow:1; overflow-y:auto; margin-top:10px;">
-        </div>
+    <div id="left-content-area" style="flex-grow:1; overflow-y:auto; margin-top:10px;"></div>
     
     <div class="panel-header" style="margin-top:10px">TOOLS</div>
     
     <div>
         <button class="btn" id="btn-los" style="width:100%" onclick="toggleLOSTool()">Line of Sight Tool</button>
         <div id="los-options" class="tool-sub-options" style="display:none;">
-            <button id="los-inf" class="btn btn-small active" onclick="setLOSType('infantry')">Infantry</button>
-            <button id="los-veh" class="btn btn-small" onclick="setLOSType('vehicle')">Vehicle</button>
+            <button id="los-inf" class="btn btn-small active" onclick="setLOSType('infantry')">Infantry Height</button>
+            <button id="los-veh" class="btn btn-small" onclick="setLOSType('vehicle')">Vehicle Height</button>
         </div>
     </div>
     
@@ -234,7 +249,12 @@
 <div id="right-panel">
     
     <div id="context-card">
-        <div class="ctx-portrait" id="ctx-img"></div>
+        <div class="ctx-header-row">
+            <div id="ctx-status-left" class="ctx-side-info" style="color:#aaa;">-</div>
+            <div class="ctx-portrait" id="ctx-img"></div>
+            <div id="ctx-stance-right" class="ctx-side-info" style="color:#aaa;">-</div>
+        </div>
+
         <div class="ctx-title" id="ctx-title">No Selection</div>
         <div class="ctx-subtitle" id="ctx-subtitle">-</div>
         <div class="status-badges" id="ctx-badges"></div>
@@ -286,27 +306,27 @@ const TERRAIN_TYPES = {
 const HEX_RADIUS = 40;
 
 // Game State
-let scenarioData = null; // Store loaded JSON
-let mapData = null; // Backward compatibility for rendering logic
+let scenarioData = null; 
+let mapData = null; 
 let losTool = false;
 let losStartHex = null;
 let losUnitType = 'infantry';
 let units = [];
-let trayUnits = []; // Store units waiting for deployment
+let trayUnits = []; 
 let unitIdCounter = 2000;
 let currentTurn = 1;
-let currentPhase = 'SETUP'; // SETUP -> ACTION -> FIRE
+let currentPhase = 'SETUP'; 
 
 // Selection State
 let selectedUnit = null; 
 let selectedHex = null; 
-let selectedTrayUnit = null; // Selected from Tray
+let selectedTrayUnit = null; 
 let currentAction = null; 
 
 // Phaser Objects
 let scene, hexGroup, zoneGraphics, objGraphics, roadGraphics, losGraphics, unitGraphics, selectionGraphics, badgeGraphics, hexMap = {};
 let unitSprites = {};
-let objectiveSprites = []; // Holds the star text and graphics
+let objectiveSprites = []; 
 
 // --- Phaser Config ---
 const config = {
@@ -321,11 +341,9 @@ const config = {
 const game = new Phaser.Game(config);
 
 function preloadScene() {
-    // Load Map Tiles
     for (const [key, value] of Object.entries(TERRAIN_TYPES)) {
         for (let i = 1; i <= 3; i++) { this.load.image(`${key}${i}`, `${ASSETS_URL}map/${key}${i}.png`); }
     }
-    // Load Counters
     this.load.image('UK_Inf', `${ASSETS_URL}counters/UK_Inf.png`);
     this.load.image('GER_Inf', `${ASSETS_URL}counters/GER_Inf.png`);
     this.load.image('UK_Veh', `${ASSETS_URL}counters/UK_Veh.png`);
@@ -336,22 +354,18 @@ function preloadScene() {
 
 function createScene() {
     scene = this;
-    hexGroup = this.add.group(); // Depth 0
+    hexGroup = this.add.group(); 
     zoneGraphics = this.add.graphics().setDepth(20); 
     roadGraphics = this.add.graphics().setDepth(100);
-    // FIX: New layer for Objectives/Victory Hexes
     objGraphics = this.add.graphics().setDepth(150); 
     
-    // Depth Ordering
-    selectionGraphics = this.add.graphics().setDepth(500); // Rings BELOW units
-    losGraphics = this.add.graphics().setDepth(550);       // LOS lines
+    selectionGraphics = this.add.graphics().setDepth(500); 
+    losGraphics = this.add.graphics().setDepth(550);       
     
-    // Units are at Depth 600 (handled in sprite creation)
+    unitGraphics = this.add.graphics().setDepth(700);      
+    badgeGraphics = this.add.graphics().setDepth(800);     
     
-    unitGraphics = this.add.graphics().setDepth(700);      // Facing Arrows / Misc
-    badgeGraphics = this.add.graphics().setDepth(800);     // Stack Badges / Markers ABOVE units
-    
-    this.cameras.main.setBounds(-2000, -2000, 8000, 8000); // Expanded bounds
+    this.cameras.main.setBounds(-2000, -2000, 8000, 8000); 
     this.input.mouse.disableContextMenu();
     
     this.input.on('wheel', (pointer, gameObjects, deltaX, deltaY) => {
@@ -368,7 +382,7 @@ function createScene() {
                 addToLog("Action cancelled.", "log-info");
             }
             if (selectedTrayUnit) {
-                selectedTrayUnit = null; // Deselect tray unit on right click
+                selectedTrayUnit = null; 
                 renderTray();
             }
         }
@@ -385,20 +399,18 @@ function updateScene() {
 
 // --- Helper: Asset Keys & Logic ---
 function getUnitKey(unit) {
-    if (unit.side === 'blue' && unit.unitType === 'infantry') return 'UK_Inf';
-    if (unit.side === 'blue' && unit.unitType === 'vehicle') return 'UK_Veh';
-    if (unit.side === 'red' && unit.unitType === 'infantry') return 'GER_Inf';
-    if (unit.side === 'red' && unit.unitType === 'vehicle') return 'GER_Veh';
-    return 'fallback';
+    // Fallback if category missing
+    if(!unit.category) unit.category = unit.unitType; 
+    
+    const isVeh = (unit.category === 'vehicle' || unit.category === 'hwt');
+    const suffix = isVeh ? 'Veh' : 'Inf';
+    const side = unit.side === 'blue' ? 'UK' : 'GER';
+    return `${side}_${suffix}`;
 }
 
 function getUnitImageURL(unit) {
-    let file = '';
-    if (unit.side === 'blue' && unit.unitType === 'infantry') file = 'UK_Inf.png';
-    else if (unit.side === 'blue' && unit.unitType === 'vehicle') file = 'UK_Veh.png';
-    else if (unit.side === 'red' && unit.unitType === 'infantry') file = 'GER_Inf.png';
-    else if (unit.side === 'red' && unit.unitType === 'vehicle') file = 'GER_Veh.png';
-    return `${ASSETS_URL}counters/${file}`;
+    const key = getUnitKey(unit);
+    return `${ASSETS_URL}counters/${key}.png`;
 }
 
 // --- UI Logic ---
@@ -408,18 +420,15 @@ function uiUpdate() {
     unitGraphics.clear();
     badgeGraphics.clear();
     
-    // Clear old text badges
     scene.children.list.filter(c => c.name === 'badgeText').forEach(c => c.destroy());
 
-    redrawAllUnits(); // Redraw units and badges
+    redrawAllUnits(); 
     
-    // Draw Terrain Selection Ring (White)
     if (!selectedUnit && selectedHex) {
         selectionGraphics.lineStyle(3, 0xffffff, 1);
         selectionGraphics.strokeCircle(selectedHex.x, selectedHex.y, HEX_RADIUS - 5);
     }
 
-    // Update Right Panel
     if (selectedUnit) {
         showUnitPanel(selectedUnit);
     } else if (selectedHex) {
@@ -432,22 +441,45 @@ function uiUpdate() {
 function showUnitPanel(unit) {
     document.getElementById('ctx-img').innerHTML = `<img src="${getUnitImageURL(unit)}">`;
     const side = unit.side === 'blue' ? 'UK' : 'German';
-    document.getElementById('ctx-title').innerText = `${side} ${unit.unitType}`;
-    document.getElementById('ctx-subtitle').innerText = `${unit.unitType.toUpperCase()} PLATOON`;
+    
+    // Nice Display Name
+    let catName = unit.category ? unit.category.charAt(0).toUpperCase() + unit.category.slice(1) : "Unit";
+    document.getElementById('ctx-title').innerText = `${side} ${catName}`;
+    document.getElementById('ctx-subtitle').innerText = `${unit.category.toUpperCase()} PLATOON`;
     document.getElementById('unit-actions').style.display = 'grid';
 
-    // BUTTON TOGGLE LOGIC
+    // -- LEFT STATUS TEXT --
+    const leftEl = document.getElementById('ctx-status-left');
+    let sColor = '#aaa'; let sText = "OPERATIONAL";
+    if(unit.status === 'clear') { sColor='#fff'; sText="READY"; }
+    else if(unit.status === 'shaken') { sColor='#ff4444'; sText="SHAKEN"; }
+    else if(unit.status === 'damaged') { sColor='#cc00cc'; sText="DAMAGED"; }
+    else if(unit.status === 'immobilized') { sColor='#cc00cc'; sText="IMMOB"; }
+    else if(unit.status.startsWith('suppressed')) { sColor='#ffff00'; sText="SUPP " + unit.status.split('_')[1]; }
+    
+    leftEl.innerText = sText;
+    leftEl.style.color = sColor;
+    leftEl.style.border = `1px solid ${sColor}`;
+
+    // -- RIGHT STANCE TEXT --
+    const rightEl = document.getElementById('ctx-stance-right');
+    let stColor = '#fff'; let stText = (unit.stance || 'deployed').toUpperCase();
+    if(unit.stance === 'moving') stColor = '#0055ff';
+    else if(unit.stance === 'deployed') stColor = '#ff0000';
+    else if(unit.stance === 'cover') stColor = '#ff8095';
+    
+    rightEl.innerText = stText;
+    rightEl.style.color = stColor;
+    rightEl.style.border = `1px solid ${stColor}`;
+
     if (currentPhase === 'SETUP') {
-        // Hide Game Buttons
         document.querySelectorAll('.btn-game').forEach(b => b.style.display = 'none');
-        // Show Setup Buttons ONLY if not fixed
         if (!unit.isFixed) {
             document.querySelectorAll('.btn-setup').forEach(b => b.style.display = 'block');
         } else {
             document.querySelectorAll('.btn-setup').forEach(b => b.style.display = 'none');
         }
     } else {
-        // Game Phase: Show Game Buttons, Hide Setup
         document.querySelectorAll('.btn-game').forEach(b => b.style.display = 'block');
         document.querySelectorAll('.btn-setup').forEach(b => b.style.display = 'none');
     }
@@ -455,7 +487,6 @@ function showUnitPanel(unit) {
     const badgeContainer = document.getElementById('ctx-badges');
     badgeContainer.innerHTML = '';
     
-    // FIX: Only show "FIXED" badge during Setup
     if (unit.isFixed && currentPhase === 'SETUP') {
         const b = document.createElement('span'); b.className = 'badge'; b.style.background = '#555'; b.innerText = 'FIXED';
         badgeContainer.appendChild(b);
@@ -472,7 +503,6 @@ function showUnitPanel(unit) {
     tBadge.onclick = () => { selectedUnit = null; selectedHex = hexMap[unit.q][unit.r]; uiUpdate(); };
     badgeContainer.appendChild(tBadge);
 
-    // FIX: Add Victory Point Badge if unit is on an objective
     if (hex.victoryPoints) {
         const vpBadge = document.createElement('span');
         vpBadge.className = 'badge badge-vp';
@@ -480,10 +510,6 @@ function showUnitPanel(unit) {
         badgeContainer.appendChild(vpBadge);
     }
 
-    if (unit.status === 'shaken') {
-        const b = document.createElement('span'); b.className = 'badge badge-shaken'; b.innerText = 'SHAKEN';
-        badgeContainer.appendChild(b);
-    }
     if (unit.hp < 5) {
         const b = document.createElement('span'); b.className = 'badge badge-damage'; b.innerText = `DMG -${5-unit.hp}`;
         badgeContainer.appendChild(b);
@@ -499,7 +525,6 @@ function showUnitPanel(unit) {
     document.getElementById('stats-header').innerText = 'UNIT STATISTICS';
     document.getElementById('stats-content').innerHTML = statsHtml;
 
-    // Stack Selector Logic
     const stack = units.filter(u => u.q === unit.q && u.r === unit.r && u.hp > 0);
     const stackDiv = document.getElementById('stack-container');
     const stackList = document.getElementById('stack-list');
@@ -507,23 +532,18 @@ function showUnitPanel(unit) {
     if (stack.length > 1) {
         stackDiv.style.display = 'block';
         stackList.innerHTML = '';
-        
-        // REVERSE order for list so TOP unit is FIRST
         const renderStack = [...stack].reverse();
-        
         renderStack.forEach(u => {
             const item = document.createElement('div');
             item.className = 'stack-item';
             if (u === unit) item.style.borderColor = 'var(--accent)';
-            
             const facingDir = ["N","NE","SE","S","SW","NW"][u.facing];
-            
             item.innerHTML = `
                 <img class="stack-img" src="${getUnitImageURL(u)}">
                 <div class="stack-info">
-                    <div style="font-weight:bold; color:white;">${u.unitType.toUpperCase()}</div>
+                    <div style="font-weight:bold; color:white;">${u.category.toUpperCase()}</div>
                     <div>MP: ${u.mp} | Face: ${facingDir}</div>
-                    <div>Morale: Steady</div>
+                    <div>Stance: ${(u.stance||'dep').substr(0,3).toUpperCase()}</div>
                 </div>
             `;
             item.onclick = () => { selectUnitInStack(u); };
@@ -538,20 +558,17 @@ function showTerrainPanel(hex) {
     const terrain = hex.terrain;
     const props = TERRAIN_TYPES[terrain];
     const variant = hex.variant || 1;
-    
-    // Display Terrain Tile Image
     const imgUrl = `${ASSETS_URL}map/${terrain}${variant}.png`;
     document.getElementById('ctx-img').innerHTML = `<img src="${imgUrl}">`;
-    
     document.getElementById('ctx-title').innerText = terrain.toUpperCase();
     document.getElementById('ctx-subtitle').innerText = `COORD: ${hex.q}, ${hex.r}`;
     document.getElementById('unit-actions').style.display = 'none';
     
-    // FIX: Display badges in Terrain Panel (needed for VP)
+    document.getElementById('ctx-status-left').innerText = ""; document.getElementById('ctx-status-left').style.border="none";
+    document.getElementById('ctx-stance-right').innerText = ""; document.getElementById('ctx-stance-right').style.border="none";
+
     const badgeContainer = document.getElementById('ctx-badges');
     badgeContainer.innerHTML = '';
-    
-    // Standard Terrain Badge
     const tBadge = document.createElement('span');
     tBadge.className = 'badge badge-terrain';
     tBadge.innerText = terrain.toUpperCase();
@@ -559,7 +576,6 @@ function showTerrainPanel(hex) {
     tBadge.style.color = (props.color > 0x888888) ? '#000' : '#fff';
     badgeContainer.appendChild(tBadge);
 
-    // FIX: Add Victory Point Badge here too
     if (hex.victoryPoints) {
         const vpBadge = document.createElement('span');
         vpBadge.className = 'badge badge-vp';
@@ -568,7 +584,6 @@ function showTerrainPanel(hex) {
     }
     
     document.getElementById('stack-container').style.display = 'none';
-
     const statsHtml = `
         <div class="stat-row"><span class="stat-label">Move Cost:</span> <span class="stat-value">${props.cost}</span></div>
         <div class="stat-row"><span class="stat-label">Height:</span> <span class="stat-value">${props.terrainHeight}</span></div>
@@ -588,12 +603,13 @@ function clearContextPanel() {
     document.getElementById('unit-actions').style.display = 'none';
     document.getElementById('stats-content').innerHTML = '';
     document.getElementById('stack-container').style.display = 'none';
+    document.getElementById('ctx-status-left').innerText = ""; document.getElementById('ctx-status-left').style.border="none";
+    document.getElementById('ctx-stance-right').innerText = ""; document.getElementById('ctx-stance-right').style.border="none";
 }
 
 function selectUnitInStack(unit) {
     selectedUnit = unit;
-    selectedHex = null; // Clear terrain
-    // Move to end of array so it draws on top
+    selectedHex = null; 
     units = units.filter(u => u !== unit);
     units.push(unit);
     uiUpdate();
@@ -605,10 +621,8 @@ function handleLeftClick(pointer) {
     const hex = getHexAtPoint(pointer.worldX, pointer.worldY);
     if (!hex) { selectedUnit = null; selectedHex = null; uiUpdate(); return; }
 
-    // 1. LOS Tool (Priority)
     if (losTool) { handleLOSToolClick(hex); return; }
 
-    // 2. SETUP PHASE DEPLOYMENT
     if (currentPhase === 'SETUP' && selectedTrayUnit) {
         deployTrayUnit(selectedTrayUnit, hex);
         return;
@@ -616,7 +630,6 @@ function handleLeftClick(pointer) {
 
     const hexUnits = units.filter(u => u.q === hex.q && u.r === hex.r && u.hp > 0);
 
-    // ACTION MODE (Standard Game + Setup Rotation)
     if (currentAction && selectedUnit) {
         if (currentAction === 'FIRE') {
             const target = hexUnits.find(u => u.side !== selectedUnit.side);
@@ -629,18 +642,10 @@ function handleLeftClick(pointer) {
         return;
     }
 
-    // SELECTION MODE
     if (hexUnits.length > 0) {
-        // Select top unit (last in array)
         const topUnit = hexUnits[hexUnits.length - 1];
         selectUnitInStack(topUnit);
-        
-        // Setup Phase Logic check
-        if (currentPhase === 'SETUP' && topUnit.isFixed) {
-            // Can select, but no buttons will show (handled in uiUpdate)
-        }
     } else {
-        // Empty Hex -> Select Terrain
         selectedUnit = null;
         selectedHex = hex;
         uiUpdate();
@@ -663,23 +668,25 @@ function renderTray() {
         item.className = 'tray-item';
         if (selectedTrayUnit === u) item.classList.add('selected');
         
-        let imgKey = (u.side==='blue'?'UK_':'GER_') + (u.type==='infantry'?'Inf':'Veh');
+        let cat = u.category || u.type;
+        let isVeh = (cat==='vehicle' || cat==='hwt');
+        let imgKey = (u.side==='blue'?'UK_':'GER_') + (isVeh?'Veh':'Inf');
+        
         item.innerHTML = `
             <img src="${ASSETS_URL}counters/${imgKey}.png" class="tray-icon">
             <div>
-                <div style="font-weight:bold; font-size:12px; color:#fff">${(u.side==='blue'?'UK ':'GER ') + u.type.toUpperCase()}</div>
+                <div style="font-weight:bold; font-size:12px; color:#fff">${(u.side==='blue'?'UK ':'GER ') + cat.toUpperCase()}</div>
                 <div style="font-size:10px; color:#aaa">Click map to deploy</div>
             </div>
         `;
-        // Toggle Selection logic
         item.onclick = () => {
             if (selectedTrayUnit === u) {
-                selectedTrayUnit = null; // Toggle off
+                selectedTrayUnit = null; 
                 renderTray();
             } else {
                 selectedTrayUnit = u;
-                selectedUnit = null; // Deselect map unit
-                renderTray(); // Update highlights
+                selectedUnit = null; 
+                renderTray(); 
                 addToLog("Select a valid Zone Hex to deploy.", "log-info");
             }
         };
@@ -688,7 +695,6 @@ function renderTray() {
 }
 
 function deployTrayUnit(uData, hex) {
-    // Check Zone
     let valid = false;
     if (uData.side === 'blue' && hex.setupZone === 'blue') valid = true;
     if (uData.side === 'red' && hex.setupZone === 'red') valid = true;
@@ -698,45 +704,42 @@ function deployTrayUnit(uData, hex) {
         return;
     }
 
-    // Create Unit (isFixed = false)
+    // New Unit: Forces Stance=Deployed, Status=Clear
     const newUnit = {
         id: unitIdCounter++,
         side: uData.side,
-        unitType: uData.type,
+        unitType: uData.type, // Legacy
+        category: uData.category || uData.type,
         q: hex.q, r: hex.r,
-        facing: 0, status: 'clear',
+        facing: 0, 
+        status: 'clear', 
+        stance: 'deployed',
         mp: 6, maxMp: 6, hp: 5, fp: 3, range: 6,
         isFixed: false
     };
     units.push(newUnit);
     
-    // Remove from Tray
     trayUnits = trayUnits.filter(t => t !== uData);
     selectedTrayUnit = null;
     
-    // Select the new unit to allow rotate/redeploy
     selectUnitInStack(newUnit);
-    displayMap(); // Re-render map/zones/units
-    renderTray(); // Updates list
+    displayMap(); 
+    renderTray(); 
     uiUpdate();
-    addToLog(`${newUnit.unitType} deployed.`);
+    addToLog(`${newUnit.category} deployed.`);
 }
 
 function redeployUnit() {
     if (!selectedUnit || currentPhase !== 'SETUP' || selectedUnit.isFixed) return;
-    
-    // Create minimal tray object
     const trayObj = {
         id: selectedUnit.id, 
         side: selectedUnit.side,
-        type: selectedUnit.unitType
+        type: selectedUnit.unitType,
+        category: selectedUnit.category
     };
     trayUnits.push(trayObj);
-    
-    // Remove from map
     units = units.filter(u => u !== selectedUnit);
     selectedUnit = null;
-    
     displayMap();
     renderTray();
     uiUpdate();
@@ -749,7 +752,6 @@ function redrawAllUnits() {
     Object.values(unitSprites).forEach(sprite => sprite.destroy());
     unitSprites = {};
     
-    // Group by hex to detect stacks
     const stackCounts = {};
     units.forEach(u => {
         if(u.hp <= 0) return;
@@ -757,52 +759,67 @@ function redrawAllUnits() {
         stackCounts[key] = (stackCounts[key] || 0) + 1;
     });
 
-    // Draw units in array order
     units.forEach(unit => {
         if (unit.hp <= 0) return;
         const pos = getHexPosition(unit.q, unit.r);
         
-        // 1. Sprite
         const key = getUnitKey(unit);
         if (scene.textures.exists(key)) {
             const sprite = scene.add.image(pos.x, pos.y, key);
             sprite.setDisplaySize(HEX_RADIUS * 1.25, HEX_RADIUS * 1.25);
-            sprite.setDepth(600); // Base depth for units
+            sprite.setDepth(600); 
             unitSprites[unit.id] = sprite;
         }
 
-        // 2. Selection Ring (YELLOW) - Drawn on selectionGraphics (Depth 500)
-        if (selectedUnit === unit) {
-            selectionGraphics.lineStyle(3, 0xffcc00, 1);
-            selectionGraphics.strokeCircle(pos.x, pos.y, HEX_RADIUS * 0.7);
-        }
-
-        // 3. Facing
         drawFacingIndicator(unit, pos);
 
-        // 4. Stacking Badge (+1) - Only on Top Unit
-        // Calculate isTop relative to current array order
         const isTop = (units.filter(u => u.q === unit.q && u.r === unit.r).pop() === unit);
         const count = stackCounts[`${unit.q},${unit.r}`];
         
         if (count > 1 && isTop) {
-            const badgeX = pos.x + 10; // Moved slightly left
+            const badgeX = pos.x + 10; 
             const badgeY = pos.y - 18;
-            
-            // Draw on badgeGraphics (Depth 800)
             badgeGraphics.fillStyle(0xffffff, 1);
             badgeGraphics.fillRect(badgeX, badgeY, 16, 14);
             badgeGraphics.lineStyle(1, 0x000000, 1);
             badgeGraphics.strokeRect(badgeX, badgeY, 16, 14);
-            
-            const text = scene.add.text(badgeX + 8, badgeY + 7, `+${count-1}`, { 
+            scene.add.text(badgeX + 8, badgeY + 7, `+${count-1}`, { 
                 font: '11px Arial', fill: '#000', fontStyle:'bold'
             }).setOrigin(0.5).setDepth(810).setResolution(2).setName('badgeText');
         }
 
-        // 5. Markers (Only on top unit)
         if (isTop) drawStatusMarkers(unit, pos);
     });
+
+    // Draw Selection Ring - WORST CASE LOGIC
+    if (selectedUnit || selectedHex) {
+        // Find which hex is active
+        const activeHex = selectedUnit ? hexMap[selectedUnit.q][selectedUnit.r] : selectedHex;
+        if(activeHex) {
+            const hexUnits = units.filter(u => u.q === activeHex.q && u.r === activeHex.r);
+            if(hexUnits.length > 0) {
+                // Determine Ring Color based on hierarchy
+                let ringColor = 0xffffff; // Default White
+                let worstLevel = 0; // 0=Clear, 1=Yellow, 2=Red, 3=Purple
+                
+                hexUnits.forEach(u => {
+                    let lvl = 0;
+                    if(u.status.startsWith('suppressed')) lvl = 1;
+                    if(u.status === 'shaken') lvl = 2;
+                    if(u.status === 'damaged' || u.status === 'immobilized') lvl = 3;
+                    if(lvl > worstLevel) worstLevel = lvl;
+                });
+                
+                if(worstLevel === 1) ringColor = 0xffff00; // Yellow
+                if(worstLevel === 2) ringColor = 0xff0000; // Red
+                if(worstLevel === 3) ringColor = 0xcc00cc; // Purple
+
+                const p = getHexPosition(activeHex.q, activeHex.r);
+                selectionGraphics.lineStyle(3, ringColor, 1);
+                selectionGraphics.strokeCircle(p.x, p.y, HEX_RADIUS * 0.7);
+            }
+        }
+    }
 }
 
 function drawFacingIndicator(unit, pos) {
@@ -812,7 +829,13 @@ function drawFacingIndicator(unit, pos) {
     const triX = pos.x + Math.cos(angleRad) * indicatorDist;
     const triY = pos.y + Math.sin(angleRad) * indicatorDist;
 
-    unitGraphics.fillStyle(0x8B0000, 1);
+    // Stance Colors
+    let triColor = 0xffffff;
+    if(unit.stance === 'moving') triColor = 0x0055ff;
+    else if(unit.stance === 'deployed') triColor = 0xff0000;
+    else if(unit.stance === 'cover') triColor = 0xff8095;
+
+    unitGraphics.fillStyle(triColor, 1);
     const size = 8;
     unitGraphics.beginPath();
     unitGraphics.moveTo(triX + Math.cos(angleRad)*size, triY + Math.sin(angleRad)*size);
@@ -823,37 +846,36 @@ function drawFacingIndicator(unit, pos) {
 }
 
 function drawStatusMarkers(unit, pos) {
-    const damage = 5 - unit.hp;
-    if (damage > 0) {
-        const badgeX = pos.x + 15;
-        const badgeY = pos.y + 15;
-        badgeGraphics.fillStyle(0xcc0000, 1);
-        badgeGraphics.fillRect(badgeX - 8, badgeY - 8, 16, 16);
-        badgeGraphics.lineStyle(1, 0xffffff, 1);
-        badgeGraphics.strokeRect(badgeX - 8, badgeY - 8, 16, 16);
-        const text = scene.add.text(badgeX, badgeY, damage.toString(), { 
-            font: '11px Arial', fill: '#fff', fontStyle: 'bold'
-        }).setOrigin(0.5).setDepth(810).setResolution(2).setName('badgeText');
-    }
-    
-    if (unit.status === 'shaken') {
-        const markerX = pos.x + 15;
-        const markerY = pos.y - 5;
-        badgeGraphics.fillStyle(0xffff00, 0.9);
-        badgeGraphics.fillRect(markerX - 10, markerY - 6, 20, 12);
-        const txt = scene.add.text(markerX, markerY, "SHKN", {
-            font:'9px Arial', fill:'#000', fontStyle:'bold'
+    if (unit.status !== 'clear') {
+        const bx = pos.x + 15; 
+        const by = pos.y + 15;
+        let statColor = 0xffffff;
+        let label = "!";
+        
+        if(unit.status === 'suppressed_2') { statColor = 0xffff00; label="+2"; }
+        else if(unit.status === 'suppressed_4') { statColor = 0xffff00; label="+4"; }
+        else if(unit.status === 'suppressed_6') { statColor = 0xffff00; label="+6"; }
+        else if(unit.status === 'shaken') { statColor = 0xff0000; label="!"; }
+        else if(unit.status === 'damaged') { statColor = 0x8800cc; label="X"; }
+        else if(unit.status === 'immobilized') { statColor = 0x8800cc; label="I"; }
+
+        badgeGraphics.fillStyle(statColor, 1);
+        badgeGraphics.fillRect(bx - 8, by - 6, 16, 12);
+        badgeGraphics.lineStyle(1, 0x000000, 1);
+        badgeGraphics.strokeRect(bx - 8, by - 6, 16, 12);
+        
+        scene.add.text(bx, by, label, { 
+            font: '9px Arial', fill: '#000', fontStyle: 'bold'
         }).setOrigin(0.5).setDepth(810).setResolution(2).setName('badgeText');
     }
 }
 
-// --- LOS Tool Logic (Smart) ---
+// --- LOS Tool Logic ---
 
 function toggleLOSTool() {
     losTool = !losTool;
     losStartHex = null;
     losGraphics.clear();
-    
     const container = document.getElementById('los-options');
     container.style.display = losTool ? 'flex' : 'none';
     document.getElementById('btn-los').classList.toggle('active', losTool);
@@ -861,7 +883,10 @@ function toggleLOSTool() {
     if (losTool) {
         if (selectedUnit) {
             losStartHex = hexMap[selectedUnit.q][selectedUnit.r];
-            setLOSType(selectedUnit.unitType); 
+            // Infer LOS type from unit category
+            let cat = selectedUnit.category || 'squad';
+            let lType = (cat==='vehicle' || cat==='hwt') ? 'vehicle' : 'infantry';
+            setLOSType(lType); 
             highlightHex(losStartHex, 0xffffff);
             addToLog(`LOS Start: Unit at ${losStartHex.q},${losStartHex.r}`, "log-info");
         } else if (selectedHex) {
@@ -873,7 +898,7 @@ function toggleLOSTool() {
         }
     } else {
         addToLog("LOS Tool Deactivated.", "log-info");
-        uiUpdate(); // Restore selection rings
+        uiUpdate(); 
     }
 }
 
@@ -923,8 +948,7 @@ function changeFacing(unit, targetHex) {
     uiUpdate();
     addToLog(`Facing set to ${["N","NE","SE","S","SW","NW"][closestIndex]}`);
     currentAction = null;
-    
-    if(currentPhase === 'SETUP') redrawAllUnits(); // Immediate redraw needed for rotate logic
+    if(currentPhase === 'SETUP') redrawAllUnits(); 
 }
 
 function executeMove(unit, targetHex) {
@@ -944,18 +968,23 @@ function executeMove(unit, targetHex) {
 
 function moveUnitTo(unit, hex) {
     unit.q = hex.q; unit.r = hex.r;
-    selectUnitInStack(unit); // Keep selected
-    addToLog(`${unit.unitType} moved.`);
+    selectUnitInStack(unit); 
+    addToLog(`${unit.category} moved.`);
 }
 
 function executeFire(attacker, targetUnit) {
     if (!targetUnit || attacker.side === targetUnit.side) return;
     const startHex = hexMap[attacker.q][attacker.r];
     const targetHex = hexMap[targetUnit.q][targetUnit.r];
+    
+    // Determine attacker height based on category
+    let cat = attacker.category || 'squad';
+    let attHeight = (cat==='vehicle' || cat==='hwt') ? 'vehicle' : 'infantry';
+    
     const physicalRange = getPhysicalRange(startHex, targetHex);
     if (physicalRange > attacker.range) { addToLog("Out of range!", "log-combat"); currentAction = null; return; }
     
-    const los = calculateLOS(startHex, targetHex, attacker.unitType);
+    const los = calculateLOS(startHex, targetHex, attHeight);
     if (los.status === 'blocked') { 
         addToLog("LOS Blocked.", "log-combat"); 
         drawVisualLOSLine(startHex, targetHex, 0xff0000);
@@ -971,7 +1000,7 @@ function executeFire(attacker, targetUnit) {
     damage = Math.max(0, damage);
     targetUnit.hp -= damage;
     drawVisualLOSLine(startHex, targetHex, color);
-    addToLog(`${attacker.unitType} hits for ${damage} dmg.`, "log-combat");
+    addToLog(`${attacker.category} hits for ${damage} dmg.`, "log-combat");
     
     if (targetUnit.hp <= 0) {
         addToLog("Target Destroyed!", "log-combat");
@@ -1014,18 +1043,13 @@ function toggleMapLoader() {
 }
 
 function nextPhase() {
-    // Phase Transition Logic
     if (currentPhase === 'SETUP') {
         if (trayUnits.length > 0) {
             if(!confirm("Undeployed units remain in Tray. Start anyway?")) return;
         }
         currentPhase = 'Action Phase';
         document.getElementById('btn-phase').innerText = "Next Phase >>";
-        
-        // FIX: Clear the tray UI
         document.getElementById('left-content-area').innerHTML = '';
-        
-        // Setup Done: Redraw map to remove Zones
         displayMap();
         addToLog("=== SETUP COMPLETE ===", "log-turn");
         addToLog("Turn 1 Started.", "log-turn");
@@ -1050,35 +1074,30 @@ function drawVisualLOSLine(start, end, color) {
     losGraphics.beginPath(); losGraphics.moveTo(start.x, start.y); losGraphics.lineTo(end.x, end.y); losGraphics.strokePath();
 }
 
-// --- SCENARIO LOADING ---
-
 function loadScenario() {
     let txt = document.getElementById('json-input').value;
-    
-    // FIX: Sanitize input for large maps/formatting
     txt = txt.replace(/[\n\r\t]+/g, ' ').replace(/\u00A0/g, ' ').trim();
 
     try {
         scenarioData = JSON.parse(txt);
-        mapData = scenarioData.map; // Set global mapData for displayMap compatibility
+        mapData = scenarioData.map; 
 
-        // Reset
         units = []; trayUnits = [];
         
-        // Load Fixed Units
         if (scenarioData.units.locked) {
             scenarioData.units.locked.forEach(u => {
-                u.isFixed = true; // Mark as immutable
+                u.isFixed = true; 
+                if(!u.category) u.category = u.type; // Backwards compat
+                if(!u.stance) u.stance = 'deployed';
                 units.push(u);
             });
         }
         
-        // Load Tray Units
         if (scenarioData.units.tray) {
             trayUnits = [...scenarioData.units.tray];
+            trayUnits.forEach(u => { if(!u.category) u.category = u.type; });
         }
         
-        // Setup Info
         document.getElementById('scenario-info-box').innerHTML = `
             <strong style="color:white">${scenarioData.info.title}</strong><br>
             <span style="color:#aaa">${scenarioData.info.author}</span><br>
@@ -1086,13 +1105,12 @@ function loadScenario() {
         `;
         document.getElementById('max-turns').innerText = scenarioData.info.maxTurns;
 
-        // Start Setup Phase
         currentPhase = 'SETUP';
         document.getElementById('phase-display').innerText = 'SETUP';
         document.getElementById('btn-phase').innerText = 'Finish Setup';
         
-        displayMap(); // Draws Map + Zones
-        renderTray(); // Shows Tray UI
+        displayMap(); 
+        renderTray(); 
         toggleMapLoader();
         addToLog("Scenario Loaded. Begin Deployment.");
         
@@ -1100,23 +1118,16 @@ function loadScenario() {
 }
 
 function displayMap() {
-    // FIX: Safety check
     if (!mapData) return;
     
     hexGroup.clear(true, true); 
     roadGraphics.clear(); 
-    
-    // FIX: Use zoneGraphics instead of overlayGroup
     zoneGraphics.clear();
-    
-    // FIX: Clear old objective images
     objGraphics.clear();
     objectiveSprites.forEach(s => s.destroy());
     objectiveSprites = [];
     
     hexMap = {};
-    
-    // FIX: Ensure rows/cols exist
     const cols = mapData.cols || 0;
     const rows = mapData.rows || 0;
 
@@ -1129,33 +1140,27 @@ function displayMap() {
     }
     
     if (mapData.terrain) mapData.terrain.forEach(t => { if (hexMap[t.q] && hexMap[t.q][t.r]) hexMap[t.q][t.r].terrain = t.type; });
-    
     if (mapData.roads) mapData.roads.forEach(road => {
         if (hexMap[road.from.q]) hexMap[road.from.q][road.from.r].hasRoad = true;
         if (hexMap[road.to.q]) hexMap[road.to.q][road.to.r].hasRoad = true;
     });
 
-    // Zones (ONLY IN SETUP)
     if (currentPhase === 'SETUP' && mapData.zones) {
         mapData.zones.forEach(z => {
             if (hexMap[z.q] && hexMap[z.q][z.r]) {
                 hexMap[z.q][z.r].setupZone = z.side;
                 const p = getHexPosition(z.q, z.r);
-                // Draw Hex Polygon manually for overlay
                 const pts = []; 
                 for(let i=0; i<6; i++) {
                     const a = Math.PI/3*i; 
                     pts.push({x: p.x+HEX_RADIUS*Math.cos(a), y: p.y+HEX_RADIUS*Math.sin(a)}); 
                 }
                 const color = z.side === 'blue' ? 0x4488ff : 0xff4444;
-                
-                // FIX: Use single zoneGraphics object to draw
                 zoneGraphics.fillStyle(color, 0.2).fillPoints(pts, true);
             }
         });
     }
 
-    // FIX: Place Star Images for Objectives using PHASER STARS (Like Editor)
     const oldObjectives = mapData.objectives || mapData.victoryHexes || [];
     const newObjectives = (scenarioData && scenarioData.victory && scenarioData.victory.locations) ? scenarioData.victory.locations : [];
     const allObjectives = [...oldObjectives, ...newObjectives];
@@ -1164,17 +1169,11 @@ function displayMap() {
         allObjectives.forEach(obj => {
             if (hexMap[obj.q] && hexMap[obj.q][obj.r]) {
                 const hex = hexMap[obj.q][obj.r];
-                // Stamp VP data onto hex for UI to use later
                 hex.victoryPoints = obj.points || 100;
-
-                // Place the STAR Programmatically (No image file needed)
-                // Using objGraphics (Depth 150) so it's below units
                 const star = scene.add.star(hex.x, hex.y, 5, 8, 16, 0xffcc00);
                 star.setStrokeStyle(2, 0x000000);
                 star.setDepth(150);
                 objectiveSprites.push(star);
-                
-                // Add Text Label
                 const txt = scene.add.text(hex.x, hex.y + 10, hex.victoryPoints.toString(), {
                     fontSize: '10px', stroke: '#000', strokeThickness: 3, fill: '#fff', fontStyle: 'bold'
                 }).setOrigin(0.5).setDepth(151);
@@ -1191,17 +1190,20 @@ function drawHex(hex) {
     const terrainType = hex.terrain; const x = hex.x; const y = hex.y;
     if (!hex.variant) hex.variant = Phaser.Math.Between(1, 3);
     const textureKey = `${terrainType}${hex.variant}`;
+    
+    // EDITOR STYLE LINES: 1px width, 0.5 opacity
     if (scene.textures.exists(textureKey)) {
         const img = scene.add.image(x, y, textureKey).setDisplaySize(HEX_RADIUS * 2, HEX_RADIUS * 2);
         const shape = scene.make.graphics().fillStyle(0xffffff).beginPath();
         for (let i = 0; i < 6; i++) { const angle = (Math.PI / 3) * i; const hx = x + HEX_RADIUS * Math.cos(angle); const hy = y + HEX_RADIUS * Math.sin(angle); if (i === 0) shape.moveTo(hx, hy); else shape.lineTo(hx, hy); }
         shape.closePath().fillPath();
         img.setMask(shape.createGeometryMask()); hexGroup.add(img);
-        const outline = scene.add.graphics().lineStyle(2, 0x333333).beginPath();
+        
+        const outline = scene.add.graphics().lineStyle(1, 0x333333, 0.5).beginPath();
         for (let i = 0; i < 6; i++) { const angle = (Math.PI / 3) * i; const hx = x + HEX_RADIUS * Math.cos(angle); const hy = y + HEX_RADIUS * Math.sin(angle); if (i === 0) outline.moveTo(hx, hy); else outline.lineTo(hx, hy); }
         outline.closePath().strokePath(); hexGroup.add(outline);
     } else {
-        const g = scene.add.graphics().fillStyle(TERRAIN_TYPES[terrainType].color).lineStyle(2, 0x333333).beginPath();
+        const g = scene.add.graphics().fillStyle(TERRAIN_TYPES[terrainType].color).lineStyle(1, 0x333333, 0.5).beginPath();
         for (let i = 0; i < 6; i++) { const angle = (Math.PI / 3) * i; const hx = x + HEX_RADIUS * Math.cos(angle); const hy = y + HEX_RADIUS * Math.sin(angle); if (i === 0) g.moveTo(hx, hy); else g.lineTo(hx, hy); }
         g.closePath().fillPath().strokePath(); hexGroup.add(g);
     }
