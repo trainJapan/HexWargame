@@ -566,7 +566,7 @@ function refreshOverlays() {
         
         let triColor = 0x8B0000; // fallback
         if(u.stance === 'moving') triColor = 0x8F0017; 
-        else if(u.stance === 'deployed') triColor = 0xBF001F; 
+        else if(u.stance === 'deployed') triColor = 0xFF0000; 
         else if(u.stance === 'cover') triColor = 0xFF8095;
         
         arrow.fillStyle(triColor).fillTriangle(
@@ -882,6 +882,7 @@ function getHexAtPoint(wx, wy) {
 </script>
 </body>
 </html>
+
 
 
 
