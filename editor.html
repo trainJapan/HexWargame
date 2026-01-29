@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Wargame Editor v2.7 - Advanced Unit States</title>
+    <title>Wargame Editor v2.8 - Logic Constraints</title>
     <script src="https://cdn.jsdelivr.net/npm/phaser@3.60.0/dist/phaser.min.js"></script>
     <style>
         :root {
@@ -78,7 +78,7 @@
 <body>
 
 <div class="panel" style="border-left:none;">
-    <div style="padding:10px; background:#222; border-bottom:1px solid #444; font-weight:bold; color:var(--accent);">MAP EDITOR v2.7</div>
+    <div style="padding:10px; background:#222; border-bottom:1px solid #444; font-weight:bold; color:var(--accent);">MAP EDITOR v2.8</div>
     <div style="padding:10px; overflow-y:auto; flex-grow:1;">
         
         <div class="grid-2">
@@ -117,7 +117,7 @@
         <div class="section-header">PLACE UNIT</div>
         <div class="grid-2">
             <select id="placer-side"><option value="blue">UK</option><option value="red">GERMAN</option></select>
-            <select id="placer-cat">
+            <select id="placer-cat" onchange="updateUIConstraints()">
                 <option value="squad">Squad (Inf)</option>
                 <option value="team">Weapon Team (Inf)</option>
                 <option value="hwt">Heavy Wpn Team (HWT)</option>
@@ -129,20 +129,12 @@
             <div>
                 <label class="label">STANCE</label>
                 <select id="placer-stance">
-                    <option value="moving">Moving</option>
-                    <option value="deployed">Deployed</option>
-                    <option value="cover">Cover / Set Up</option>
-                </select>
+                    </select>
             </div>
             <div>
                 <label class="label">STATUS</label>
                 <select id="placer-status">
-                    <option value="clear">Operational</option>
-                    <option value="suppressed">Suppressed</option>
-                    <option value="shaken">Shaken</option>
-                    <option value="damaged">Damaged (Veh)</option>
-                    <option value="immobilized">Immob (Veh)</option>
-                </select>
+                     </select>
             </div>
         </div>
         <button id="btn-unit" class="btn btn-primary" onclick="setMode('unit')">PLACE UNIT</button>
@@ -327,6 +319,7 @@ function create() {
     this.input.on('pointerdown', handleMapClick);
 
     initUI();
+    updateUIConstraints(); // Initialize dropdowns
     regenerateMap();
     setLOSType('infantry');
 }
@@ -337,6 +330,52 @@ function update() {
         this.cameras.main.scrollX -= (p.x - p.prevPosition.x) / this.cameras.main.zoom;
         this.cameras.main.scrollY -= (p.y - p.prevPosition.y) / this.cameras.main.zoom;
     }
+}
+
+// --- LOGIC: UI CONSTRAINTS ---
+function updateUIConstraints() {
+    const cat = document.getElementById('placer-cat').value;
+    const stanceSel = document.getElementById('placer-stance');
+    const statusSel = document.getElementById('placer-status');
+    
+    // Save current values to try and preserve them if valid
+    const oldStance = stanceSel.value;
+    const oldStatus = statusSel.value;
+    
+    // Clear
+    stanceSel.innerHTML = '';
+    statusSel.innerHTML = '';
+
+    // Common Stances
+    const optMoving = new Option("Moving", "moving");
+    const optDeployed = new Option("Deployed", "deployed");
+    
+    if (cat === 'vehicle') {
+        // Vehicles: No Cover.
+        stanceSel.add(optMoving);
+        stanceSel.add(optDeployed);
+        
+        // Status: Ready, Damaged, Immob. NO Suppressed/Shaken.
+        statusSel.add(new Option("Operational", "clear"));
+        statusSel.add(new Option("Damaged", "damaged"));
+        statusSel.add(new Option("Immobilized", "immobilized"));
+    } else {
+        // Inf/HWT: Can be In Cover / Set Up.
+        stanceSel.add(optMoving);
+        stanceSel.add(optDeployed);
+        stanceSel.add(new Option("Cover / Set Up", "cover"));
+        
+        // Status: Ready, Suppressed(3), Shaken. NO Damaged/Immob.
+        statusSel.add(new Option("Operational", "clear"));
+        statusSel.add(new Option("Suppressed (+2)", "suppressed_2"));
+        statusSel.add(new Option("Suppressed (+4)", "suppressed_4"));
+        statusSel.add(new Option("Suppressed (+6)", "suppressed_6"));
+        statusSel.add(new Option("Shaken", "shaken"));
+    }
+    
+    // Try to re-select previous values if they exist
+    for(let i=0; i<stanceSel.options.length; i++) if(stanceSel.options[i].value === oldStance) stanceSel.selectedIndex = i;
+    for(let i=0; i<statusSel.options.length; i++) if(statusSel.options[i].value === oldStatus) statusSel.selectedIndex = i;
 }
 
 // --- INTERACTION ---
@@ -427,13 +466,17 @@ function updateInspector() {
         let isVeh = (u.category === 'vehicle' || u.category === 'hwt');
         let imgKey = (u.side==='blue' ? 'UK_' : 'GER_') + (isVeh?'Veh':'Inf');
         let facingDir = ["N","NE","SE","S","SW","NW"][u.facing];
+        
+        let statLabel = u.status;
+        if(u.status.startsWith('suppressed')) statLabel = "Suppr " + u.status.split('_')[1];
+        
         return `
         <div class="list-item" onclick="promoteUnit(${u.id})">
             <div style="display:flex; align-items:center;">
                 <img src="${ASSETS_URL}counters/${imgKey}.png" class="item-icon">
                 <div class="item-info">
                     <div class="item-title">${name}</div>
-                    <div class="item-meta">${u.stance} | ${u.status}</div>
+                    <div class="item-meta">${u.stance} | ${statLabel}</div>
                 </div>
             </div>
             <div><button class="btn-mini" onclick="event.stopPropagation(); rotateUnit(${u.id})">↻</button><button class="btn-mini btn-danger-mini" onclick="event.stopPropagation(); deleteUnit(${u.id})">X</button></div>
@@ -524,7 +567,7 @@ function refreshOverlays() {
         let triColor = 0x8B0000; // fallback
         if(u.stance === 'moving') triColor = 0x00cc00; // Green
         else if(u.stance === 'deployed') triColor = 0x4488ff; // Light Blue
-        else if(u.stance === 'cover') triColor = 0x000088; // Dark Blue
+        else if(u.stance === 'cover') triColor = 0x0055ff; // Bold Saturated Blue (Changed per request)
         
         arrow.fillStyle(triColor).fillTriangle(
             p.x+Math.cos(a)*d, p.y+Math.sin(a)*d,
@@ -539,11 +582,15 @@ function refreshOverlays() {
             let statColor = 0xffffff;
             let label = "!";
             
-            if(u.status === 'suppressed') { statColor = 0xffff00; label="S"; }
+            // Logic for Specific Labels
+            if(u.status === 'suppressed_2') { statColor = 0xffff00; label="+2"; }
+            else if(u.status === 'suppressed_4') { statColor = 0xffff00; label="+4"; }
+            else if(u.status === 'suppressed_6') { statColor = 0xffff00; label="+6"; }
             else if(u.status === 'shaken') { statColor = 0xff0000; label="!"; }
-            else if(u.status === 'damaged' || u.status === 'immobilized') { statColor = 0x8800cc; label="X"; }
+            else if(u.status === 'damaged') { statColor = 0x8800cc; label="X"; }
+            else if(u.status === 'immobilized') { statColor = 0x8800cc; label="I"; }
 
-            overlayGroup.add(scene.add.graphics().fillStyle(statColor).fillRect(bx-6, by-6, 12, 12).lineStyle(1,0x000000).strokeRect(bx-6,by-6,12,12));
+            overlayGroup.add(scene.add.graphics().fillStyle(statColor).fillRect(bx-8, by-6, 16, 12).lineStyle(1,0x000000).strokeRect(bx-8,by-6,16,12));
             overlayGroup.add(scene.add.text(bx, by, label, {font:'9px Arial', fill:'#000', fontWeight:'bold'}).setOrigin(0.5));
         }
 
