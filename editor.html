@@ -566,7 +566,7 @@ function refreshOverlays() {
         
         let triColor = 0x8B0000; // fallback
         if(u.stance === 'moving') triColor = 0x00cc00; // Green
-        else if(u.stance === 'deployed') triColor = 0xffffff; // White
+        else if(u.stance === 'deployed') triColor = 0xD7EFFD; // Light Blue
         else if(u.stance === 'cover') triColor = 0x0055ff; // Bold Saturated Blue (Changed per request)
         
         arrow.fillStyle(triColor).fillTriangle(
@@ -882,4 +882,5 @@ function getHexAtPoint(wx, wy) {
 </script>
 </body>
 </html>
+
 
