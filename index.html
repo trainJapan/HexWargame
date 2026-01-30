@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Wargame Engine v0.9.4 - Updated UI Labels</title>
+    <title>Wargame Engine v0.9.5 - Dynamic Unit Parsing</title>
     <script src="https://cdn.jsdelivr.net/npm/phaser@3.60.0/dist/phaser.min.js"></script>
     <style>
         :root {
@@ -136,7 +136,6 @@
             padding: 4px;
             border-radius: 4px;
             background: #222;
-            /* Allow text to wrap if long like IMMOBILIZED */
             word-wrap: break-word;
             display: flex; align-items: center; justify-content: center;
             min-height: 24px;
@@ -291,6 +290,21 @@
 // --- Configuration ---
 const ASSETS_URL = 'https://raw.githubusercontent.com/trainJapan/HexWargame/main/artwork/';
 
+// --- DYNAMIC FILE LIST ---
+const UNIT_FILES = [
+    "UK_S_Rifle_Squad.png",
+    "GER_S_Rifle_Squad.png",
+    "UK_V_M3_Stuart.png",
+    "GER_V_Schwerer_Panzerspähwagen.png",
+    "UK_WT_HMG_Team.png",
+    "GER_WT_HMG_Team.png",
+    "UK_WT_PIAT_Team.png",
+    "GER_HWT_Leichtes_Infanteriegeschütz.png"
+];
+
+// Registry to store parsed data (Name, Side, Category)
+const UNIT_DATA_REGISTRY = {};
+
 const TERRAIN_TYPES = {
     'clear':      { color: 0x98FB98, los: 'clear',     cost: 1,   terrainHeight: 0, infantryUsable: 0, vehicleUsable: 0 },
     'fields':     { color: 0xCCAA00, los: 'degrading', cost: 1,   terrainHeight: 1, infantryUsable: 0, vehicleUsable: 0 },
@@ -342,14 +356,56 @@ const config = {
 
 const game = new Phaser.Game(config);
 
+// --- PARSING HELPER ---
+function parseUnitFromFileName(filename) {
+    const nameOnly = filename.replace(/\.[^/.]+$/, "");
+    const parts = nameOnly.split('_');
+
+    // Default 
+    let side = 'neutral';
+    let category = 'squad';
+    let unitName = nameOnly;
+    let type = 'infantry';
+
+    if (parts.length >= 3) {
+        const sideCode = parts[0].toUpperCase();
+        const catCode = parts[1].toUpperCase();
+        
+        // Rejoin the rest with SPACES instead of underscores
+        unitName = parts.slice(2).join(' ');
+
+        if (sideCode === 'GER') side = 'red';
+        if (sideCode === 'UK' || sideCode === 'US') side = 'blue';
+
+        switch (catCode) {
+            case 'S': category = 'squad'; type='infantry'; break;
+            case 'T': category = 'team'; type='infantry'; break;
+            case 'WT': category = 'team'; type='infantry'; break;
+            case 'HWT': category = 'hwt'; type='vehicle'; break;
+            case 'V': category = 'vehicle'; type='vehicle'; break;
+        }
+    }
+
+    return {
+        key: nameOnly,
+        side: side,
+        category: category,
+        name: unitName,
+        heightType: type
+    };
+}
+
 function preloadScene() {
     for (const [key, value] of Object.entries(TERRAIN_TYPES)) {
         for (let i = 1; i <= 3; i++) { this.load.image(`${key}${i}`, `${ASSETS_URL}map/${key}${i}.png`); }
     }
-    this.load.image('UK_Inf', `${ASSETS_URL}counters/UK_Inf.png`);
-    this.load.image('GER_Inf', `${ASSETS_URL}counters/GER_Inf.png`);
-    this.load.image('UK_Veh', `${ASSETS_URL}counters/UK_Veh.png`);
-    this.load.image('GER_Veh', `${ASSETS_URL}counters/GER_Veh.png`);
+
+    // Dynamic Unit Loading
+    UNIT_FILES.forEach(filename => {
+        const info = parseUnitFromFileName(filename);
+        this.load.image(info.key, `${ASSETS_URL}counters/${filename}`);
+        UNIT_DATA_REGISTRY[info.key] = info;
+    });
     
     this.make.graphics({x:0,y:0,add:false}).fillStyle(0xffffff).fillRect(0,0,1,1).generateTexture('fallback', 1, 1);
 }
@@ -401,12 +457,11 @@ function updateScene() {
 
 // --- Helper: Asset Keys & Logic ---
 function getUnitKey(unit) {
-    if(!unit.category) unit.category = unit.unitType; 
-    
-    const isVeh = (unit.category === 'vehicle' || unit.category === 'hwt');
-    const suffix = isVeh ? 'Veh' : 'Inf';
-    const side = unit.side === 'blue' ? 'UK' : 'GER';
-    return `${side}_${suffix}`;
+    // 1. Try exact type match from loaded files
+    if (scene.textures.exists(unit.unitType)) {
+        return unit.unitType;
+    }
+    return 'fallback';
 }
 
 function getUnitImageURL(unit) {
@@ -443,35 +498,25 @@ function showUnitPanel(unit) {
     document.getElementById('ctx-img').innerHTML = `<img src="${getUnitImageURL(unit)}">`;
     const side = unit.side === 'blue' ? 'UK' : 'German';
     
-    let catName = unit.category ? unit.category.charAt(0).toUpperCase() + unit.category.slice(1) : "Unit";
-    document.getElementById('ctx-title').innerText = `${side} ${catName}`;
-    document.getElementById('ctx-subtitle').innerText = `${unit.category.toUpperCase()} PLATOON`;
+    // Priority: Specific Name > Generated Name
+    let titleText = unit.name; 
+    if (!titleText) {
+        let catName = unit.category ? unit.category.charAt(0).toUpperCase() + unit.category.slice(1) : "Unit";
+        titleText = `${side} ${catName}`;
+    }
+
+    document.getElementById('ctx-title').innerText = titleText;
+    document.getElementById('ctx-subtitle').innerText = `${(unit.category || 'UNIT').toUpperCase()} PLATOON`;
     document.getElementById('unit-actions').style.display = 'grid';
 
     // -- LEFT STATUS TEXT --
     const leftEl = document.getElementById('ctx-status-left');
     let sColor = '#aaa'; let sText = "OPERATIONAL";
-    
-    if(unit.status === 'clear') { 
-        sColor='#fff'; 
-        sText="OPERATIONAL"; 
-    }
-    else if(unit.status === 'shaken') { 
-        sColor='#ff4444'; 
-        sText="SHAKEN"; 
-    }
-    else if(unit.status === 'damaged') { 
-        sColor='#cc00cc'; 
-        sText="DAMAGED"; 
-    }
-    else if(unit.status === 'immobilized') { 
-        sColor='#cc00cc'; 
-        sText="IMMOBILIZED"; 
-    }
-    else if(unit.status.startsWith('suppressed')) { 
-        sColor='#ffff00'; 
-        sText="SUPPRESSED +" + unit.status.split('_')[1]; 
-    }
+    if(unit.status === 'clear') { sColor='#fff'; sText="OPERATIONAL"; }
+    else if(unit.status === 'shaken') { sColor='#ff4444'; sText="SHAKEN"; }
+    else if(unit.status === 'damaged') { sColor='#cc00cc'; sText="DAMAGED"; }
+    else if(unit.status === 'immobilized') { sColor='#cc00cc'; sText="IMMOBILIZED"; }
+    else if(unit.status.startsWith('suppressed')) { sColor='#ffff00'; sText="SUPPRESSED +" + unit.status.split('_')[1]; }
     
     leftEl.innerText = sText;
     leftEl.style.color = sColor;
@@ -561,14 +606,12 @@ function showUnitPanel(unit) {
             if (u === unit) item.style.borderColor = 'var(--accent)';
             const facingDir = ["N","NE","SE","S","SW","NW"][u.facing];
             
-            // Resolve Stance for Stack List
             let stText = "Deployed";
             if(u.stance === 'moving') stText = "Moving";
             else if(u.stance === 'cover') stText = "Cover";
             else if(u.stance === 'setup') stText = "Set Up";
             else if(u.stance === 'deployed') stText = "Deployed";
             
-            // Resolve Status for Stack List
             let statText = "Operational";
             let statColor = "#fff";
             if(u.status === 'shaken') { statText="Shaken"; statColor="#ff4444"; }
@@ -579,10 +622,12 @@ function showUnitPanel(unit) {
                 statColor="#ffff00"; 
             }
 
+            let stackName = u.name || u.category.toUpperCase();
+
             item.innerHTML = `
                 <img class="stack-img" src="${getUnitImageURL(u)}">
                 <div class="stack-info">
-                    <div style="font-weight:bold; color:white;">${u.category.toUpperCase()}</div>
+                    <div style="font-weight:bold; color:white;">${stackName}</div>
                     <div>MP: ${u.mp} | Face: ${facingDir}</div>
                     <div>Stance: ${stText}</div>
                     <div style="color:${statColor}; font-weight:bold; font-size:10px;">Status: ${statText}</div>
@@ -710,14 +755,13 @@ function renderTray() {
         item.className = 'tray-item';
         if (selectedTrayUnit === u) item.classList.add('selected');
         
-        let cat = u.category || u.type;
-        let isVeh = (cat==='vehicle' || cat==='hwt');
-        let imgKey = (u.side==='blue'?'UK_':'GER_') + (isVeh?'Veh':'Inf');
-        
+        let displayName = u.name || u.category || u.type;
+        let imgKey = getUnitKey(u);
+
         item.innerHTML = `
             <img src="${ASSETS_URL}counters/${imgKey}.png" class="tray-icon">
             <div>
-                <div style="font-weight:bold; font-size:12px; color:#fff">${(u.side==='blue'?'UK ':'GER ') + cat.toUpperCase()}</div>
+                <div style="font-weight:bold; font-size:12px; color:#fff">${displayName}</div>
                 <div style="font-size:10px; color:#aaa">Click map to deploy</div>
             </div>
         `;
@@ -740,18 +784,21 @@ function deployTrayUnit(uData, hex) {
     let valid = false;
     if (uData.side === 'blue' && hex.setupZone === 'blue') valid = true;
     if (uData.side === 'red' && hex.setupZone === 'red') valid = true;
+    if (uData.side === 'red' && hex.setupZone === 'axis') valid = true; // Handle both red/axis
+    if (uData.side === 'blue' && hex.setupZone === 'allies') valid = true;
 
     if (!valid) {
         addToLog(`Invalid Deployment! Must be in ${uData.side.toUpperCase()} Zone.`, "log-combat");
         return;
     }
 
-    // New Unit: Forces Stance=Deployed, Status=Clear
+    // New Unit
     const newUnit = {
         id: unitIdCounter++,
         side: uData.side,
-        unitType: uData.type, // Legacy
-        category: uData.category || uData.type,
+        unitType: uData.type, // Contains texture key e.g. GER_S_Rifle_Squad
+        category: uData.category || 'squad',
+        name: uData.name, // Pass the Name text!
         q: hex.q, r: hex.r,
         facing: 0, 
         status: 'clear', 
@@ -759,6 +806,10 @@ function deployTrayUnit(uData, hex) {
         mp: 6, maxMp: 6, hp: 5, fp: 3, range: 6,
         isFixed: false
     };
+
+    // Stance Logic fix for HWT
+    if(newUnit.category === 'hwt' && newUnit.stance === 'cover') newUnit.stance = 'setup';
+
     units.push(newUnit);
     
     trayUnits = trayUnits.filter(t => t !== uData);
@@ -768,7 +819,7 @@ function deployTrayUnit(uData, hex) {
     displayMap(); 
     renderTray(); 
     uiUpdate();
-    addToLog(`${newUnit.category} deployed.`);
+    addToLog(`${newUnit.name || newUnit.category} deployed.`);
 }
 
 function redeployUnit() {
@@ -777,7 +828,8 @@ function redeployUnit() {
         id: selectedUnit.id, 
         side: selectedUnit.side,
         type: selectedUnit.unitType,
-        category: selectedUnit.category
+        category: selectedUnit.category,
+        name: selectedUnit.name
     };
     trayUnits.push(trayObj);
     units = units.filter(u => u !== selectedUnit);
@@ -1011,7 +1063,7 @@ function executeMove(unit, targetHex) {
 function moveUnitTo(unit, hex) {
     unit.q = hex.q; unit.r = hex.r;
     selectUnitInStack(unit); 
-    addToLog(`${unit.category} moved.`);
+    addToLog(`${unit.name || unit.category} moved.`);
 }
 
 function executeFire(attacker, targetUnit) {
@@ -1042,7 +1094,9 @@ function executeFire(attacker, targetUnit) {
     damage = Math.max(0, damage);
     targetUnit.hp -= damage;
     drawVisualLOSLine(startHex, targetHex, color);
-    addToLog(`${attacker.category} hits for ${damage} dmg.`, "log-combat");
+    
+    let attName = attacker.name || attacker.category;
+    addToLog(`${attName} hits for ${damage} dmg.`, "log-combat");
     
     if (targetUnit.hp <= 0) {
         addToLog("Target Destroyed!", "log-combat");
@@ -1129,10 +1183,18 @@ function loadScenario() {
         if (scenarioData.units.locked) {
             scenarioData.units.locked.forEach(u => {
                 u.isFixed = true; 
-                if(!u.category) u.category = u.type; // Backwards compat
+                
+                // DYNAMIC PARSING: Fill in blanks if we have registry info
+                if (UNIT_DATA_REGISTRY[u.type]) {
+                    const info = UNIT_DATA_REGISTRY[u.type];
+                    if(!u.category) u.category = info.category;
+                    if(!u.name) u.name = info.name;
+                    if(!u.side) u.side = info.side;
+                }
+                
+                if(!u.category) u.category = u.type; // Fallback
                 if(!u.stance) u.stance = 'deployed';
                 
-                // IMPORTANT LOGIC: Split "cover" based on category
                 if(u.stance === 'cover' && u.category === 'hwt') u.stance = 'setup';
                 
                 units.push(u);
@@ -1140,8 +1202,17 @@ function loadScenario() {
         }
         
         if (scenarioData.units.tray) {
+            // Apply parsing to Tray items too
+            scenarioData.units.tray.forEach(u => {
+                if (UNIT_DATA_REGISTRY[u.type]) {
+                    const info = UNIT_DATA_REGISTRY[u.type];
+                    u.category = info.category;
+                    u.name = info.name;
+                    u.side = info.side;
+                }
+                if(!u.category) u.category = u.type; 
+            });
             trayUnits = [...scenarioData.units.tray];
-            trayUnits.forEach(u => { if(!u.category) u.category = u.type; });
         }
         
         document.getElementById('scenario-info-box').innerHTML = `
