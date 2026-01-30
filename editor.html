@@ -2,153 +2,249 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Scenario Editor v0.9.5 - Dynamic Units</title>
+    <title>Wargame Editor v2.8 - Specific Unit Naming</title>
     <script src="https://cdn.jsdelivr.net/npm/phaser@3.60.0/dist/phaser.min.js"></script>
     <style>
         :root {
             --bg-dark: #1e1e1e;
-            --bg-panel: #2d2d2d;
-            --accent: #d4a017; /* Gold */
+            --bg-panel: #222;
+            --accent: #00cc88;
+            --uk-blue: #4488ff;
+            --ger-red: #ff4444;
             --text-main: #e0e0e0;
             --border: #444;
         }
 
         body { 
             margin: 0; padding: 0; 
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: var(--bg-dark);
-            color: var(--text-main);
-            height: 100vh;
-            display: grid;
-            grid-template-columns: 300px 1fr 300px; /* Wider panels for unit lists */
+            font-family: 'Segoe UI', Tahoma, sans-serif;
+            background: var(--bg-dark); color: var(--text-main);
+            height: 100vh; display: grid;
+            grid-template-columns: 300px 1fr 360px;
             overflow: hidden;
         }
 
         /* PANELS */
-        #left-panel, #right-panel {
-            background: var(--bg-panel);
-            padding: 15px;
-            display: flex;
-            flex-direction: column;
-            gap: 15px;
-            overflow-y: auto;
-            border-right: 1px solid var(--border);
-        }
-        #right-panel { border-left: 1px solid var(--border); border-right: none; }
-
-        .panel-header {
-            color: var(--accent);
-            font-size: 16px;
-            font-weight: bold;
-            border-bottom: 2px solid var(--accent);
-            padding-bottom: 5px;
-            margin-bottom: 5px;
-            text-transform: uppercase;
-        }
-
-        /* FORMS & INPUTS */
-        .form-group { margin-bottom: 10px; }
-        label { display: block; font-size: 11px; color: #aaa; margin-bottom: 3px; }
+        .panel { background: var(--bg-panel); display: flex; flex-direction: column; overflow: hidden; z-index: 10; border-right: 1px solid var(--border); border-left: 1px solid var(--border); }
+        
+        .tab-bar { display: flex; border-bottom: 1px solid var(--border); background: #2a2a2a; flex-shrink: 0; }
+        .tab { flex: 1; padding: 10px; cursor: pointer; text-align: center; font-size: 11px; background: #333; border-right: 1px solid var(--border); }
+        .tab.active { background: var(--bg-panel); color: var(--accent); border-bottom: 2px solid var(--accent); font-weight: bold; }
+        
+        .tab-content { display: none; padding: 15px; flex-direction: column; height: 100%; overflow: hidden; }
+        .tab-content.active { display: flex; }
+        
+        .section-header { color: var(--accent); font-size: 13px; font-weight: bold; text-transform: uppercase; margin: 15px 0 5px 0; border-bottom: 1px solid #444; padding-bottom: 2px; flex-shrink: 0; }
+        .label { font-size: 11px; color: #888; margin-bottom: 3px; display:block; }
+        
         input, textarea, select {
-            width: 100%;
-            background: #222; border: 1px solid #444;
-            color: #fff; padding: 6px;
-            border-radius: 4px; font-size: 12px;
-            box-sizing: border-box;
+            background: #333; border: 1px solid #555; color: white;
+            padding: 6px; width: 100%; box-sizing: border-box;
+            border-radius: 4px; font-family: inherit; margin-bottom: 8px; font-size: 12px;
         }
-        textarea { resize: vertical; }
 
-        /* BUTTONS */
-        .btn {
-            background: #444; color: #fff;
-            border: 1px solid #555;
-            padding: 8px; cursor: pointer;
-            border-radius: 4px; font-weight: bold;
-            text-align: center; font-size: 12px;
-            transition: all 0.2s;
+        .btn { background: #444; color: white; border: 1px solid #555; padding: 8px; cursor: pointer; border-radius: 4px; text-align: center; font-weight: bold; width: 100%; font-size: 12px; }
+        .btn:hover { background: #555; }
+        .btn-primary { background: var(--accent); color: #000; border: none; }
+        .btn.active { border-color: var(--accent); background: #224422; color: var(--accent); }
+        
+        .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 5px; }
+        .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 5px; }
+
+        .rich-list-container { flex-grow: 1; overflow-y: auto; border: 1px solid #444; background: #111; padding: 5px; margin-bottom: 10px; }
+        .list-item { 
+            display: flex; align-items: center; justify-content: space-between; 
+            background: #333; margin-bottom: 4px; padding: 4px; border-radius: 3px; border: 1px solid transparent; cursor: pointer;
         }
-        .btn:hover { background: #555; border-color: #777; }
-        .btn.active { background: var(--accent); color: #000; border-color: var(--accent); }
-        .btn-danger { background: #800; border-color: #a00; }
-        .btn-danger:hover { background: #a00; }
+        .list-item:hover { border-color: #666; background: #3a3a3a; }
+        .item-icon { width: 32px; height: 32px; margin-right: 8px; object-fit: contain; }
+        .item-info { flex-grow: 1; }
+        .item-title { font-weight: bold; font-size: 11px; color: #fff; }
+        .item-meta { font-size: 10px; color: #aaa; }
+        
+        .btn-mini { padding: 2px 6px; font-size: 10px; cursor:pointer; background:#555; border:none; color:white; border-radius:3px; margin-left:2px; }
+        .btn-danger-mini { background: #cc4444; }
 
-        /* UNIT PALETTE */
-        .unit-list { display: flex; flex-direction: column; gap: 4px; }
-        .unit-btn {
-            display: flex; align-items: center; gap: 10px;
-            background: #222; border: 1px solid #444;
-            padding: 5px; cursor: pointer; text-align: left;
-        }
-        .unit-btn:hover { background: #333; border-color: #666; }
-        .unit-btn.selected { border-color: var(--accent); background: #3a3a20; }
-        .unit-icon { width: 32px; height: 32px; object-fit: contain; }
-        .unit-name { font-size: 12px; font-weight: bold; }
-        .unit-type { font-size: 10px; color: #888; }
+        .palette-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; }
+        .terrain-item { cursor: pointer; border: 2px solid transparent; height: 40px; }
+        .terrain-item img { width: 100%; height: 100%; object-fit: cover; }
+        .terrain-item.selected { border-color: var(--accent); transform: scale(0.95); }
 
-        /* CENTER MAP */
-        #editor-container { position: relative; overflow: hidden; background: #111; }
+        #game-container { position: relative; background: #111; overflow: hidden; }
+        #status-bar { position: absolute; top:10px; left:50%; transform:translateX(-50%); background:var(--accent); color:#000; padding:4px 12px; font-weight:bold; border-radius:4px; font-size:12px; display:none; pointer-events:none; z-index:1000; }
+        #json-modal { position: absolute; top:50px; left:50%; transform:translateX(-50%); width: 400px; background: #222; border: 2px solid var(--accent); padding: 20px; z-index: 2000; display: none; box-shadow: 0 10px 30px rgba(0,0,0,0.8); }
     </style>
 </head>
 <body>
 
-<div id="left-panel">
-    <div class="panel-header">Metadata</div>
-    <div class="form-group">
-        <label>Scenario Title</label>
-        <input type="text" id="meta-title" value="New Scenario">
-    </div>
-    <div class="form-group">
-        <label>Author</label>
-        <input type="text" id="meta-author" value="Designer">
-    </div>
-    <div class="form-group">
-        <label>Description</label>
-        <textarea id="meta-desc" rows="3">A short description...</textarea>
-    </div>
-    <div class="form-group">
-        <label>Max Turns</label>
-        <input type="number" id="meta-turns" value="10">
-    </div>
-
-    <div class="panel-header">Map Tools</div>
-    <div style="display:grid; grid-template-columns: 1fr 1fr; gap:5px;">
-        <button class="btn" onclick="resizeMap(15, 10)">Small (15x10)</button>
-        <button class="btn" onclick="resizeMap(20, 15)">Medium (20x15)</button>
-        <button class="btn" onclick="resizeMap(30, 20)">Large (30x20)</button>
-    </div>
-    
-    <div class="panel-header" style="margin-top:10px;">Terrain</div>
-    <div id="terrain-palette" style="display:grid; grid-template-columns: 1fr 1fr; gap:5px;">
+<div class="panel" style="border-left:none;">
+    <div style="padding:10px; background:#222; border-bottom:1px solid #444; font-weight:bold; color:var(--accent);">MAP EDITOR v2.8</div>
+    <div style="padding:10px; overflow-y:auto; flex-grow:1;">
+        
+        <div class="grid-2">
+            <button id="btn-select" class="btn active" onclick="setMode('select')">SELECT / INSPECT</button>
+            <button id="btn-los" class="btn" style="border-color:#4488ff; color:#4488ff" onclick="toggleLOSTool()">LOS TOOL</button>
         </div>
-    
-    <button class="btn" style="margin-top:10px;" onclick="setTool('road')">Road Tool (Toggle)</button>
-    <div style="font-size:10px; color:#aaa; margin-top:2px;">Click sequential hexes to draw roads.</div>
+        <div id="los-options" style="display:none; margin-top:5px; background:#222; padding:5px; border:1px solid #4488ff;">
+            <div class="label" style="color:#4488ff">LOS MODE</div>
+            <div class="grid-2">
+                <button class="btn btn-mini" onclick="setLOSType('infantry')" id="los-btn-inf">INFANTRY HT</button>
+                <button class="btn btn-mini" onclick="setLOSType('vehicle')" id="los-btn-veh">VEHICLE HT</button>
+            </div>
+        </div>
+
+        <div class="section-header">MAP DIMENSIONS</div>
+        <div class="grid-2">
+            <input type="number" id="cols" value="15" min="5">
+            <input type="number" id="rows" value="12" min="5">
+        </div>
+        <button class="btn" onclick="regenerateMap()">Resize Map</button>
+
+        <div class="section-header">TERRAIN</div>
+        <div class="palette-grid" id="terrain-palette"></div>
+
+        <div class="section-header">OBJECTS</div>
+        <div class="grid-2">
+            <button id="btn-road" class="btn" style="border-left:3px solid #ccaa00" onclick="setMode('road')">DRAW ROAD</button>
+            <button id="btn-road-del" class="btn" style="border-left:3px solid #cc4444" onclick="setMode('road-del')">ERASE ROAD</button>
+        </div>
+        <button id="btn-vl" class="btn" style="margin-top:5px; border-left:3px solid #ffcc00; color:#ffcc00" onclick="setMode('vl')">VICTORY LOCATION (★)</button>
+        <div class="grid-2" style="margin-top:5px;">
+            <button id="btn-zone-uk" class="btn" style="border-left:3px solid var(--uk-blue); color:var(--uk-blue)" onclick="setMode('zone-uk')">UK SETUP</button>
+            <button id="btn-zone-ger" class="btn" style="border-left:3px solid var(--ger-red); color:var(--ger-red)" onclick="setMode('zone-ger')">GER SETUP</button>
+        </div>
+
+        <div class="section-header">PLACE UNIT</div>
+        <div class="grid-2">
+            <select id="placer-side" onchange="updatePlacerDropdowns()"><option value="blue">UK</option><option value="red">GERMAN</option></select>
+            <select id="placer-cat" onchange="updateUIConstraints()">
+                </select>
+        </div>
+        
+        <div class="grid-2">
+            <div>
+                <label class="label">STANCE</label>
+                <select id="placer-stance">
+                    </select>
+            </div>
+            <div>
+                <label class="label">STATUS</label>
+                <select id="placer-status">
+                      </select>
+            </div>
+        </div>
+        <button id="btn-unit" class="btn btn-primary" onclick="setMode('unit')">PLACE UNIT</button>
+
+        <div class="section-header">HEX INSPECTOR</div>
+        <div id="hex-inspector-panel" class="rich-list-container" style="max-height:200px; flex-grow:0;">
+            <div style="font-size:11px; color:#666; font-style:italic">Select a hex...</div>
+        </div>
+    </div>
 </div>
 
-<div id="editor-container"></div>
-
-<div id="right-panel">
-    <div class="panel-header">Unit Placement</div>
-    <div id="unit-palette-container">
+<div id="game-container">
+    <div id="status-bar">MODE: SELECT</div>
+    <div id="json-modal">
+        <h3 style="margin-top:0; color:var(--accent)">Import / Export</h3>
+        <textarea id="json-input" rows="10"></textarea>
+        <div class="grid-2">
+            <button class="btn btn-primary" onclick="loadJSON()">Load</button>
+            <button class="btn" onclick="toggleModal()">Close</button>
         </div>
+    </div>
+</div>
 
-    <div class="panel-header" style="margin-top:20px;">Objectives</div>
-    <button class="btn" id="btn-obj" onclick="setTool('objective')">Place Objective (VP)</button>
+<div class="panel" style="border-right:none;">
+    <div class="tab-bar">
+        <div class="tab active" onclick="switchTab('general')">GEN</div>
+        <div class="tab" onclick="switchTab('tray')">TRAY</div>
+        <div class="tab" onclick="switchTab('reinf')">REINF</div>
+        <div class="tab" onclick="switchTab('rules')">RULES</div>
+    </div>
 
-    <div class="panel-header" style="margin-top:20px;">Zones</div>
-    <button class="btn" id="btn-zone-blue" onclick="setTool('zone_blue')" style="border-color:#4488ff; color:#4488ff;">Blue Setup Zone</button>
-    <button class="btn" id="btn-zone-red" onclick="setTool('zone_red')" style="border-color:#ff4444; color:#ff4444; margin-top:5px;">Red Setup Zone</button>
+    <div id="tab-general" class="tab-content active" style="overflow-y:auto">
+        <div class="section-header">SCENARIO INFO</div>
+        <label class="label">TITLE</label><input type="text" id="scen-title" value="New Scenario">
+        <label class="label">AUTHOR</label><input type="text" id="scen-author" value="Designer">
+        <label class="label">BRIEFING</label><textarea id="scen-desc" rows="6">Briefing...</textarea>
+        
+        <div class="section-header">ENVIRONMENT</div>
+        <div class="grid-2">
+            <div><label class="label">VISIBILITY</label><select id="env-vis"><option value="normal">Normal</option><option value="bad">Bad</option></select></div>
+            <div><label class="label">TIME</label><select id="env-time"><option value="day">Day</option><option value="night">Night</option></select></div>
+        </div>
+        <div class="section-header">COMMAND POINTS</div>
+        <div class="grid-2">
+            <div><label class="label">UK (Blue)</label><input type="number" id="cp-blue" value="5"></div>
+            <div><label class="label">GER (Red)</label><input type="number" id="cp-red" value="5"></div>
+        </div>
+        <label class="label">MAX TURNS</label><input type="number" id="scen-turns" value="10">
+    </div>
 
-    <div style="flex-grow:1;"></div>
-    <button class="btn btn-danger" onclick="clearMap()">Clear Map</button>
-    <button class="btn active" onclick="exportJSON()">Export JSON</button>
+    <div id="tab-tray" class="tab-content">
+        <div class="section-header">COUNTER TRAY</div>
+        <div class="grid-2">
+            <select id="tray-side" onchange="updateTrayDropdowns()"><option value="blue">UK</option><option value="red">GERMAN</option></select>
+            <select id="tray-cat">
+                </select>
+        </div>
+        <button class="btn btn-primary" onclick="addTrayUnit()">+ Add to Tray</button>
+        
+        <div class="label" style="margin-top:10px">UK TRAY</div>
+        <div id="list-tray-blue" class="rich-list-container"></div>
+        <div class="label">GER TRAY</div>
+        <div id="list-tray-red" class="rich-list-container"></div>
+    </div>
+
+    <div id="tab-reinf" class="tab-content">
+        <div class="section-header">REINFORCEMENTS</div>
+        <div class="grid-2">
+            <select id="reinf-side" onchange="updateReinfDropdowns()"><option value="blue">UK</option><option value="red">GER</option></select>
+            <select id="reinf-cat">
+                </select>
+        </div>
+        <div class="grid-3">
+            <div><label class="label">TURN</label><input type="number" id="reinf-turn" value="3"></div>
+            <div><label class="label">%</label><input type="number" id="reinf-chance" value="100"></div>
+            <div><label class="label">LOC</label><select id="reinf-loc-type"><option value="edge">Edge</option><option value="setup">Zone</option><option value="hex">Hex</option></select></div>
+        </div>
+        <input type="text" id="reinf-val" value="W" placeholder="Value (N/S/W/E or 8,6)">
+        <button class="btn btn-primary" onclick="addReinf()">+ Add Reinf</button>
+        <div id="list-reinf" class="rich-list-container"></div>
+
+        <div class="section-header">OFF-BOARD ASSETS</div>
+        <label class="label">TYPE</label>
+        <select id="off-type"><option value="artillery">Artillery</option><option value="air">Air</option></select>
+        <div class="grid-3">
+            <div><label class="label">SIDE</label><select id="off-side"><option value="blue">UK</option><option value="red">GER</option></select></div>
+            <div><label class="label">TURN</label><input type="number" id="off-turn" value="1"></div>
+            <div><label class="label">%</label><input type="number" id="off-chance" value="50"></div>
+        </div>
+        <button class="btn btn-primary" onclick="addOffBoard()">+ Add Asset</button>
+        <div id="list-offboard" class="rich-list-container" style="flex-grow:0; height:80px;"></div>
+    </div>
+
+    <div id="tab-rules" class="tab-content">
+        <div class="section-header">VICTORY LOCATIONS</div>
+        <div id="list-vl" class="rich-list-container"></div>
+
+        <div class="section-header">SUDDEN DEATH</div>
+        <div class="grid-2">
+            <div><label class="label">UK THRESH %</label><input type="number" id="thresh-blue" value="0"></div>
+            <div><label class="label">GER THRESH %</label><input type="number" id="thresh-red" value="0"></div>
+        </div>
+        <div style="margin-top:auto;">
+            <button class="btn" onclick="toggleModal()">Import JSON</button>
+            <button class="btn btn-primary" style="margin-top:5px; padding:15px;" onclick="exportScenario()">EXPORT SCENARIO</button>
+        </div>
+    </div>
 </div>
 
 <script>
-// --- Configuration ---
+// --- GAME DATA ---
 const ASSETS_URL = 'https://raw.githubusercontent.com/trainJapan/HexWargame/main/artwork/';
 
-// --- DYNAMIC FILE LIST (Synced with Engine) ---
+// --- DYNAMIC UNIT DEFINITIONS ---
 const UNIT_FILES = [
     "UK_S_Rifle_Squad.png",
     "GER_S_Rifle_Squad.png",
@@ -159,44 +255,55 @@ const UNIT_FILES = [
     "UK_WT_PIAT_Team.png",
     "GER_HWT_Leichtes_Infanteriegeschütz.png"
 ];
-
-// Registry to store parsed info
 const UNIT_DATA_REGISTRY = {};
 
-const TERRAIN_TYPES = ['clear', 'fields', 'broken', 'orchard', 'rural', 'forest', 'urban', 'industrial', 'water', 'hill', 'beach'];
-const TERRAIN_COLORS = {
-    'clear': 0x98FB98, 'fields': 0xCCAA00, 'broken': 0x8B4513, 'orchard': 0x00FF00,
-    'rural': 0xFF9999, 'forest': 0x228B22, 'urban': 0xCC0000, 'industrial': 0x808080,
-    'water': 0x4169E1, 'hill': 0x8B7355, 'beach': 0xFFFF99
+const TERRAIN_TYPES = {
+    'clear':      { color: 0x98FB98, los: 'clear',     cost: 1,   terrainHeight: 0, infantryUsable: 0, vehicleUsable: 0 },
+    'fields':     { color: 0xCCAA00, los: 'degrading', cost: 1,   terrainHeight: 1, infantryUsable: 0, vehicleUsable: 0 },
+    'beach':      { color: 0xFFFF99, los: 'clear',     cost: 1,   terrainHeight: 0, infantryUsable: 0, vehicleUsable: 0 },
+    'broken':     { color: 0x8B4513, los: 'degrading', cost: 2,   terrainHeight: 1, infantryUsable: 0, vehicleUsable: 0 },
+    'orchard':    { color: 0x00FF00, los: 'degrading', cost: 2,   terrainHeight: 1, infantryUsable: 0, vehicleUsable: 0 },
+    'rural':      { color: 0xFF9999, los: 'degrading', cost: 2,   terrainHeight: 1, infantryUsable: 0, vehicleUsable: 0 },
+    'forest':     { color: 0x228B22, los: 'blocking',  cost: 3,   terrainHeight: 2, infantryUsable: 0, vehicleUsable: 0 },
+    'urban':      { color: 0xCC0000, los: 'blocking',  cost: 3,   terrainHeight: 2, infantryUsable: 2, vehicleUsable: 0 },
+    'industrial': { color: 0x808080, los: 'blocking',  cost: 3,   terrainHeight: 2, infantryUsable: 2, vehicleUsable: 0 },
+    'water':      { color: 0x4169E1, los: 'clear',     cost: 999, terrainHeight: 0, infantryUsable: 0, vehicleUsable: 0 },
+    'hill':       { color: 0x8B7355, los: 'degrading', cost: 2,   terrainHeight: 2, infantryUsable: 2, vehicleUsable: 2 }
 };
+const HEX_RADIUS = 40;
 
-const HEX_RADIUS = 35;
+// --- STATE ---
+let mapData = { cols: 15, rows: 12 };
+let hexMap = {}; 
+let units = [];
+let trayUnits = [];
+let reinforcements = [];
+let offBoardAssets = [];
+let victoryLocations = [];
+let roadSegments = [];
+let idCounter = 1;
 
-// Editor State
-let mapCols = 20;
-let mapRows = 15;
-let hexMap = {}; // { "q,r": { terrain, road, zone, obj... } }
-let units = []; // Array of placed units
-let currentTool = null; // 'terrain', 'unit', 'road', 'objective', 'zone_blue', 'zone_red'
-let selectedTerrain = 'clear';
-let selectedUnitInfo = null; // Stores info from UNIT_DATA_REGISTRY for the active brush
-let roadPathStart = null;
+let currentMode = 'select'; 
+let activeTerrain = 'clear';
+let selectedHex = null;
+let lastRoadNode = null;
+let losTool = false;
+let losStartHex = null;
+let losUnitType = 'infantry';
 
 // Phaser
-let scene, hexGroup, unitGroup, overlayGraphics;
+let scene, hexGroup, overlayGroup, zoneGraphics, losGraphics;
+let hexSprites = {};
 
 const config = {
-    type: Phaser.AUTO,
-    parent: 'editor-container',
-    width: window.innerWidth - 600,
-    height: window.innerHeight,
+    type: Phaser.AUTO, parent: 'game-container',
+    width: window.innerWidth - 660, height: window.innerHeight,
     backgroundColor: '#111',
     scene: { preload: preload, create: create, update: update }
 };
-
 const game = new Phaser.Game(config);
 
-// --- PARSING HELPER (Identical to Engine) ---
+// --- PARSING HELPER ---
 function parseUnitFromFileName(filename) {
     const nameOnly = filename.replace(/\.[^/.]+$/, "");
     const parts = nameOnly.split('_');
@@ -232,12 +339,9 @@ function parseUnitFromFileName(filename) {
 }
 
 function preload() {
-    // Load Terrain Variants
-    TERRAIN_TYPES.forEach(t => {
-        for(let i=1; i<=3; i++) this.load.image(`${t}${i}`, `${ASSETS_URL}map/${t}${i}.png`);
-    });
-
-    // Load Dynamic Units
+    for (const k in TERRAIN_TYPES) for(let i=1; i<=3; i++) this.load.image(`${k}${i}`, `${ASSETS_URL}map/${k}${i}.png`);
+    
+    // LOAD SPECIFIC UNITS
     UNIT_FILES.forEach(filename => {
         const info = parseUnitFromFileName(filename);
         this.load.image(info.key, `${ASSETS_URL}counters/${filename}`);
@@ -248,424 +352,663 @@ function preload() {
 function create() {
     scene = this;
     hexGroup = this.add.group();
-    unitGroup = this.add.group();
-    overlayGraphics = this.add.graphics().setDepth(1000);
+    zoneGraphics = this.add.graphics().setDepth(100);
+    overlayGroup = this.add.group().setDepth(200);
+    losGraphics = this.add.graphics().setDepth(500);
 
-    // Mouse Input
-    this.input.on('pointerdown', handlePointer);
-    this.input.on('pointermove', (pointer) => {
-        if (pointer.isDown) handlePointer(pointer);
-    });
-
-    // Camera Controls
-    this.input.on('wheel', (pointer, gameObjects, deltaX, deltaY) => {
-        const zoom = scene.cameras.main.zoom - (deltaY * 0.001);
-        scene.cameras.main.setZoom(Phaser.Math.Clamp(zoom, 0.3, 2));
-    });
-    
-    // Right click pan
+    this.cameras.main.setBounds(-1000, -1000, 5000, 5000);
     this.input.mouse.disableContextMenu();
+    this.input.on('wheel', (p, g, x, y) => scene.cameras.main.setZoom(Phaser.Math.Clamp(scene.cameras.main.zoom - y*0.001, 0.3, 2)));
+    this.input.on('pointerdown', handleMapClick);
 
-    initializeMap();
-    buildTerrainPalette();
-    buildUnitPalette();
+    initUI();
+    // Populate Initial Dropdowns based on Default 'UK'
+    updatePlacerDropdowns();
+    updateTrayDropdowns();
+    updateReinfDropdowns();
+    
+    regenerateMap();
+    setLOSType('infantry');
 }
 
 function update() {
     if (this.input.activePointer.rightButtonDown()) {
-        const pointer = this.input.activePointer;
-        this.cameras.main.scrollX -= (pointer.x - pointer.prevPosition.x) / this.cameras.main.zoom;
-        this.cameras.main.scrollY -= (pointer.y - pointer.prevPosition.y) / this.cameras.main.zoom;
+        const p = this.input.activePointer;
+        this.cameras.main.scrollX -= (p.x - p.prevPosition.x) / this.cameras.main.zoom;
+        this.cameras.main.scrollY -= (p.y - p.prevPosition.y) / this.cameras.main.zoom;
     }
 }
 
-// --- Initialization & UI Builders ---
+// --- LOGIC: UI DYNAMIC POPULATION ---
 
-function buildTerrainPalette() {
-    const container = document.getElementById('terrain-palette');
-    container.innerHTML = '';
-    TERRAIN_TYPES.forEach(t => {
-        const btn = document.createElement('button');
-        btn.className = 'btn';
-        btn.innerText = t.charAt(0).toUpperCase() + t.slice(1);
-        btn.style.borderColor = '#' + TERRAIN_COLORS[t].toString(16);
-        btn.onclick = () => {
-            currentTool = 'terrain';
-            selectedTerrain = t;
-            highlightBtn(btn);
-        };
-        container.appendChild(btn);
+function populateSelect(selectId, side) {
+    const sel = document.getElementById(selectId);
+    sel.innerHTML = '';
+    
+    // Filter Registry
+    const options = [];
+    Object.values(UNIT_DATA_REGISTRY).forEach(info => {
+        if (info.side === side) {
+            options.push(info);
+        }
     });
+
+    // Add Options
+    if (options.length === 0) {
+        const opt = document.createElement('option');
+        opt.text = "No Units Found";
+        sel.add(opt);
+    } else {
+        options.forEach(info => {
+            const opt = document.createElement('option');
+            opt.value = info.key; // The Texture Key (e.g. UK_S_Rifle_Squad)
+            opt.text = info.name; // The Pretty Name
+            sel.add(opt);
+        });
+    }
 }
 
-function buildUnitPalette() {
-    const container = document.getElementById('unit-palette-container');
-    container.innerHTML = '';
+// Linked functions for HTML onchange events
+window.updatePlacerDropdowns = () => { 
+    populateSelect('placer-cat', document.getElementById('placer-side').value); 
+    updateUIConstraints(); 
+};
+window.updateTrayDropdowns = () => { populateSelect('tray-cat', document.getElementById('tray-side').value); };
+window.updateReinfDropdowns = () => { populateSelect('reinf-cat', document.getElementById('reinf-side').value); };
 
-    // Separate by Side
-    const allies = [];
-    const axis = [];
+
+// --- LOGIC: UI CONSTRAINTS ---
+function updateUIConstraints() {
+    const unitKey = document.getElementById('placer-cat').value;
+    const info = UNIT_DATA_REGISTRY[unitKey];
     
-    Object.values(UNIT_DATA_REGISTRY).forEach(info => {
-        if(info.side === 'blue') allies.push(info);
-        else axis.push(info);
+    const stanceSel = document.getElementById('placer-stance');
+    const statusSel = document.getElementById('placer-status');
+    
+    // Save current values to try and preserve them if valid
+    const oldStance = stanceSel.value;
+    const oldStatus = statusSel.value;
+    
+    // Clear
+    stanceSel.innerHTML = '';
+    statusSel.innerHTML = '';
+
+    // Common Stances
+    const optMoving = new Option("Moving", "moving");
+    const optDeployed = new Option("Deployed", "deployed");
+    
+    // Determine category from Registry info
+    let cat = 'squad';
+    if(info) cat = info.category;
+
+    if (cat === 'vehicle') {
+        // Vehicles: No Cover.
+        stanceSel.add(optMoving);
+        stanceSel.add(optDeployed);
+        
+        // Status: Ready, Damaged, Immob. NO Suppressed/Shaken.
+        statusSel.add(new Option("Operational", "clear"));
+        statusSel.add(new Option("Damaged", "damaged"));
+        statusSel.add(new Option("Immobilized", "immobilized"));
+    } else {
+        // Inf/HWT: Can be In Cover / Set Up.
+        stanceSel.add(optMoving);
+        stanceSel.add(optDeployed);
+        stanceSel.add(new Option("Cover / Set Up", "cover"));
+        
+        // Status: Ready, Suppressed(3), Shaken. NO Damaged/Immob.
+        statusSel.add(new Option("Operational", "clear"));
+        statusSel.add(new Option("Suppressed (+2)", "suppressed_2"));
+        statusSel.add(new Option("Suppressed (+4)", "suppressed_4"));
+        statusSel.add(new Option("Suppressed (+6)", "suppressed_6"));
+        statusSel.add(new Option("Shaken", "shaken"));
+    }
+    
+    // Try to re-select previous values if they exist
+    for(let i=0; i<stanceSel.options.length; i++) if(stanceSel.options[i].value === oldStance) stanceSel.selectedIndex = i;
+    for(let i=0; i<statusSel.options.length; i++) if(statusSel.options[i].value === oldStatus) statusSel.selectedIndex = i;
+}
+
+// --- INTERACTION ---
+
+function handleMapClick(pointer) {
+    if(!pointer.leftButtonDown()) return;
+    const hex = getHexAtPoint(pointer.worldX, pointer.worldY);
+    if (!hex) { selectedHex = null; updateInspector(); return; }
+
+    if (losTool) {
+        if (!losStartHex) {
+            losStartHex = hex;
+            losGraphics.clear();
+            const p = getHexPoly(hex.q, hex.r);
+            losGraphics.lineStyle(2, 0xffffff).strokeCircle(p.x, p.y, 15);
+        } else {
+            drawFullLOS(losStartHex, hex);
+            losStartHex = null;
+        }
+        return;
+    }
+
+    if (currentMode === 'select') {
+        selectedHex = hex;
+        updateInspector();
+        refreshOverlays(); 
+    }
+    else if (currentMode === 'paint') {
+        hex.terrain = activeTerrain; hex.variant = Phaser.Math.Between(1,3); 
+        paintHex(hex);
+    }
+    else if (currentMode === 'road') {
+        if (!lastRoadNode) {
+            lastRoadNode = hex;
+        } else {
+            if (lastRoadNode.q !== hex.q || lastRoadNode.r !== hex.r) {
+                roadSegments.push({ from: {q:lastRoadNode.q, r:lastRoadNode.r}, to: {q:hex.q, r:hex.r} });
+                lastRoadNode = hex; 
+                refreshOverlays();
+            }
+        }
+    }
+    else if (currentMode === 'road-del') {
+        roadSegments = roadSegments.filter(s => !((s.from.q===hex.q && s.from.r===hex.r) || (s.to.q===hex.q && s.to.r===hex.r)));
+        refreshOverlays();
+    }
+    else if (currentMode === 'unit') {
+        const unitKey = document.getElementById('placer-cat').value;
+        const info = UNIT_DATA_REGISTRY[unitKey];
+        if(!info) return; // safety
+
+        units.push({
+            id: idCounter++, 
+            side: document.getElementById('placer-side').value, 
+            type: unitKey, // Important: Store the file key
+            category: info.category,
+            name: info.name,
+            stance: document.getElementById('placer-stance').value,
+            q: hex.q, r: hex.r,
+            facing: 0, 
+            status: document.getElementById('placer-status').value, 
+            hp: 5, mp: 6, maxMp: 6, fp: 3, range: 6
+        });
+        selectedHex = hex; 
+        updateInspector();
+        refreshOverlays();
+    }
+    else if (currentMode === 'vl') {
+        const existing = victoryLocations.findIndex(v => v.q === hex.q && v.r === hex.r);
+        if (existing >= 0) victoryLocations.splice(existing, 1);
+        else {
+            const points = prompt("Victory Points (100, 200, 500):", "100");
+            if(points) victoryLocations.push({ q: hex.q, r: hex.r, points: parseInt(points) });
+        }
+        updateLists(); refreshOverlays();
+    }
+    else if (currentMode === 'zone-uk') { hex.setupZone = (hex.setupZone==='blue') ? null : 'blue'; refreshOverlays(); }
+    else if (currentMode === 'zone-ger') { hex.setupZone = (hex.setupZone==='red') ? null : 'red'; refreshOverlays(); }
+}
+
+// --- INSPECTOR ---
+function updateInspector() {
+    const p = document.getElementById('hex-inspector-panel');
+    if (!selectedHex) { p.innerHTML = '<div style="font-size:11px; color:#666; font-style:italic">Select a hex...</div>'; return; }
+    const hexUnits = units.filter(u => u.q === selectedHex.q && u.r === selectedHex.r);
+    const displayUnits = [...hexUnits].reverse();
+    if (displayUnits.length === 0) { p.innerHTML = `<div style="font-size:11px; margin-bottom:5px; color:#aaa;">HEX [${selectedHex.q}, ${selectedHex.r}]</div><div style="font-size:11px; color:#666;">Empty</div>`; return; }
+
+    let html = `<div style="font-size:11px; margin-bottom:5px; color:#aaa;">HEX [${selectedHex.q}, ${selectedHex.r}] (${displayUnits.length} Units)</div>`;
+    html += displayUnits.map(u => {
+        // Use parsed name
+        let name = u.name || ((u.side==='blue' ? 'UK ' : 'GER ') + u.category);
+        
+        let imgKey = u.type; // Use the specific texture key
+        if (!scene.textures.exists(imgKey)) imgKey = 'UK_Inf'; // Fallback
+        
+        let statLabel = u.status;
+        if(u.status.startsWith('suppressed')) statLabel = "Suppr " + u.status.split('_')[1];
+        
+        return `
+        <div class="list-item" onclick="promoteUnit(${u.id})">
+            <div style="display:flex; align-items:center;">
+                <img src="${ASSETS_URL}counters/${imgKey}.png" class="item-icon">
+                <div class="item-info">
+                    <div class="item-title">${name}</div>
+                    <div class="item-meta">${u.stance} | ${statLabel}</div>
+                </div>
+            </div>
+            <div><button class="btn-mini" onclick="event.stopPropagation(); rotateUnit(${u.id})">↻</button><button class="btn-mini btn-danger-mini" onclick="event.stopPropagation(); deleteUnit(${u.id})">X</button></div>
+        </div>`;
+    }).join('');
+    p.innerHTML = html;
+}
+window.promoteUnit = (id) => { const idx = units.findIndex(u => u.id === id); if(idx > -1) { const u = units.splice(idx, 1)[0]; units.push(u); refreshOverlays(); updateInspector(); } };
+window.rotateUnit = (id) => { const u = units.find(x=>x.id===id); if(u){ u.facing=(u.facing+1)%6; updateInspector(); refreshOverlays(); } };
+window.deleteUnit = (id) => { units = units.filter(x=>x.id!==id); updateInspector(); refreshOverlays(); };
+
+// --- RENDERING ---
+function regenerateMap() {
+    mapData.cols = parseInt(document.getElementById('cols').value);
+    mapData.rows = parseInt(document.getElementById('rows').value);
+    hexMap = {};
+    for (let q = 0; q < mapData.cols; q++) {
+        hexMap[q] = {};
+        for (let r = 0; r < mapData.rows; r++) hexMap[q][r] = { q, r, terrain: 'clear', variant: 1, setupZone: null, hasRoad: false };
+    }
+    hexGroup.clear(true, true); hexSprites = {};
+    for (let q = 0; q < mapData.cols; q++) {
+        for (let r = 0; r < mapData.rows; r++) {
+            const hex = hexMap[q][r];
+            const pos = getHexPoly(q, r);
+            const key = `${hex.terrain}${hex.variant||1}`;
+            if(scene.textures.exists(key)) {
+                const img = scene.add.image(pos.x, pos.y, key).setDisplaySize(HEX_RADIUS * 2, HEX_RADIUS * 2);
+                const shape = scene.make.graphics().fillStyle(0xffffff).beginPath();
+                pos.points.forEach((p, i) => i===0 ? shape.moveTo(p.x, p.y) : shape.lineTo(p.x, p.y));
+                shape.closePath().fillPath();
+                img.setMask(shape.createGeometryMask());
+                hexGroup.add(img);
+                hexSprites[`${q},${r}`] = img;
+            }
+            hexGroup.add(scene.add.graphics().lineStyle(1, 0x333333, 0.5).strokePoints(pos.points, true, true));
+        }
+    }
+    refreshOverlays();
+}
+function paintHex(hex) { const sprite = hexSprites[`${hex.q},${hex.r}`]; if(sprite) sprite.setTexture(`${hex.terrain}${hex.variant}`); }
+
+function refreshOverlays() {
+    overlayGroup.clear(true, true); zoneGraphics.clear();
+
+    for(let q in hexMap) for(let r in hexMap[q]) hexMap[q][r].hasRoad = false;
+    roadSegments.forEach(s => {
+        if(hexMap[s.from.q]) hexMap[s.from.q][s.from.r].hasRoad = true;
+        if(hexMap[s.to.q]) hexMap[s.to.q][s.to.r].hasRoad = true;
     });
 
-    const createGroup = (title, list, color) => {
-        const header = document.createElement('div');
-        header.innerText = title;
-        header.style.color = color;
-        header.style.fontSize = '12px';
-        header.style.fontWeight = 'bold';
-        header.style.marginTop = '10px';
-        container.appendChild(header);
+    for (let q = 0; q < mapData.cols; q++) {
+        for (let r = 0; r < mapData.rows; r++) {
+            const hex = hexMap[q][r];
+            if(!hex) continue;
+            const pos = getHexPoly(q, r);
+            if (hex.setupZone === 'blue') zoneGraphics.fillStyle(0x4488ff, 0.3).fillPoints(pos.points, true);
+            else if (hex.setupZone === 'red') zoneGraphics.fillStyle(0xff4444, 0.3).fillPoints(pos.points, true);
+            if (selectedHex && selectedHex.q===q && selectedHex.r===r) zoneGraphics.lineStyle(2, 0xffffff).strokePoints(pos.points, true, true);
+        }
+    }
 
-        const listDiv = document.createElement('div');
-        listDiv.className = 'unit-list';
+    const rg = scene.add.graphics();
+    roadSegments.forEach(seg => {
+        const p1 = getHexPoly(seg.from.q, seg.from.r);
+        const p2 = getHexPoly(seg.to.q, seg.to.r);
+        rg.lineStyle(8, 0x000000).lineBetween(p1.x, p1.y, p2.x, p2.y);
+        rg.lineStyle(5, 0xaaaaaa).lineBetween(p1.x, p1.y, p2.x, p2.y);
+    });
+    overlayGroup.add(rg);
+
+    const stacks = {};
+    units.forEach(u => { const k = `${u.q},${u.r}`; if(!stacks[k]) stacks[k]=[]; stacks[k].push(u); });
+
+    units.forEach(u => {
+        const p = getHexPoly(u.q, u.r);
         
-        list.forEach(info => {
-            const btn = document.createElement('div');
-            btn.className = 'unit-btn';
-            btn.innerHTML = `
-                <img src="${ASSETS_URL}counters/${info.filename}" class="unit-icon">
-                <div>
-                    <div class="unit-name">${info.name}</div>
-                    <div class="unit-type">${info.category.toUpperCase()}</div>
-                </div>
-            `;
-            btn.onclick = () => {
-                currentTool = 'unit';
-                selectedUnitInfo = info;
-                // clear other selected styles
-                document.querySelectorAll('.unit-btn').forEach(b => b.classList.remove('selected'));
-                btn.classList.add('selected');
-            };
-            listDiv.appendChild(btn);
+        // Use specific type image
+        let key = u.type; 
+        if (!scene.textures.exists(key)) key = 'UK_Inf'; // Fallback
+        
+        overlayGroup.add(scene.add.image(p.x, p.y, key).setDisplaySize(HEX_RADIUS*1.25, HEX_RADIUS*1.25));
+
+        // Facing Triangle Color based on Stance
+        const arrow = scene.add.graphics();
+        const a = Phaser.Math.DegToRad([-90,-30,30,90,150,-150][u.facing]);
+        const d = HEX_RADIUS*0.75;
+        
+        let triColor = 0xFFFFFF; // fallback
+        if(u.stance === 'moving') triColor = 0x0055ff; 
+        else if(u.stance === 'deployed') triColor = 0xFF0000; 
+        else if(u.stance === 'cover') triColor = 0xFF8095;
+        
+        arrow.fillStyle(triColor).fillTriangle(
+            p.x+Math.cos(a)*d, p.y+Math.sin(a)*d,
+            p.x+Math.cos(a)*d + Math.cos(a+2.5)*8, p.y+Math.sin(a)*d + Math.sin(a+2.5)*8,
+            p.x+Math.cos(a)*d + Math.cos(a-2.5)*8, p.y+Math.sin(a)*d + Math.sin(a-2.5)*8
+        );
+        overlayGroup.add(arrow);
+
+        // Status Box Color (White=Operational, Yellow=Suppressed, Red=Shaken, Purple=Damaged/Immob)
+        if (u.status !== 'clear') {
+            const bx = p.x+15; const by = p.y+15;
+            let statColor = 0xffffff;
+            let label = "!";
+            
+            // Logic for Specific Labels
+            if(u.status === 'suppressed_2') { statColor = 0xffff00; label="+2"; }
+            else if(u.status === 'suppressed_4') { statColor = 0xffff00; label="+4"; }
+            else if(u.status === 'suppressed_6') { statColor = 0xffff00; label="+6"; }
+            else if(u.status === 'shaken') { statColor = 0xff0000; label="!"; }
+            else if(u.status === 'damaged') { statColor = 0x8800cc; label="X"; }
+            else if(u.status === 'immobilized') { statColor = 0x8800cc; label="I"; }
+
+            overlayGroup.add(scene.add.graphics().fillStyle(statColor).fillRect(bx-8, by-6, 16, 12).lineStyle(1,0x000000).strokeRect(bx-8,by-6,16,12));
+            overlayGroup.add(scene.add.text(bx, by, label, {font:'9px Arial', fill:'#000', fontWeight:'bold'}).setOrigin(0.5));
+        }
+
+        const stack = stacks[`${u.q},${u.r}`];
+        if (stack && stack.length > 1 && stack[stack.length-1] === u) {
+             const bx = p.x+10; const by = p.y-18;
+             overlayGroup.add(scene.add.graphics().fillStyle(0xffffff).fillRect(bx, by, 16, 14).lineStyle(1,0x000000).strokeRect(bx,by,16,14));
+             overlayGroup.add(scene.add.text(bx+8, by+7, `+${stack.length-1}`, {font:'11px Arial', fill:'#000', fontStyle:'bold'}).setOrigin(0.5));
+        }
+    });
+
+    victoryLocations.forEach(vl => {
+        const p = getHexPoly(vl.q, vl.r);
+        overlayGroup.add(scene.add.star(p.x, p.y, 5, 8, 16, 0xffcc00).setStrokeStyle(2, 0x000000));
+        overlayGroup.add(scene.add.text(p.x, p.y+10, vl.points, {fontSize:'10px', stroke:'#000', strokeThickness:3}).setOrigin(0.5));
+    });
+    if (currentMode==='road' && lastRoadNode) {
+        const p = getHexPoly(lastRoadNode.q, lastRoadNode.r);
+        overlayGroup.add(scene.add.circle(p.x, p.y, 8, 0xffffff));
+    }
+}
+
+// --- EXACT GAME LOS ENGINE ---
+
+function toggleLOSTool() {
+    losTool = !losTool; losStartHex = null; losGraphics.clear();
+    const btn = document.getElementById('btn-los');
+    btn.style.background = losTool?'#4488ff':'#444'; btn.style.color = losTool?'#fff':'#4488ff';
+    document.getElementById('los-options').style.display = losTool ? 'block':'none';
+}
+window.setLOSType = (t) => { 
+    losUnitType = t; 
+    document.getElementById('los-btn-inf').classList.toggle('active', t==='infantry'); 
+    document.getElementById('los-btn-veh').classList.toggle('active', t==='vehicle');
+}
+
+function drawFullLOS(start, end) {
+    const res = calculateLOS(start, end, losUnitType);
+    let color = 0x00ff00; 
+    if (res.status === 'degraded') color = 0xffff00; 
+    if (res.status === 'blocked') color = 0xff0000;
+    
+    losGraphics.clear();
+    const p1 = getHexPoly(start.q, start.r); const p2 = getHexPoly(end.q, end.r);
+    losGraphics.lineStyle(4, color, 0.8).lineBetween(p1.x, p1.y, p2.x, p2.y);
+}
+
+function offsetToCube(q, r) {
+    const col = q; const row = r;
+    const x = col; const z = row - (col - (col & 1)) / 2; const y = -x - z;
+    return { x, y, z };
+}
+function getHexDistance(h1, h2) {
+    const a = offsetToCube(h1.q, h1.r); const b = offsetToCube(h2.q, h2.r);
+    return Math.max(Math.abs(a.x - b.x), Math.abs(a.y - b.y), Math.abs(a.z - b.z));
+}
+function findRoadPath(start, target) {
+    const visited = new Set(); const queue = [[start]];
+    while(queue.length > 0) {
+        const path = queue.shift(); const curr = path[path.length-1];
+        if(curr.q === target.q && curr.r === target.r) return path;
+        const key = `${curr.q},${curr.r}`; if(visited.has(key)) continue; visited.add(key);
+        const neighbors = [];
+        roadSegments.forEach(s => {
+            if(s.from.q===curr.q && s.from.r===curr.r) neighbors.push(hexMap[s.to.q][s.to.r]);
+            else if(s.to.q===curr.q && s.to.r===curr.r) neighbors.push(hexMap[s.from.q][s.from.r]);
         });
-        container.appendChild(listDiv);
+        neighbors.forEach(n => { if(n) queue.push([...path, n]); });
+    }
+    return null;
+}
+function getHexesAlongLine(startHex, targetHex) {
+    const hexes = []; 
+    const p1 = getHexPoly(startHex.q, startHex.r); const p2 = getHexPoly(targetHex.q, targetHex.r);
+    const dist = Phaser.Math.Distance.Between(p1.x, p1.y, p2.x, p2.y);
+    const steps = Math.ceil(dist / 10);
+    for(let i=0; i<=steps; i++) { 
+        const t = i/steps; const wx = p1.x + (p2.x-p1.x)*t; const wy = p1.y + (p2.y-p1.y)*t;
+        const h = getHexAtPoint(wx, wy); if(h && !hexes.includes(h)) hexes.push(h); 
+    }
+    return hexes;
+}
+function checkRoadLOS(startHex, targetHex, hexesOnLine) {
+    if (!startHex.hasRoad || !targetHex.hasRoad) return { isRoad: false };
+    const roadPath = findRoadPath(startHex, targetHex); 
+    if (!roadPath || roadPath.length < 2) return { isRoad: false };
+    
+    const p1 = getHexPoly(startHex.q, startHex.r); const p2 = getHexPoly(targetHex.q, targetHex.r);
+    const dx = p2.x - p1.x; const dy = p2.y - p1.y; const len = Math.sqrt(dx*dx + dy*dy);
+    
+    for (let i=0; i<roadPath.length-1; i++) {
+        const c = getHexPoly(roadPath[i].q, roadPath[i].r); 
+        const n = getHexPoly(roadPath[i+1].q, roadPath[i+1].r);
+        const sdx = n.x - c.x; const sdy = n.y - c.y; const slen = Math.sqrt(sdx*sdx + sdy*sdy);
+        const dot = (dx/len) * (sdx/slen) + (dy/len) * (sdy/slen);
+        if (dot < 0.96) return { isRoad: false };
+    }
+    for (let h of hexesOnLine) { if (!roadPath.find(rh => rh.q === h.q && rh.r === h.r)) return { isRoad: false }; }
+    return { isRoad: true };
+}
+
+function calculateLOS(startHex, targetHex, unitType = 'infantry') {
+    const fromTerrain = TERRAIN_TYPES[startHex.terrain];
+    // Corrected height lookup for Observer
+    const startH = unitType === 'vehicle' ? fromTerrain.vehicleUsable : fromTerrain.infantryUsable;
+    
+    const p1 = getHexPoly(startHex.q, startHex.r); const p2 = getHexPoly(targetHex.q, targetHex.r);
+    const distance = Phaser.Math.Distance.Between(p1.x, p1.y, p2.x, p2.y);
+    const steps = Math.ceil(distance / (HEX_RADIUS/10)); 
+
+    const hexesCrossed = new Set();
+    const edgeSegments = [];
+    let edgeRunLength = 0; let edgeHexPair = null;
+
+    for (let i = 0; i <= steps; i++) {
+        const t = i / steps; const x = p1.x + (p2.x - p1.x) * t; const y = p1.y + (p2.y - p1.y) * t;
+        const currentHex = getHexAtPoint(x, y);
+        if (!currentHex) continue;
+        if ((currentHex.q === startHex.q && currentHex.r === startHex.r) || (currentHex.q === targetHex.q && currentHex.r === targetHex.r)) continue;
+
+        const perpDx = -(p2.y - p1.y) / distance; const perpDy = (p2.x - p1.x) / distance;
+        const h1 = getHexAtPoint(x + perpDx * 3, y + perpDy * 3);
+        const h2 = getHexAtPoint(x - perpDx * 3, y - perpDy * 3);
+        
+        if (h1 && h2 && (h1.q !== h2.q || h1.r !== h2.r)) {
+            const pairKey = [`${h1.q},${h1.r}`, `${h2.q},${h2.r}`].sort().join('|');
+            if (edgeHexPair === pairKey) edgeRunLength++;
+            else { if (edgeRunLength > 5) edgeSegments.push(edgeHexPair); edgeHexPair = pairKey; edgeRunLength = 1; }
+        } else {
+            if (edgeRunLength > 5) edgeSegments.push(edgeHexPair);
+            edgeRunLength = 0; edgeHexPair = null;
+            hexesCrossed.add(`${currentHex.q},${currentHex.r}`);
+        }
+    }
+    if (edgeRunLength > 5) edgeSegments.push(edgeHexPair);
+
+    let degradingCount = 0; let hasBlocking = false;
+
+    for (let key of hexesCrossed) {
+        const [q, r] = key.split(',').map(Number); const terrain = TERRAIN_TYPES[hexMap[q][r].terrain];
+        let losEffect = terrain.los;
+        if (terrain.terrainHeight < startH) { if (losEffect === 'blocking') losEffect = 'degrading'; else if (losEffect === 'degrading') losEffect = 'clear'; }
+        if (losEffect === 'blocking') hasBlocking = true; else if (losEffect === 'degrading') degradingCount++;
+    }
+
+    for (let edgePair of edgeSegments) {
+        if (!edgePair) continue; const [k1, k2] = edgePair.split('|'); const [q1, r1] = k1.split(',').map(Number); const [q2, r2] = k2.split(',').map(Number);
+        const t1 = TERRAIN_TYPES[hexMap[q1][r1].terrain]; const t2 = TERRAIN_TYPES[hexMap[q2][r2].terrain];
+        let l1 = t1.los; let l2 = t2.los;
+        if (t1.terrainHeight < startH) l1 = (l1==='blocking'?'degrading':(l1==='degrading'?'clear':l1));
+        if (t2.terrainHeight < startH) l2 = (l2==='blocking'?'degrading':(l2==='degrading'?'clear':l2));
+        if (l1 === 'blocking' && l2 === 'blocking') hasBlocking = true; else if (l1 === 'blocking' || l2 === 'blocking') degradingCount++; else if (l1 === 'degrading' && l2 === 'degrading') degradingCount++;
+    }
+
+    let standardStatus = 'clear';
+    if (hasBlocking || degradingCount >= 2) standardStatus = 'blocked'; else if (degradingCount === 1) standardStatus = 'degraded';
+
+    const hexesOnLine = getHexesAlongLine(startHex, targetHex);
+    const roadRes = checkRoadLOS(startHex, targetHex, hexesOnLine);
+    if (roadRes.isRoad) {
+        const dist = getHexDistance(startHex, targetHex);
+        let roadStatus = 'blocked';
+        if (dist <= 5) roadStatus = 'clear'; else if (dist <= 10) roadStatus = 'degraded';
+        const rank = { 'clear': 3, 'degraded': 2, 'blocked': 1 };
+        if (rank[roadStatus] > rank[standardStatus]) return { status: roadStatus, isRoad: true };
+    }
+
+    return { status: standardStatus, isRoad: false };
+}
+
+// --- LIST HELPERS ---
+
+function updateLists() {
+    const renderUnitItem = (u, meta, delFn) => {
+        let name = u.name || ((u.side==='blue' ? 'UK ' : 'GER ') + u.category);
+        
+        let imgKey = u.type; 
+        if (!scene.textures.exists(imgKey)) imgKey = 'UK_Inf'; // Fallback
+        
+        return `
+        <div class="list-item">
+            <div style="display:flex; align-items:center;">
+                <img src="${ASSETS_URL}counters/${imgKey}.png" class="item-icon">
+                <div class="item-info"><div class="item-title">${name}</div><div class="item-meta">${meta}</div></div>
+            </div>
+            <span class="del-x" onclick="${delFn}(${u.id})">X</span>
+        </div>`;
     };
 
-    if(allies.length > 0) createGroup("ALLIES (BLUE)", allies, "#4488ff");
-    if(axis.length > 0) createGroup("AXIS (RED)", axis, "#ff4444");
-}
-
-function highlightBtn(activeBtn) {
-    document.querySelectorAll('#left-panel .btn').forEach(b => b.classList.remove('active'));
-    document.querySelectorAll('#right-panel .btn').forEach(b => b.classList.remove('active'));
-    if(activeBtn) activeBtn.classList.add('active');
-}
-
-function setTool(tool) {
-    currentTool = tool;
-    if (tool === 'road') roadPathStart = null;
+    document.getElementById('list-tray-blue').innerHTML = trayUnits.filter(u=>u.side==='blue').map(u=>renderUnitItem(u, "Setup Tray", "remTray")).join('');
+    document.getElementById('list-tray-red').innerHTML = trayUnits.filter(u=>u.side==='red').map(u=>renderUnitItem(u, "Setup Tray", "remTray")).join('');
     
-    // Highlight logic for static buttons
-    if(tool === 'road') highlightBtn(document.querySelector("button[onclick=\"setTool('road')\"]"));
-    if(tool === 'objective') highlightBtn(document.getElementById('btn-obj'));
-    if(tool === 'zone_blue') highlightBtn(document.getElementById('btn-zone-blue'));
-    if(tool === 'zone_red') highlightBtn(document.getElementById('btn-zone-red'));
+    document.getElementById('list-reinf').innerHTML = reinforcements.map(r => {
+        let locText = "";
+        if (r.locType === 'setup') locText = "[Setup Zone]";
+        else if (r.locType === 'hex') locText = `Hex [${r.locVal}]`;
+        else locText = `Edge [${r.locVal}]`;
+        return renderUnitItem(r, `Turn ${r.turn} (${r.chance}%) ${locText}`, "remReinf");
+    }).join('');
+
+    document.getElementById('list-offboard').innerHTML = offBoardAssets.map(o => {
+        let name = (o.side==='blue'?'UK ':'GER ') + (o.type==='artillery'?'Artillery':'Air');
+        return `<div class="list-item"><div class="item-info"><div class="item-title">${name}</div><div class="item-meta">Turn ${o.turn} (${o.chance}%)</div></div><span class="del-x" onclick="remOff(${o.id})">X</span></div>`;
+    }).join('');
+
+    document.getElementById('list-vl').innerHTML = victoryLocations.map(v => `<div class="list-item"><div class="item-info"><div class="item-title">Hex [${v.q},${v.r}]</div><div class="item-meta">${v.points} Pts</div></div><span class="del-x" onclick="remVL(${v.q},${v.r})">X</span></div>`).join('');
 }
 
-// --- Map Logic ---
-
-function initializeMap() {
-    hexGroup.clear(true, true);
-    hexMap = {};
-    for (let q = 0; q < mapCols; q++) {
-        for (let r = 0; r < mapRows; r++) {
-            const key = `${q},${r}`;
-            hexMap[key] = { q, r, terrain: 'clear', variant: Phaser.Math.Between(1,3), road: false, zone: null, obj: 0 };
-        }
+window.addTrayUnit = () => { 
+    const key = document.getElementById('tray-cat').value; 
+    const info = UNIT_DATA_REGISTRY[key]; 
+    if(info) { 
+        trayUnits.push({ id: idCounter++, side: document.getElementById('tray-side').value, type: key, category: info.category, name: info.name }); 
+        updateLists(); 
     }
-    redrawMap();
+};
+
+window.addReinf = () => { 
+    const key = document.getElementById('reinf-cat').value; 
+    const info = UNIT_DATA_REGISTRY[key]; 
+    if(info) {
+        reinforcements.push({ 
+            id: idCounter++, 
+            side: document.getElementById('reinf-side').value, 
+            type: key, 
+            category: info.category, 
+            name: info.name,
+            turn: document.getElementById('reinf-turn').value, 
+            chance: document.getElementById('reinf-chance').value, 
+            locType: document.getElementById('reinf-loc-type').value, 
+            locVal: document.getElementById('reinf-val').value 
+        }); 
+        updateLists(); 
+    }
+};
+window.addOffBoard = () => { offBoardAssets.push({ id: idCounter++, type: document.getElementById('off-type').value, side: document.getElementById('off-side').value, turn: document.getElementById('off-turn').value, chance: document.getElementById('off-chance').value }); updateLists(); };
+window.remTray = (id) => { trayUnits = trayUnits.filter(u=>u.id!==id); updateLists(); };
+window.remReinf = (id) => { reinforcements = reinforcements.filter(u=>u.id!==id); updateLists(); };
+window.remOff = (id) => { offBoardAssets = offBoardAssets.filter(u=>u.id!==id); updateLists(); };
+window.remVL = (q,r) => { victoryLocations = victoryLocations.filter(v=>!(v.q===q && v.r===r)); refreshOverlays(); updateLists(); };
+
+// --- SYSTEM ---
+function initUI() {
+    const pal = document.getElementById('terrain-palette');
+    for(const k in TERRAIN_TYPES) {
+        const div = document.createElement('div'); div.className = 'terrain-item';
+        div.innerHTML = `<img src="${ASSETS_URL}map/${k}1.png">`;
+        div.onclick = () => { activeTerrain=k; setMode('paint'); document.querySelectorAll('.terrain-item').forEach(e=>e.classList.remove('selected')); div.classList.add('selected'); };
+        pal.appendChild(div);
+    }
 }
-
-function resizeMap(c, r) {
-    mapCols = c; mapRows = r;
-    initializeMap();
+window.setMode = (m) => {
+    currentMode = m; selectedHex = null; losTool=false; lastRoadNode=null; // Reset road chain
+    updateInspector(); refreshOverlays(); 
+    document.getElementById('status-bar').style.display='block'; document.getElementById('status-bar').innerText = "MODE: "+m.toUpperCase();
+    ['btn-select','btn-road','btn-road-del','btn-vl','btn-zone-uk','btn-zone-ger'].forEach(id=>document.getElementById(id).classList.remove('active'));
+    if(document.getElementById('btn-'+m)) document.getElementById('btn-'+m).classList.add('active');
 }
-
-function clearMap() {
-    if(confirm("Clear everything?")) {
-        initializeMap();
-        units = [];
-        redrawUnits();
-    }
+window.switchTab = (id) => {
+    document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active')); document.querySelectorAll('.tab-content').forEach(c=>c.classList.remove('active'));
+    event.target.classList.add('active'); document.getElementById('tab-'+id).classList.add('active');
 }
+window.toggleModal = () => document.getElementById('json-modal').style.display = document.getElementById('json-modal').style.display==='block' ? 'none':'block';
 
-function handlePointer(pointer) {
-    const hex = getHexAtPoint(pointer.worldX, pointer.worldY);
-    if (!hex) return;
-    const key = `${hex.q},${hex.r}`;
-    const data = hexMap[key];
-    if (!data) return;
-
-    if (currentTool === 'terrain') {
-        data.terrain = selectedTerrain;
-        data.variant = Phaser.Math.Between(1,3);
-        redrawHex(data);
-    } 
-    else if (currentTool === 'road') {
-        if(!pointer.isDown) return; // Only clicks
-        // Toggle road on single hex (simple implementation)
-        // Ideally roads are edges, but for this simplified engine we mark hexes as containing roads
-        // If clicking multiple, we could link them. For now, simple toggle.
-        // Better: just mark hasRoad = true
-        data.road = !data.road;
-        redrawHex(data);
-        drawOverlays();
-    }
-    else if (currentTool === 'zone_blue') {
-        data.zone = (data.zone === 'blue') ? null : 'blue';
-        drawOverlays();
-    }
-    else if (currentTool === 'zone_red') {
-        data.zone = (data.zone === 'red') ? null : 'red';
-        drawOverlays();
-    }
-    else if (currentTool === 'objective') {
-        data.obj = (data.obj === 0) ? 50 : 0; // Toggle 50 VP
-        drawOverlays();
-    }
-    else if (currentTool === 'unit' && selectedUnitInfo) {
-        if(pointer.downX !== pointer.upX) return; // prevent drag-painting units
+window.loadJSON = () => {
+    try {
+        const data = JSON.parse(document.getElementById('json-input').value);
+        document.getElementById('cols').value = data.map.cols; document.getElementById('rows').value = data.map.rows;
+        regenerateMap();
+        data.map.terrain.forEach(t => { if(hexMap[t.q]) { hexMap[t.q][t.r].terrain = t.type; paintHex(hexMap[t.q][t.r]); } });
+        if(data.map.zones) data.map.zones.forEach(z => { if(hexMap[z.q]) hexMap[z.q][z.r].setupZone = z.side; });
+        roadSegments = data.map.roads || [];
+        units = data.units.locked || []; trayUnits = data.units.tray || []; reinforcements = data.units.reinforcements || [];
+        if(data.victory) victoryLocations = data.victory.locations || [];
         
-        // Check if unit exists there, remove it if so (toggle)
-        const existingIdx = units.findIndex(u => u.q === hex.q && u.r === hex.r);
-        if (existingIdx >= 0) {
-            units.splice(existingIdx, 1);
-        } else {
-            // Place new unit
-            units.push({
-                type: selectedUnitInfo.key, // store texture key
-                q: hex.q,
-                r: hex.r,
-                // Add default properties expected by engine
-                side: selectedUnitInfo.side,
-                category: selectedUnitInfo.category,
-                name: selectedUnitInfo.name
-            });
-        }
-        redrawUnits();
+        // BACKWARD COMPATIBILITY: Map old 'type' to new 'category' and default stance
+        [...units, ...trayUnits, ...reinforcements].forEach(u => {
+            if(u.type && !u.category) {
+                 // Try to guess based on filename
+                 const info = UNIT_DATA_REGISTRY[u.type];
+                 if(info) {
+                     u.category = info.category;
+                     u.name = info.name;
+                 } else {
+                     u.category = u.type; 
+                 }
+            }
+            if(!u.stance) u.stance = "deployed"; 
+        });
+
+        updateLists(); refreshOverlays(); toggleModal();
+    } catch(e) { alert("Invalid JSON: " + e.message); }
+}
+
+function exportScenario() {
+    const terrainExp = []; const zonesExp = [];
+    for(let q in hexMap) for(let r in hexMap[q]) {
+        if(hexMap[q][r].terrain!=='clear') terrainExp.push({q:parseInt(q),r:parseInt(r),type:hexMap[q][r].terrain});
+        if(hexMap[q][r].setupZone) zonesExp.push({q:parseInt(q),r:parseInt(r),side:hexMap[q][r].setupZone});
     }
+    const scenario = {
+        info: { title: document.getElementById('scen-title').value, author: document.getElementById('scen-author').value, description: document.getElementById('scen-desc').value, maxTurns: parseInt(document.getElementById('scen-turns').value), environment: { visibility: document.getElementById('env-vis').value, time: document.getElementById('env-time').value }, cp: { blue: document.getElementById('cp-blue').value, red: document.getElementById('cp-red').value } },
+        map: { cols: mapData.cols, rows: mapData.rows, terrain: terrainExp, roads: roadSegments, zones: zonesExp },
+        units: { locked: units, tray: trayUnits, reinforcements: reinforcements }, support: offBoardAssets, victory: { locations: victoryLocations, thresholds: { blue: document.getElementById('thresh-blue').value, red: document.getElementById('thresh-red').value } }
+    };
+    document.getElementById('json-input').value = JSON.stringify(scenario, null, 2); toggleModal();
 }
 
-// --- Drawing ---
-
-function getHexPosition(q, r) {
-    const x = q * HEX_RADIUS * 1.5 + HEX_RADIUS;
-    const y = r * HEX_RADIUS * Math.sqrt(3) + (q % 2 === 1 ? HEX_RADIUS * Math.sqrt(3) / 2 : 0) + HEX_RADIUS;
-    return { x, y };
+function getHexPoly(q, r) {
+    const x = q * HEX_RADIUS * 1.5 + HEX_RADIUS; const y = r * HEX_RADIUS * Math.sqrt(3) + (q%2===1 ? HEX_RADIUS*Math.sqrt(3)/2 : 0) + HEX_RADIUS;
+    const points = []; for(let i=0; i<6; i++) { const a = Math.PI/3 * i; points.push({ x: x + HEX_RADIUS*Math.cos(a), y: y + HEX_RADIUS*Math.sin(a) }); }
+    return { x, y, points };
 }
-
-function getHexAtPoint(worldX, worldY) {
-    // Brute force is fine for editor size
-    let closest = null; let minD = Infinity;
-    for (const key in hexMap) {
-        const h = hexMap[key];
-        const pos = getHexPosition(h.q, h.r);
-        const d = Phaser.Math.Distance.Between(worldX, worldY, pos.x, pos.y);
-        if (d < HEX_RADIUS && d < minD) {
-            minD = d; closest = h;
-        }
+function getHexAtPoint(wx, wy) {
+    let closest = null, minDist = Infinity;
+    for(let q=0; q<mapData.cols; q++) for(let r=0; r<mapData.rows; r++) {
+        const p = getHexPoly(q,r); const d = Phaser.Math.Distance.Between(wx, wy, p.x, p.y);
+        if(d < HEX_RADIUS && d < minDist) { minDist = d; closest = hexMap[q][r]; }
     }
     return closest;
 }
-
-function redrawMap() {
-    hexGroup.clear(true, true);
-    for (const key in hexMap) {
-        redrawHex(hexMap[key]);
-    }
-    drawOverlays();
-}
-
-function redrawHex(hex) {
-    // Remove old sprite at this pos if needed? 
-    // Optimization: In editor just clear/redraw is safer or track sprite refs.
-    // We'll just draw on top for now, or clear full map on heavy ops.
-    // For paintbrush, let's just add new sprite on top. 
-    
-    const pos = getHexPosition(hex.q, hex.r);
-    const key = `${hex.terrain}${hex.variant}`;
-    
-    if (scene.textures.exists(key)) {
-        const img = scene.add.image(pos.x, pos.y, key).setDisplaySize(HEX_RADIUS*2, HEX_RADIUS*2);
-        
-        // Hex Mask
-        const shape = scene.make.graphics().fillStyle(0xffffff).beginPath();
-        for (let i = 0; i < 6; i++) {
-            const angle = (Math.PI / 3) * i;
-            const hx = pos.x + HEX_RADIUS * Math.cos(angle);
-            const hy = pos.y + HEX_RADIUS * Math.sin(angle);
-            if (i === 0) shape.moveTo(hx, hy); else shape.lineTo(hx, hy);
-        }
-        shape.closePath().fillPath();
-        img.setMask(shape.createGeometryMask());
-        hexGroup.add(img);
-
-        // Hex Outline
-        const outline = scene.add.graphics().lineStyle(1, 0x333333, 0.5).beginPath();
-        for (let i = 0; i < 6; i++) {
-            const angle = (Math.PI / 3) * i;
-            const hx = pos.x + HEX_RADIUS * Math.cos(angle);
-            const hy = pos.y + HEX_RADIUS * Math.sin(angle);
-            if (i === 0) outline.moveTo(hx, hy); else outline.lineTo(hx, hy);
-        }
-        outline.closePath().strokePath();
-        hexGroup.add(outline);
-    }
-}
-
-function drawOverlays() {
-    overlayGraphics.clear();
-    
-    // Roads, Zones, Objs
-    for (const key in hexMap) {
-        const h = hexMap[key];
-        const pos = getHexPosition(h.q, h.r);
-        
-        // Zones
-        if (h.zone) {
-            const color = (h.zone === 'blue') ? 0x4488ff : 0xff4444;
-            overlayGraphics.fillStyle(color, 0.3);
-            const pts = [];
-            for (let i = 0; i < 6; i++) {
-                const a = Math.PI / 3 * i;
-                pts.push({x: pos.x + HEX_RADIUS*Math.cos(a), y: pos.y + HEX_RADIUS*Math.sin(a)});
-            }
-            overlayGraphics.fillPoints(pts);
-        }
-
-        // Road (Simple dot for now, Engine does lines)
-        if (h.road) {
-            overlayGraphics.fillStyle(0x555555, 1);
-            overlayGraphics.fillCircle(pos.x, pos.y, 8);
-        }
-
-        // Objective
-        if (h.obj > 0) {
-            overlayGraphics.lineStyle(2, 0xffd700, 1);
-            overlayGraphics.strokeCircle(pos.x, pos.y, 10);
-            // We can't easily add text to graphics, so skipping text for perf in editor or add scene.add.text and track it
-        }
-    }
-}
-
-function redrawUnits() {
-    unitGroup.clear(true, true);
-    units.forEach(u => {
-        const pos = getHexPosition(u.q, u.r);
-        if (scene.textures.exists(u.type)) {
-            const sprite = scene.add.image(pos.x, pos.y, u.type).setDisplaySize(HEX_RADIUS*1.4, HEX_RADIUS*1.4);
-            unitGroup.add(sprite);
-        }
-    });
-}
-
-// --- Export ---
-
-function exportJSON() {
-    // 1. Terrain List
-    const terrainList = [];
-    const roadList = []; // Engine expects road segments, we have hexes. 
-    // *Simplified Road Export*: We will just export connections between adjacent road hexes.
-    
-    for (const key in hexMap) {
-        const h = hexMap[key];
-        if (h.terrain !== 'clear') {
-            terrainList.push({ q: h.q, r: h.r, type: h.terrain });
-        }
-        
-        // Road Logic: Check neighbors
-        if (h.road) {
-            // Check SE, SW, S neighbors to avoid duplicates (one-way check)
-            const neighbors = [
-                {dq:1, dr:0}, {dq:0, dr:1}, {dq:-1, dr:1} // E, SE, SW in axial? No.
-                // Axial neighbors: (+1,0), (+1,-1), (0,-1), (-1,0), (-1,+1), (0,+1)
-                // We check half to create unique edges.
-            ];
-            // ... Actually simpler: Just export list of road hexes and let engine connect?
-            // Engine v0.9.5 expects: map.roads = [ {from:{q,r}, to:{q,r}}, ... ]
-            // We need to generate segments.
-            
-            // Axial offsets
-            const offsets = [[1,0], [0,1], [-1,1]]; 
-            offsets.forEach(off => {
-                const nKey = `${h.q + off[0]},${h.r + off[1]}`;
-                if (hexMap[nKey] && hexMap[nKey].road) {
-                    roadList.push({
-                        from: {q: h.q, r: h.r},
-                        to: {q: h.q + off[0], r: h.r + off[1]}
-                    });
-                }
-            });
-        }
-    }
-
-    // 2. Zones
-    const zones = [];
-    for (const key in hexMap) {
-        if(hexMap[key].zone) zones.push({ q: hexMap[key].q, r: hexMap[key].r, side: hexMap[key].zone });
-    }
-
-    // 3. Objectives
-    const objectives = [];
-    for (const key in hexMap) {
-        if(hexMap[key].obj > 0) objectives.push({ q: hexMap[key].q, r: hexMap[key].r, points: hexMap[key].obj });
-    }
-
-    // 4. Units
-    // Engine expects: { locked: [], tray: [] }
-    // Editor units are "Locked" (pre-placed on map) unless we add a "Tray Mode" later.
-    // Actually, usually map units are "Pre-deployed" (Locked isFixed=true? or just start on map?)
-    // In Engine v0.9.5: "locked" array sets isFixed=true.
-    // If we want them editable in setup, we might need a flag. 
-    // For now, let's export them as 'locked' so they appear on map.
-    
-    // We also need to separate "Tray" units. Since this editor is simple placement,
-    // let's assume everything on map is a STARTING UNIT.
-    // If you want tray units, we'd need a separate list in UI.
-    // For now, let's put all placed units into 'locked' (Start on map).
-    
-    const exportUnits = {
-        locked: units,
-        tray: [] // Empty for now
-    };
-
-    const data = {
-        info: {
-            title: document.getElementById('meta-title').value,
-            author: document.getElementById('meta-author').value,
-            description: document.getElementById('meta-desc').value,
-            maxTurns: parseInt(document.getElementById('meta-turns').value)
-        },
-        map: {
-            cols: mapCols,
-            rows: mapRows,
-            terrain: terrainList,
-            roads: roadList,
-            zones: zones
-        },
-        victory: {
-            locations: objectives
-        },
-        units: exportUnits
-    };
-
-    const jsonStr = JSON.stringify(data, null, 2);
-    
-    // Download
-    const blob = new Blob([jsonStr], {type: "application/json"});
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = "scenario.json";
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-}
-
 </script>
 </body>
 </html>
