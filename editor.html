@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Wargame Editor v2.8 - Specific Unit Naming</title>
+    <title>Wargame Editor v2.9 - Unit Quality</title>
     <script src="https://cdn.jsdelivr.net/npm/phaser@3.60.0/dist/phaser.min.js"></script>
     <style>
         :root {
@@ -78,7 +78,7 @@
 <body>
 
 <div class="panel" style="border-left:none;">
-    <div style="padding:10px; background:#222; border-bottom:1px solid #444; font-weight:bold; color:var(--accent);">MAP EDITOR v2.8</div>
+    <div style="padding:10px; background:#222; border-bottom:1px solid #444; font-weight:bold; color:var(--accent);">MAP EDITOR v2.9</div>
     <div style="padding:10px; overflow-y:auto; flex-grow:1;">
         
         <div class="grid-2">
@@ -120,6 +120,13 @@
             <select id="placer-cat" onchange="updateUIConstraints()">
                 </select>
         </div>
+        
+        <label class="label">QUALITY</label>
+        <select id="placer-quality">
+            <option value="low">Low</option>
+            <option value="regular" selected>Regular</option>
+            <option value="elite">Elite</option>
+        </select>
         
         <div class="grid-2">
             <div>
@@ -188,7 +195,20 @@
             <select id="tray-cat">
                 </select>
         </div>
-        <button class="btn btn-primary" onclick="addTrayUnit()">+ Add to Tray</button>
+        <div class="grid-2">
+             <div>
+                <label class="label">QUALITY</label>
+                <select id="tray-quality">
+                    <option value="low">Low</option>
+                    <option value="regular" selected>Regular</option>
+                    <option value="elite">Elite</option>
+                </select>
+             </div>
+             <div>
+                <label class="label">&nbsp;</label>
+                <button class="btn btn-primary" onclick="addTrayUnit()">+ Add</button>
+             </div>
+        </div>
         
         <div class="label" style="margin-top:10px">UK TRAY</div>
         <div id="list-tray-blue" class="rich-list-container"></div>
@@ -203,6 +223,14 @@
             <select id="reinf-cat">
                 </select>
         </div>
+        
+        <label class="label">QUALITY</label>
+        <select id="reinf-quality">
+            <option value="low">Low</option>
+            <option value="regular" selected>Regular</option>
+            <option value="elite">Elite</option>
+        </select>
+
         <div class="grid-3">
             <div><label class="label">TURN</label><input type="number" id="reinf-turn" value="3"></div>
             <div><label class="label">%</label><input type="number" id="reinf-chance" value="100"></div>
@@ -524,6 +552,7 @@ function handleMapClick(pointer) {
             type: unitKey, // Important: Store the file key
             category: info.category,
             name: info.name,
+            quality: document.getElementById('placer-quality').value,
             stance: document.getElementById('placer-stance').value,
             q: hex.q, r: hex.r,
             facing: 0, 
@@ -557,21 +586,23 @@ function updateInspector() {
 
     let html = `<div style="font-size:11px; margin-bottom:5px; color:#aaa;">HEX [${selectedHex.q}, ${selectedHex.r}] (${displayUnits.length} Units)</div>`;
     html += displayUnits.map(u => {
-        // Use parsed name
         let name = u.name || ((u.side==='blue' ? 'UK ' : 'GER ') + u.category);
         
-        let imgKey = u.type; // Use the specific texture key
-        if (!scene.textures.exists(imgKey)) imgKey = 'UK_Inf'; // Fallback
+        let imgKey = u.type; 
+        if (!scene.textures.exists(imgKey)) imgKey = 'UK_Inf'; 
         
         let statLabel = u.status;
         if(u.status.startsWith('suppressed')) statLabel = "Suppr " + u.status.split('_')[1];
+        
+        // Quality Label in List
+        let qLabel = u.quality ? u.quality.charAt(0).toUpperCase() + u.quality.slice(1) : 'Regular';
         
         return `
         <div class="list-item" onclick="promoteUnit(${u.id})">
             <div style="display:flex; align-items:center;">
                 <img src="${ASSETS_URL}counters/${imgKey}.png" class="item-icon">
                 <div class="item-info">
-                    <div class="item-title">${name}</div>
+                    <div class="item-title">${qLabel} ${name}</div>
                     <div class="item-meta">${u.stance} | ${statLabel}</div>
                 </div>
             </div>
@@ -863,6 +894,7 @@ function calculateLOS(startHex, targetHex, unitType = 'infantry') {
 function updateLists() {
     const renderUnitItem = (u, meta, delFn) => {
         let name = u.name || ((u.side==='blue' ? 'UK ' : 'GER ') + u.category);
+        let qLabel = u.quality ? u.quality.charAt(0).toUpperCase() + u.quality.slice(1) : 'Regular';
         
         let imgKey = u.type; 
         if (!scene.textures.exists(imgKey)) imgKey = 'UK_Inf'; // Fallback
@@ -871,7 +903,7 @@ function updateLists() {
         <div class="list-item">
             <div style="display:flex; align-items:center;">
                 <img src="${ASSETS_URL}counters/${imgKey}.png" class="item-icon">
-                <div class="item-info"><div class="item-title">${name}</div><div class="item-meta">${meta}</div></div>
+                <div class="item-info"><div class="item-title">${qLabel} ${name}</div><div class="item-meta">${meta}</div></div>
             </div>
             <span class="del-x" onclick="${delFn}(${u.id})">X</span>
         </div>`;
@@ -900,7 +932,14 @@ window.addTrayUnit = () => {
     const key = document.getElementById('tray-cat').value; 
     const info = UNIT_DATA_REGISTRY[key]; 
     if(info) { 
-        trayUnits.push({ id: idCounter++, side: document.getElementById('tray-side').value, type: key, category: info.category, name: info.name }); 
+        trayUnits.push({ 
+            id: idCounter++, 
+            side: document.getElementById('tray-side').value, 
+            type: key, 
+            category: info.category, 
+            name: info.name,
+            quality: document.getElementById('tray-quality').value
+        }); 
         updateLists(); 
     }
 };
@@ -915,6 +954,7 @@ window.addReinf = () => {
             type: key, 
             category: info.category, 
             name: info.name,
+            quality: document.getElementById('reinf-quality').value,
             turn: document.getElementById('reinf-turn').value, 
             chance: document.getElementById('reinf-chance').value, 
             locType: document.getElementById('reinf-loc-type').value, 
@@ -976,6 +1016,7 @@ window.loadJSON = () => {
                  }
             }
             if(!u.stance) u.stance = "deployed"; 
+            if(!u.quality) u.quality = "regular"; // Default Quality
         });
 
         updateLists(); refreshOverlays(); toggleModal();
