@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Wargame Engine v0.9.6 - Corrected Labels</title>
+    <title>Wargame Engine v0.9.7 - Unit Quality Stars</title>
     <script src="https://cdn.jsdelivr.net/npm/phaser@3.60.0/dist/phaser.min.js"></script>
     <style>
         :root {
@@ -255,6 +255,8 @@
             <div class="ctx-portrait" id="ctx-img"></div>
             <div id="ctx-stance-right" class="ctx-side-info" style="color:#aaa;">-</div>
         </div>
+
+        <div id="ctx-quality" style="color:#ffd700; font-size:16px; margin-bottom:5px; line-height:1;"></div>
 
         <div class="ctx-title" id="ctx-title">No Selection</div>
         <div class="ctx-subtitle" id="ctx-subtitle">-</div>
@@ -523,6 +525,13 @@ function showUnitPanel(unit) {
     
     document.getElementById('ctx-subtitle').innerText = subText;
     // -----------------------------
+    
+    // --- QUALITY STARS ---
+    let qStars = "★★"; // Default Regular
+    let q = unit.quality || 'regular';
+    if(q === 'low') qStars = "★";
+    else if(q === 'elite') qStars = "★★★";
+    document.getElementById('ctx-quality').innerText = qStars;
 
     document.getElementById('unit-actions').style.display = 'grid';
 
@@ -688,6 +697,9 @@ function showTerrainPanel(hex) {
     
     document.getElementById('ctx-status-left').innerText = ""; document.getElementById('ctx-status-left').style.border="none";
     document.getElementById('ctx-stance-right').innerText = ""; document.getElementById('ctx-stance-right').style.border="none";
+    
+    // Clear stars for terrain
+    document.getElementById('ctx-quality').innerText = "";
 
     const badgeContainer = document.getElementById('ctx-badges');
     badgeContainer.innerHTML = '';
@@ -722,6 +734,7 @@ function clearContextPanel() {
     document.getElementById('ctx-title').innerText = 'No Selection';
     document.getElementById('ctx-subtitle').innerText = '-';
     document.getElementById('ctx-badges').innerHTML = '';
+    document.getElementById('ctx-quality').innerText = '';
     document.getElementById('unit-actions').style.display = 'none';
     document.getElementById('stats-content').innerHTML = '';
     document.getElementById('stack-container').style.display = 'none';
@@ -835,6 +848,7 @@ function deployTrayUnit(uData, hex) {
         unitType: uData.type, // Store the specific file key
         category: uData.category || 'squad',
         name: uData.name, // Preserve name
+        quality: uData.quality || 'regular', // Preserve Quality
         q: hex.q, r: hex.r,
         facing: 0, 
         status: 'clear', 
@@ -864,7 +878,8 @@ function redeployUnit() {
         side: selectedUnit.side,
         type: selectedUnit.unitType,
         category: selectedUnit.category,
-        name: selectedUnit.name
+        name: selectedUnit.name,
+        quality: selectedUnit.quality
     };
     trayUnits.push(trayObj);
     units = units.filter(u => u !== selectedUnit);
