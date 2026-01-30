@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Wargame Engine v0.9.5 - Specific Unit Support</title>
+    <title>Wargame Engine v0.9.6 - Corrected Labels</title>
     <script src="https://cdn.jsdelivr.net/npm/phaser@3.60.0/dist/phaser.min.js"></script>
     <style>
         :root {
@@ -511,7 +511,19 @@ function showUnitPanel(unit) {
     }
 
     document.getElementById('ctx-title').innerText = titleText;
-    document.getElementById('ctx-subtitle').innerText = `${(unit.category || 'UNIT').toUpperCase()} PLATOON`;
+    
+    // --- UPDATED SUBTITLE LOGIC ---
+    let subText = "UNIT";
+    const cat = (unit.category || "").toLowerCase();
+    
+    if (cat === 'squad') subText = "RIFLE SQUAD";
+    else if (cat === 'team') subText = "WEAPON TEAM";
+    else if (cat === 'hwt') subText = "HEAVY WEAPON TEAM";
+    else if (cat === 'vehicle') subText = "VEHICLE";
+    
+    document.getElementById('ctx-subtitle').innerText = subText;
+    // -----------------------------
+
     document.getElementById('unit-actions').style.display = 'grid';
 
     // -- LEFT STATUS TEXT --
