@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Wargame Engine v0.9.5 - Dynamic Unit Parsing</title>
+    <title>Wargame Engine v0.9.5 - Specific Unit Support</title>
     <script src="https://cdn.jsdelivr.net/npm/phaser@3.60.0/dist/phaser.min.js"></script>
     <style>
         :root {
@@ -399,7 +399,7 @@ function preloadScene() {
     for (const [key, value] of Object.entries(TERRAIN_TYPES)) {
         for (let i = 1; i <= 3; i++) { this.load.image(`${key}${i}`, `${ASSETS_URL}map/${key}${i}.png`); }
     }
-
+    
     // Dynamic Unit Loading
     UNIT_FILES.forEach(filename => {
         const info = parseUnitFromFileName(filename);
@@ -407,6 +407,7 @@ function preloadScene() {
         UNIT_DATA_REGISTRY[info.key] = info;
     });
     
+    // Fallback texture just in case
     this.make.graphics({x:0,y:0,add:false}).fillStyle(0xffffff).fillRect(0,0,1,1).generateTexture('fallback', 1, 1);
 }
 
@@ -458,8 +459,12 @@ function updateScene() {
 // --- Helper: Asset Keys & Logic ---
 function getUnitKey(unit) {
     // 1. Try exact type match from loaded files
-    if (scene.textures.exists(unit.unitType)) {
+    if (unit.unitType && scene.textures.exists(unit.unitType)) {
         return unit.unitType;
+    }
+    // 2. Try 'type' field from editor JSON
+    if (unit.type && scene.textures.exists(unit.type)) {
+        return unit.type;
     }
     return 'fallback';
 }
@@ -512,11 +517,27 @@ function showUnitPanel(unit) {
     // -- LEFT STATUS TEXT --
     const leftEl = document.getElementById('ctx-status-left');
     let sColor = '#aaa'; let sText = "OPERATIONAL";
-    if(unit.status === 'clear') { sColor='#fff'; sText="OPERATIONAL"; }
-    else if(unit.status === 'shaken') { sColor='#ff4444'; sText="SHAKEN"; }
-    else if(unit.status === 'damaged') { sColor='#cc00cc'; sText="DAMAGED"; }
-    else if(unit.status === 'immobilized') { sColor='#cc00cc'; sText="IMMOBILIZED"; }
-    else if(unit.status.startsWith('suppressed')) { sColor='#ffff00'; sText="SUPPRESSED +" + unit.status.split('_')[1]; }
+    
+    if(unit.status === 'clear') { 
+        sColor='#fff'; 
+        sText="OPERATIONAL"; 
+    }
+    else if(unit.status === 'shaken') { 
+        sColor='#ff4444'; 
+        sText="SHAKEN"; 
+    }
+    else if(unit.status === 'damaged') { 
+        sColor='#cc00cc'; 
+        sText="DAMAGED"; 
+    }
+    else if(unit.status === 'immobilized') { 
+        sColor='#cc00cc'; 
+        sText="IMMOBILIZED"; 
+    }
+    else if(unit.status.startsWith('suppressed')) { 
+        sColor='#ffff00'; 
+        sText="SUPPRESSED +" + unit.status.split('_')[1]; 
+    }
     
     leftEl.innerText = sText;
     leftEl.style.color = sColor;
@@ -606,12 +627,14 @@ function showUnitPanel(unit) {
             if (u === unit) item.style.borderColor = 'var(--accent)';
             const facingDir = ["N","NE","SE","S","SW","NW"][u.facing];
             
+            // Resolve Stance for Stack List
             let stText = "Deployed";
             if(u.stance === 'moving') stText = "Moving";
             else if(u.stance === 'cover') stText = "Cover";
             else if(u.stance === 'setup') stText = "Set Up";
             else if(u.stance === 'deployed') stText = "Deployed";
             
+            // Resolve Status for Stack List
             let statText = "Operational";
             let statColor = "#fff";
             if(u.status === 'shaken') { statText="Shaken"; statColor="#ff4444"; }
@@ -756,7 +779,10 @@ function renderTray() {
         if (selectedTrayUnit === u) item.classList.add('selected');
         
         let displayName = u.name || u.category || u.type;
-        let imgKey = getUnitKey(u);
+        
+        // Use type (filename) as key if available
+        let imgKey = u.type || u.unitType;
+        if (!scene.textures.exists(imgKey)) imgKey = 'fallback';
 
         item.innerHTML = `
             <img src="${ASSETS_URL}counters/${imgKey}.png" class="tray-icon">
@@ -784,21 +810,19 @@ function deployTrayUnit(uData, hex) {
     let valid = false;
     if (uData.side === 'blue' && hex.setupZone === 'blue') valid = true;
     if (uData.side === 'red' && hex.setupZone === 'red') valid = true;
-    if (uData.side === 'red' && hex.setupZone === 'axis') valid = true; // Handle both red/axis
-    if (uData.side === 'blue' && hex.setupZone === 'allies') valid = true;
 
     if (!valid) {
         addToLog(`Invalid Deployment! Must be in ${uData.side.toUpperCase()} Zone.`, "log-combat");
         return;
     }
 
-    // New Unit
+    // New Unit: Forces Stance=Deployed, Status=Clear
     const newUnit = {
         id: unitIdCounter++,
         side: uData.side,
-        unitType: uData.type, // Contains texture key e.g. GER_S_Rifle_Squad
+        unitType: uData.type, // Store the specific file key
         category: uData.category || 'squad',
-        name: uData.name, // Pass the Name text!
+        name: uData.name, // Preserve name
         q: hex.q, r: hex.r,
         facing: 0, 
         status: 'clear', 
@@ -807,9 +831,8 @@ function deployTrayUnit(uData, hex) {
         isFixed: false
     };
 
-    // Stance Logic fix for HWT
-    if(newUnit.category === 'hwt' && newUnit.stance === 'cover') newUnit.stance = 'setup';
-
+    // Stance Logic fix for HWT if needed later
+    
     units.push(newUnit);
     
     trayUnits = trayUnits.filter(t => t !== uData);
@@ -1184,17 +1207,24 @@ function loadScenario() {
             scenarioData.units.locked.forEach(u => {
                 u.isFixed = true; 
                 
-                // DYNAMIC PARSING: Fill in blanks if we have registry info
-                if (UNIT_DATA_REGISTRY[u.type]) {
-                    const info = UNIT_DATA_REGISTRY[u.type];
-                    if(!u.category) u.category = info.category;
-                    if(!u.name) u.name = info.name;
-                    if(!u.side) u.side = info.side;
+                // BACKWARD COMPATIBILITY & NEW NAMING
+                if(u.type && !u.category) {
+                     // Try to guess based on filename from registry
+                     const info = UNIT_DATA_REGISTRY[u.type];
+                     if(info) {
+                         u.category = info.category;
+                         u.name = info.name;
+                     } else {
+                         u.category = u.type; 
+                     }
                 }
                 
-                if(!u.category) u.category = u.type; // Fallback
+                // Map type to unitType for internal engine consistency
+                u.unitType = u.type;
+                
                 if(!u.stance) u.stance = 'deployed';
                 
+                // IMPORTANT LOGIC: Split "cover" based on category
                 if(u.stance === 'cover' && u.category === 'hwt') u.stance = 'setup';
                 
                 units.push(u);
@@ -1202,17 +1232,13 @@ function loadScenario() {
         }
         
         if (scenarioData.units.tray) {
-            // Apply parsing to Tray items too
-            scenarioData.units.tray.forEach(u => {
-                if (UNIT_DATA_REGISTRY[u.type]) {
-                    const info = UNIT_DATA_REGISTRY[u.type];
-                    u.category = info.category;
-                    u.name = info.name;
-                    u.side = info.side;
-                }
-                if(!u.category) u.category = u.type; 
-            });
             trayUnits = [...scenarioData.units.tray];
+            trayUnits.forEach(u => { 
+                if(!u.category) u.category = u.type; 
+                // Ensure name and specific type exist
+                const info = UNIT_DATA_REGISTRY[u.type];
+                if(info && !u.name) u.name = info.name;
+            });
         }
         
         document.getElementById('scenario-info-box').innerHTML = `
