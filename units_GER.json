@@ -1,0 +1,80 @@
+{
+  "GER_S_Rifle_Squad": {
+    "name": "Rifle Squad",
+    "image": "GER_S_Rifle_Squad.png",
+    "category": "squad",
+    "los_type": "infantry",
+    "stats": {
+      "mp": 6,
+      "facing": "X",
+      "firepower": "3/1",
+      "effective_range": 4,
+      "melee": "3/0",
+      "at_chance": 2,
+      "rof": "4/3",
+      "radio": false
+    }
+  },
+  "GER_WT_HMG_Team": {
+    "name": "Heavy MG Team",
+    "image": "GER_WT_HMG_Team.png",
+    "category": "team",
+    "los_type": "infantry",
+    "stats": {
+      "mp": 3,
+      "facing": "X",
+      "firepower": "6/1",
+      "effective_range": 22,
+      "rof": "10/2",
+      "radio": false
+    }
+  },
+  "GER_V_Schwerer_Panzerspähwagen": {
+    "name": "Sd.Kfz. 231",
+    "image": "GER_V_Schwerer_Panzerspähwagen.png",
+    "category": "vehicle",
+    "los_type": "vehicle",
+    "stats": {
+      "mp": 6,
+      "facing": "X",
+      "firepower": "6/2",
+      "range": 10,
+      "at_firepower": "D",
+      "effective_range_at": 10,
+      "armor_front": "E",
+      "armor_flank": "H",
+      "rof": "6/3",
+      "radio": true
+    }
+  },
+  "GER_HWT_Leichtes_Infanteriegeschütz": {
+    "name": "7.5 cm le.IG 18",
+    "image": "GER_HWT_Leichtes_Infanteriegeschütz.png",
+    "category": "hwt",
+    "los_type": "vehicle",
+    "stats": {
+      "mp": 2,
+      "facing": "X",
+      "firepower": 9,
+      "effective_range": 10,
+      "effective_range_min": 2,
+      "rof": "2/2",
+      "radio": false
+    }
+  },
+  "GER_HWT_Light_Mortar_Team": {
+    "name": "Light Mortar Team",
+    "image": "GER_HWT_Light_Mortar_Team.png",
+    "category": "hwt",
+    "los_type": "vehicle",
+    "stats": {
+      "mp": 3,
+      "facing": "X",
+      "indirect_firepower": 8,
+      "indirect_range_max": 10,
+      "indirect_range_min": 2,
+      "indirect_rof": "2/2",
+      "radio": false
+    }
+  }
+}
