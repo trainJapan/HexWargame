@@ -1,0 +1,78 @@
+{
+  "UK_S_Rifle_Squad": {
+    "name": "Rifle Squad",
+    "image": "UK_S_Rifle_Squad.png",
+    "category": "squad",
+    "los_type": "infantry",
+    "stats": {
+      "mp": 6,
+      "facing": "X",
+      "firepower": "3/1",
+      "effective_range": 4,
+      "melee": "3/0",
+      "at_chance": 2,
+      "rof": "4/3",
+      "radio": false
+    }
+  },
+  "UK_WT_HMG_Team": {
+    "name": "Heavy MG Team",
+    "image": "UK_WT_HMG_Team.png",
+    "category": "team",
+    "los_type": "infantry",
+    "stats": {
+      "mp": 3,
+      "facing": "X",
+      "firepower": "5/1",
+      "effective_range": 20,
+      "rof": "9/3",
+      "radio": false
+    }
+  },
+  "UK_WT_PIAT_Team": {
+    "name": "PIAT Team",
+    "image": "UK_WT_PIAT_Team.png",
+    "category": "team",
+    "los_type": "infantry",
+    "stats": {
+      "mp": 6,
+      "facing": "X",
+      "at_firepower": "C",
+      "effective_range_at": 1,
+      "radio": false
+    }
+  },
+  "UK_V_M3_Stuart": {
+    "name": "M3 Stuart",
+    "image": "UK_V_M3_Stuart.png",
+    "category": "vehicle",
+    "los_type": "vehicle",
+    "stats": {
+      "mp": 6,
+      "facing": "X",
+      "firepower": "8/2",
+      "range": 10,
+      "at_firepower": "C",
+      "effective_range_at": 10,
+      "armor_front": "D",
+      "armor_flank": "E",
+      "rof": "6/3",
+      "radio": true
+    }
+  },
+  "UK_HWT_Light_Mortar_Team": {
+    "name": "Light Mortar Team",
+    "image": "UK_HWT_Light_Mortar_Team.png",
+    "category": "hwt",
+    "los_type": "vehicle",
+    "stats": {
+      "mp": 3,
+      "facing": "X",
+      "indirect_firepower": 8,
+      "indirect_range_max": 10,
+      "indirect_range_min": 2,
+      "indirect_rof": "2/2",
+      "radio": false
+    }
+  }
+}
