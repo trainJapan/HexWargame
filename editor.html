@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Wargame Editor v2.9 - Data Driven</title>
+    <title>Wargame Editor v2.9 - Data Tab Added</title>
     <script src="https://cdn.jsdelivr.net/npm/phaser@3.60.0/dist/phaser.min.js"></script>
     <style>
         :root {
@@ -69,6 +69,11 @@
         .terrain-item { cursor: pointer; border: 2px solid transparent; height: 40px; }
         .terrain-item img { width: 100%; height: 100%; object-fit: cover; }
         .terrain-item.selected { border-color: var(--accent); transform: scale(0.95); }
+
+        /* Data Key-Value Row Style */
+        .data-row { display: flex; justify-content: space-between; font-size: 11px; border-bottom: 1px solid #333; padding: 3px 0; }
+        .data-key { color: #888; text-transform: capitalize; }
+        .data-val { color: #fff; font-weight: bold; font-family: monospace; }
 
         #game-container { position: relative; background: #111; overflow: hidden; }
         #status-bar { position: absolute; top:10px; left:50%; transform:translateX(-50%); background:var(--accent); color:#000; padding:4px 12px; font-weight:bold; border-radius:4px; font-size:12px; display:none; pointer-events:none; z-index:1000; }
@@ -167,6 +172,7 @@
         <div class="tab" onclick="switchTab('tray')">TRAY</div>
         <div class="tab" onclick="switchTab('reinf')">REINF</div>
         <div class="tab" onclick="switchTab('rules')">RULES</div>
+        <div class="tab" onclick="switchTab('data')" style="color: #44aaff;">DATA</div>
     </div>
 
     <div id="tab-general" class="tab-content active" style="overflow-y:auto">
@@ -266,6 +272,18 @@
             <button class="btn btn-primary" style="margin-top:5px; padding:15px;" onclick="exportScenario()">EXPORT SCENARIO</button>
         </div>
     </div>
+    
+    <div id="tab-data" class="tab-content">
+        <div class="section-header">SELECTED TERRAIN</div>
+        <div id="data-terrain" class="rich-list-container" style="max-height: 150px; flex-grow:0;">
+            <div style="font-style:italic; color:#666; font-size:11px">Select a hex...</div>
+        </div>
+        
+        <div class="section-header" style="margin-top:10px">TOP UNIT DATA</div>
+        <div id="data-unit" class="rich-list-container">
+            <div style="font-style:italic; color:#666; font-size:11px">No unit selected...</div>
+        </div>
+    </div>
 </div>
 
 <script>
@@ -310,93 +328,49 @@ const config = {
 const game = new Phaser.Game(config);
 
 function preload() {
-    // 1. Load the Data Files from Root
     this.load.json('units_uk', 'units_UK.json');
     this.load.json('units_ger', 'units_GER.json');
     this.load.json('terrain_data', 'terrain.json');
-    
-    // Fallback graphics (in case images fail)
     this.make.graphics({x:0,y:0,add:false}).fillStyle(0xffffff).fillRect(0,0,1,1).generateTexture('fallback', 1, 1);
 }
 
 function create() {
     scene = this;
-    
-    // 2. Parse JSON Data into Registries
     try {
         const ukData = this.cache.json.get('units_uk') || {};
         const gerData = this.cache.json.get('units_ger') || {};
         const tData = this.cache.json.get('terrain_data') || {};
 
-        // Process Units
-        // We inject the 'key' into the data object for easier reference
-        // And we assign the side based on which file it came from
-        Object.entries(ukData).forEach(([key, data]) => {
-            data.key = key;
-            data.side = 'blue';
-            UNIT_DATA_REGISTRY[key] = data;
-        });
-        Object.entries(gerData).forEach(([key, data]) => {
-            data.key = key;
-            data.side = 'red';
-            UNIT_DATA_REGISTRY[key] = data;
-        });
+        Object.entries(ukData).forEach(([key, data]) => { data.key = key; data.side = 'blue'; UNIT_DATA_REGISTRY[key] = data; });
+        Object.entries(gerData).forEach(([key, data]) => { data.key = key; data.side = 'red'; UNIT_DATA_REGISTRY[key] = data; });
 
-        // Process Terrain
-        // Map JSON keys (movement_cost) to Engine keys (cost)
-        // Note: Defaulting to White/Green color if missing for the editor minimap fallback
+        // Build Terrain Registry - ensure we keep raw stats for Data Tab
         Object.entries(tData).forEach(([key, data]) => {
             TERRAIN_TYPES[key] = {
                 images: data.images || [],
-                color: 0x555555, // Default gray if we rely purely on images
+                color: 0x555555, 
                 los: (data.los_effect || 'clear').toLowerCase(),
                 cost: data.movement_cost || 1,
+                cover: data.cover_value || 0, // Captured for Data Tab
                 terrainHeight: data.terrain_height || 0,
                 infantryUsable: data.unit_height_infantry || 0,
                 vehicleUsable: data.unit_height_vehicle || 0
             };
         });
         
-        // 3. Queue Image Loading for the discovered assets
         let loadCount = 0;
-        
-        // Load Unit Images
-        Object.values(UNIT_DATA_REGISTRY).forEach(u => {
-            if(u.image) {
-                this.load.image(u.key, ASSETS_URL + 'counters/' + u.image);
-                loadCount++;
-            }
-        });
-        
-        // Load Terrain Images
-        Object.values(TERRAIN_TYPES).forEach(t => {
-            if(t.images) {
-                t.images.forEach(img => {
-                    const k = img.replace(/\.[^/.]+$/, ""); // Strip extension for key
-                    this.load.image(k, ASSETS_URL + 'map/' + img);
-                });
-                loadCount++;
-            }
-        });
+        Object.values(UNIT_DATA_REGISTRY).forEach(u => { if(u.image) { this.load.image(u.key, ASSETS_URL + 'counters/' + u.image); loadCount++; } });
+        Object.values(TERRAIN_TYPES).forEach(t => { if(t.images) { t.images.forEach(img => { const k = img.replace(/\.[^/.]+$/, ""); this.load.image(k, ASSETS_URL + 'map/' + img); }); loadCount++; } });
 
         if(loadCount > 0) {
-            this.load.once('complete', () => {
-                console.log("Dynamic Assets Loaded");
-                startEditor();
-            });
+            this.load.once('complete', () => { console.log("Dynamic Assets Loaded"); startEditor(); });
             this.load.start();
-        } else {
-            startEditor();
-        }
+        } else { startEditor(); }
 
-    } catch(e) {
-        console.error("Error parsing JSON:", e);
-        alert("Failed to load data JSONs. Check console.");
-    }
+    } catch(e) { console.error("Error parsing JSON:", e); alert("Failed to load data JSONs."); }
 }
 
 function startEditor() {
-    // Setup Phaser Groups
     hexGroup = scene.add.group();
     zoneGraphics = scene.add.graphics().setDepth(100);
     overlayGroup = scene.add.group().setDepth(200);
@@ -407,17 +381,9 @@ function startEditor() {
     scene.input.on('wheel', (p, g, x, y) => scene.cameras.main.setZoom(Phaser.Math.Clamp(scene.cameras.main.zoom - y*0.001, 0.3, 2)));
     scene.input.on('pointerdown', handleMapClick);
 
-    // Initialize UI using the loaded Data
     initUI();
-    
-    // Set default selection for dropdowns based on loaded data
-    // (Wait a tick for DOM to update if needed, but synchronous is fine)
-    updatePlacerDropdowns();
-    updateTrayDropdowns();
-    updateReinfDropdowns();
-    
-    regenerateMap();
-    setLOSType('infantry');
+    updatePlacerDropdowns(); updateTrayDropdowns(); updateReinfDropdowns();
+    regenerateMap(); setLOSType('infantry');
 }
 
 function update() {
@@ -428,92 +394,105 @@ function update() {
     }
 }
 
+// --- LOGIC: DATA TAB POPULATION ---
+
+function updateDataTab(hex) {
+    const tContainer = document.getElementById('data-terrain');
+    const uContainer = document.getElementById('data-unit');
+    
+    if(!hex) {
+        tContainer.innerHTML = '<div style="color:#666; font-size:11px">No Hex Selected</div>';
+        uContainer.innerHTML = '<div style="color:#666; font-size:11px">No unit selected...</div>';
+        return;
+    }
+
+    // 1. Terrain Data
+    const t = TERRAIN_TYPES[hex.terrain];
+    if (t) {
+        let tHtml = `<div class="section-header" style="margin-top:0">${hex.terrain.toUpperCase()}</div>`;
+        tHtml += `<div class="data-row"><span class="data-key">Move Cost</span><span class="data-val">${t.cost}</span></div>`;
+        tHtml += `<div class="data-row"><span class="data-key">Cover Value</span><span class="data-val">${t.cover}</span></div>`;
+        tHtml += `<div class="data-row"><span class="data-key">LOS Effect</span><span class="data-val">${t.los}</span></div>`;
+        tHtml += `<div class="data-row"><span class="data-key">Terrain Ht</span><span class="data-val">${t.terrainHeight}</span></div>`;
+        tHtml += `<div class="data-row"><span class="data-key">Infantry Ht</span><span class="data-val">${t.infantryUsable}</span></div>`;
+        tHtml += `<div class="data-row"><span class="data-key">Vehicle Ht</span><span class="data-val">${t.vehicleUsable}</span></div>`;
+        tContainer.innerHTML = tHtml;
+    }
+
+    // 2. Unit Data (Top Unit)
+    const hexUnits = units.filter(u => u.q === hex.q && u.r === hex.r);
+    if(hexUnits.length > 0) {
+        const topUnit = hexUnits[hexUnits.length-1]; // Last one is top
+        const info = UNIT_DATA_REGISTRY[topUnit.type];
+        
+        if (info) {
+            let uHtml = `<div class="section-header" style="margin-top:0">${info.name}</div>`;
+            uHtml += `<div style="font-size:10px; color:#aaa; margin-bottom:5px;">ID: ${topUnit.type}</div>`;
+            
+            if(info.stats) {
+                for(let [k,v] of Object.entries(info.stats)) {
+                   // Clean up key name for display
+                   const keyDisplay = k.replace(/_/g, ' ');
+                   uHtml += `<div class="data-row">
+                        <span class="data-key">${keyDisplay}</span> <span class="data-val">${v}</span>
+                   </div>`; 
+                }
+            } else {
+                 uHtml += '<div style="color:#666; font-size:11px">No Stats Block Found</div>';
+            }
+            uContainer.innerHTML = uHtml;
+        }
+    } else {
+        uContainer.innerHTML = '<div style="color:#666; font-style:italic; font-size:11px; margin-top:5px;">No Unit in Hex</div>';
+    }
+}
+
 // --- LOGIC: UI DYNAMIC POPULATION ---
 
 function populateSelect(selectId, side) {
     const sel = document.getElementById(selectId);
     sel.innerHTML = '';
-    
-    // Filter Registry
     const options = [];
-    Object.values(UNIT_DATA_REGISTRY).forEach(info => {
-        if (info.side === side) {
-            options.push(info);
-        }
-    });
-
-    // Add Options
+    Object.values(UNIT_DATA_REGISTRY).forEach(info => { if (info.side === side) options.push(info); });
     if (options.length === 0) {
-        const opt = document.createElement('option');
-        opt.text = "No Units Found";
-        sel.add(opt);
+        const opt = document.createElement('option'); opt.text = "No Units Found"; sel.add(opt);
     } else {
-        options.forEach(info => {
-            const opt = document.createElement('option');
-            opt.value = info.key; // The JSON Key (e.g. UK_S_Rifle_Squad)
-            opt.text = info.name; 
-            sel.add(opt);
-        });
+        options.forEach(info => { const opt = document.createElement('option'); opt.value = info.key; opt.text = info.name; sel.add(opt); });
     }
 }
 
-// Linked functions for HTML onchange events
-window.updatePlacerDropdowns = () => { 
-    populateSelect('placer-cat', document.getElementById('placer-side').value); 
-    updateUIConstraints(); 
-};
+window.updatePlacerDropdowns = () => { populateSelect('placer-cat', document.getElementById('placer-side').value); updateUIConstraints(); };
 window.updateTrayDropdowns = () => { populateSelect('tray-cat', document.getElementById('tray-side').value); };
 window.updateReinfDropdowns = () => { populateSelect('reinf-cat', document.getElementById('reinf-side').value); };
 
-
-// --- LOGIC: UI CONSTRAINTS ---
 function updateUIConstraints() {
     const unitKey = document.getElementById('placer-cat').value;
     const info = UNIT_DATA_REGISTRY[unitKey];
-    
     const stanceSel = document.getElementById('placer-stance');
     const statusSel = document.getElementById('placer-status');
-    
-    // Save current values to try and preserve them if valid
     const oldStance = stanceSel.value;
     const oldStatus = statusSel.value;
-    
-    // Clear
-    stanceSel.innerHTML = '';
-    statusSel.innerHTML = '';
+    stanceSel.innerHTML = ''; statusSel.innerHTML = '';
 
-    // Common Stances
     const optMoving = new Option("Moving", "moving");
     const optDeployed = new Option("Deployed", "deployed");
     
-    // Determine category from Registry info
     let cat = 'squad';
     if(info && info.category) cat = info.category;
 
     if (cat === 'vehicle' || cat === 'hwt') {
-        // Vehicles: No Cover.
-        stanceSel.add(optMoving);
-        stanceSel.add(optDeployed);
-        
-        // Status: Ready, Damaged, Immob. NO Suppressed/Shaken.
+        stanceSel.add(optMoving); stanceSel.add(optDeployed);
         statusSel.add(new Option("Operational", "clear"));
         statusSel.add(new Option("Damaged", "damaged"));
         statusSel.add(new Option("Immobilized", "immobilized"));
     } else {
-        // Inf/HWT: Can be In Cover / Set Up.
-        stanceSel.add(optMoving);
-        stanceSel.add(optDeployed);
-        stanceSel.add(new Option("Cover / Set Up", "cover"));
-        
-        // Status: Ready, Suppressed(3), Shaken. NO Damaged/Immob.
+        stanceSel.add(optMoving); stanceSel.add(optDeployed); stanceSel.add(new Option("Cover / Set Up", "cover"));
         statusSel.add(new Option("Operational", "clear"));
         statusSel.add(new Option("Suppressed (+2)", "suppressed_2"));
         statusSel.add(new Option("Suppressed (+4)", "suppressed_4"));
         statusSel.add(new Option("Suppressed (+6)", "suppressed_6"));
         statusSel.add(new Option("Shaken", "shaken"));
     }
-    
-    // Try to re-select previous values if they exist
     for(let i=0; i<stanceSel.options.length; i++) if(stanceSel.options[i].value === oldStance) stanceSel.selectedIndex = i;
     for(let i=0; i<statusSel.options.length; i++) if(statusSel.options[i].value === oldStatus) statusSel.selectedIndex = i;
 }
@@ -523,81 +502,44 @@ function updateUIConstraints() {
 function handleMapClick(pointer) {
     if(!pointer.leftButtonDown()) return;
     const hex = getHexAtPoint(pointer.worldX, pointer.worldY);
-    if (!hex) { selectedHex = null; updateInspector(); return; }
+    if (!hex) { selectedHex = null; updateInspector(); updateDataTab(null); return; }
 
     if (losTool) {
-        if (!losStartHex) {
-            losStartHex = hex;
-            losGraphics.clear();
-            const p = getHexPoly(hex.q, hex.r);
-            losGraphics.lineStyle(2, 0xffffff).strokeCircle(p.x, p.y, 15);
-        } else {
-            drawFullLOS(losStartHex, hex);
-            losStartHex = null;
-        }
+        if (!losStartHex) { losStartHex = hex; losGraphics.clear(); const p = getHexPoly(hex.q, hex.r); losGraphics.lineStyle(2, 0xffffff).strokeCircle(p.x, p.y, 15); } 
+        else { drawFullLOS(losStartHex, hex); losStartHex = null; }
         return;
     }
 
     if (currentMode === 'select') {
         selectedHex = hex;
         updateInspector();
+        updateDataTab(hex); // Update new Data Tab
         refreshOverlays(); 
     }
-    else if (currentMode === 'paint') {
-        hex.terrain = activeTerrain; hex.variant = Phaser.Math.Between(1,3); 
-        paintHex(hex);
-    }
+    else if (currentMode === 'paint') { hex.terrain = activeTerrain; hex.variant = Phaser.Math.Between(1,3); paintHex(hex); }
     else if (currentMode === 'road') {
-        if (!lastRoadNode) {
-            lastRoadNode = hex;
-        } else {
-            if (lastRoadNode.q !== hex.q || lastRoadNode.r !== hex.r) {
-                roadSegments.push({ from: {q:lastRoadNode.q, r:lastRoadNode.r}, to: {q:hex.q, r:hex.r} });
-                lastRoadNode = hex; 
-                refreshOverlays();
-            }
-        }
+        if (!lastRoadNode) { lastRoadNode = hex; } 
+        else { if (lastRoadNode.q !== hex.q || lastRoadNode.r !== hex.r) { roadSegments.push({ from: {q:lastRoadNode.q, r:lastRoadNode.r}, to: {q:hex.q, r:hex.r} }); lastRoadNode = hex; refreshOverlays(); } }
     }
-    else if (currentMode === 'road-del') {
-        roadSegments = roadSegments.filter(s => !((s.from.q===hex.q && s.from.r===hex.r) || (s.to.q===hex.q && s.to.r===hex.r)));
-        refreshOverlays();
-    }
+    else if (currentMode === 'road-del') { roadSegments = roadSegments.filter(s => !((s.from.q===hex.q && s.from.r===hex.r) || (s.to.q===hex.q && s.to.r===hex.r))); refreshOverlays(); }
     else if (currentMode === 'unit') {
         const unitKey = document.getElementById('placer-cat').value;
         const info = UNIT_DATA_REGISTRY[unitKey];
         if(!info) return;
-
-        units.push({
-            id: idCounter++, 
-            side: document.getElementById('placer-side').value, 
-            type: unitKey, // Important: Store the file key
-            category: info.category,
-            name: info.name,
-            quality: document.getElementById('placer-quality').value,
-            stance: document.getElementById('placer-stance').value,
-            q: hex.q, r: hex.r,
-            facing: 0, 
-            status: document.getElementById('placer-status').value, 
-            hp: 5, mp: 6, maxMp: 6, fp: 3, range: 6
-        });
-        selectedHex = hex; 
-        updateInspector();
-        refreshOverlays();
+        units.push({ id: idCounter++, side: document.getElementById('placer-side').value, type: unitKey, category: info.category, name: info.name, quality: document.getElementById('placer-quality').value, stance: document.getElementById('placer-stance').value, q: hex.q, r: hex.r, facing: 0, status: document.getElementById('placer-status').value });
+        selectedHex = hex; updateInspector(); updateDataTab(hex); refreshOverlays();
     }
     else if (currentMode === 'vl') {
         const existing = victoryLocations.findIndex(v => v.q === hex.q && v.r === hex.r);
         if (existing >= 0) victoryLocations.splice(existing, 1);
-        else {
-            const points = prompt("Victory Points (100, 200, 500):", "100");
-            if(points) victoryLocations.push({ q: hex.q, r: hex.r, points: parseInt(points) });
-        }
+        else { const points = prompt("Victory Points (100, 200, 500):", "100"); if(points) victoryLocations.push({ q: hex.q, r: hex.r, points: parseInt(points) }); }
         updateLists(); refreshOverlays();
     }
     else if (currentMode === 'zone-uk') { hex.setupZone = (hex.setupZone==='blue') ? null : 'blue'; refreshOverlays(); }
     else if (currentMode === 'zone-ger') { hex.setupZone = (hex.setupZone==='red') ? null : 'red'; refreshOverlays(); }
 }
 
-// --- INSPECTOR ---
+// --- INSPECTOR & LISTS ---
 function updateInspector() {
     const p = document.getElementById('hex-inspector-panel');
     if (!selectedHex) { p.innerHTML = '<div style="font-size:11px; color:#666; font-style:italic">Select a hex...</div>'; return; }
@@ -608,381 +550,43 @@ function updateInspector() {
     let html = `<div style="font-size:11px; margin-bottom:5px; color:#aaa;">HEX [${selectedHex.q}, ${selectedHex.r}] (${displayUnits.length} Units)</div>`;
     html += displayUnits.map(u => {
         let name = u.name;
-        
-        let imgKey = u.type; 
-        if (!scene.textures.exists(imgKey)) imgKey = 'fallback'; 
-        
-        let statLabel = u.status;
-        if(u.status.startsWith('suppressed')) statLabel = "Suppr " + u.status.split('_')[1];
-        
-        // Quality Label in List
+        let imgKey = u.type; if (!scene.textures.exists(imgKey)) imgKey = 'fallback'; 
+        let statLabel = u.status; if(u.status.startsWith('suppressed')) statLabel = "Suppr " + u.status.split('_')[1];
         let qLabel = u.quality ? u.quality.charAt(0).toUpperCase() + u.quality.slice(1) : 'Regular';
-        
-        return `
-        <div class="list-item" onclick="promoteUnit(${u.id})">
-            <div style="display:flex; align-items:center;">
-                <img src="${ASSETS_URL}counters/${u.image || (u.type + '.png')}" class="item-icon" onerror="this.src='data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7'">
-                <div class="item-info">
-                    <div class="item-title">${qLabel} ${name}</div>
-                    <div class="item-meta">${u.stance} | ${statLabel}</div>
-                </div>
-            </div>
-            <div><button class="btn-mini" onclick="event.stopPropagation(); rotateUnit(${u.id})">↻</button><button class="btn-mini btn-danger-mini" onclick="event.stopPropagation(); deleteUnit(${u.id})">X</button></div>
-        </div>`;
+        return `<div class="list-item" onclick="promoteUnit(${u.id})"><div style="display:flex; align-items:center;"><img src="${ASSETS_URL}counters/${u.image || (u.type + '.png')}" class="item-icon" onerror="this.src='data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7'"><div class="item-info"><div class="item-title">${qLabel} ${name}</div><div class="item-meta">${u.stance} | ${statLabel}</div></div></div><div><button class="btn-mini" onclick="event.stopPropagation(); rotateUnit(${u.id})">↻</button><button class="btn-mini btn-danger-mini" onclick="event.stopPropagation(); deleteUnit(${u.id})">X</button></div></div>`;
     }).join('');
     p.innerHTML = html;
 }
-window.promoteUnit = (id) => { const idx = units.findIndex(u => u.id === id); if(idx > -1) { const u = units.splice(idx, 1)[0]; units.push(u); refreshOverlays(); updateInspector(); } };
+window.promoteUnit = (id) => { const idx = units.findIndex(u => u.id === id); if(idx > -1) { const u = units.splice(idx, 1)[0]; units.push(u); refreshOverlays(); updateInspector(); updateDataTab(selectedHex); } };
 window.rotateUnit = (id) => { const u = units.find(x=>x.id===id); if(u){ u.facing=(u.facing+1)%6; updateInspector(); refreshOverlays(); } };
-window.deleteUnit = (id) => { units = units.filter(x=>x.id!==id); updateInspector(); refreshOverlays(); };
-
-// --- RENDERING ---
-function regenerateMap() {
-    mapData.cols = parseInt(document.getElementById('cols').value);
-    mapData.rows = parseInt(document.getElementById('rows').value);
-    hexMap = {};
-    for (let q = 0; q < mapData.cols; q++) {
-        hexMap[q] = {};
-        for (let r = 0; r < mapData.rows; r++) hexMap[q][r] = { q, r, terrain: 'clear', variant: 1, setupZone: null, hasRoad: false };
-    }
-    hexGroup.clear(true, true); hexSprites = {};
-    for (let q = 0; q < mapData.cols; q++) {
-        for (let r = 0; r < mapData.rows; r++) {
-            const hex = hexMap[q][r];
-            const pos = getHexPoly(q, r);
-            const key = `${hex.terrain}${hex.variant||1}`;
-            
-            // Draw Hex Image if loaded, else wireframe
-            if(scene.textures.exists(key)) {
-                const img = scene.add.image(pos.x, pos.y, key).setDisplaySize(HEX_RADIUS * 2, HEX_RADIUS * 2);
-                const shape = scene.make.graphics().fillStyle(0xffffff).beginPath();
-                pos.points.forEach((p, i) => i===0 ? shape.moveTo(p.x, p.y) : shape.lineTo(p.x, p.y));
-                shape.closePath().fillPath();
-                img.setMask(shape.createGeometryMask());
-                hexGroup.add(img);
-                hexSprites[`${q},${r}`] = img;
-            }
-            
-            hexGroup.add(scene.add.graphics().lineStyle(1, 0x333333, 0.5).strokePoints(pos.points, true, true));
-        }
-    }
-    refreshOverlays();
-}
-function paintHex(hex) { const sprite = hexSprites[`${hex.q},${hex.r}`]; if(sprite && scene.textures.exists(`${hex.terrain}${hex.variant}`)) sprite.setTexture(`${hex.terrain}${hex.variant}`); }
-
-function refreshOverlays() {
-    overlayGroup.clear(true, true); zoneGraphics.clear();
-
-    for(let q in hexMap) for(let r in hexMap[q]) hexMap[q][r].hasRoad = false;
-    roadSegments.forEach(s => {
-        if(hexMap[s.from.q]) hexMap[s.from.q][s.from.r].hasRoad = true;
-        if(hexMap[s.to.q]) hexMap[s.to.q][s.to.r].hasRoad = true;
-    });
-
-    for (let q = 0; q < mapData.cols; q++) {
-        for (let r = 0; r < mapData.rows; r++) {
-            const hex = hexMap[q][r];
-            if(!hex) continue;
-            const pos = getHexPoly(q, r);
-            if (hex.setupZone === 'blue') zoneGraphics.fillStyle(0x4488ff, 0.3).fillPoints(pos.points, true);
-            else if (hex.setupZone === 'red') zoneGraphics.fillStyle(0xff4444, 0.3).fillPoints(pos.points, true);
-            if (selectedHex && selectedHex.q===q && selectedHex.r===r) zoneGraphics.lineStyle(2, 0xffffff).strokePoints(pos.points, true, true);
-        }
-    }
-
-    const rg = scene.add.graphics();
-    roadSegments.forEach(seg => {
-        const p1 = getHexPoly(seg.from.q, seg.from.r);
-        const p2 = getHexPoly(seg.to.q, seg.to.r);
-        rg.lineStyle(8, 0x000000).lineBetween(p1.x, p1.y, p2.x, p2.y);
-        rg.lineStyle(5, 0xaaaaaa).lineBetween(p1.x, p1.y, p2.x, p2.y);
-    });
-    overlayGroup.add(rg);
-
-    const stacks = {};
-    units.forEach(u => { const k = `${u.q},${u.r}`; if(!stacks[k]) stacks[k]=[]; stacks[k].push(u); });
-
-    units.forEach(u => {
-        const p = getHexPoly(u.q, u.r);
-        
-        let key = u.type; 
-        if (!scene.textures.exists(key)) key = 'fallback'; 
-        
-        overlayGroup.add(scene.add.image(p.x, p.y, key).setDisplaySize(HEX_RADIUS*1.25, HEX_RADIUS*1.25));
-
-        // Facing Triangle Color based on Stance
-        const arrow = scene.add.graphics();
-        const a = Phaser.Math.DegToRad([-90,-30,30,90,150,-150][u.facing]);
-        const d = HEX_RADIUS*0.75;
-        
-        let triColor = 0xFFFFFF; // fallback
-        if(u.stance === 'moving') triColor = 0x0055ff; 
-        else if(u.stance === 'deployed') triColor = 0xFF0000; 
-        else if(u.stance === 'cover') triColor = 0xFF8095;
-        
-        arrow.fillStyle(triColor).fillTriangle(
-            p.x+Math.cos(a)*d, p.y+Math.sin(a)*d,
-            p.x+Math.cos(a)*d + Math.cos(a+2.5)*8, p.y+Math.sin(a)*d + Math.sin(a+2.5)*8,
-            p.x+Math.cos(a)*d + Math.cos(a-2.5)*8, p.y+Math.sin(a)*d + Math.sin(a-2.5)*8
-        );
-        overlayGroup.add(arrow);
-
-        // Status Box
-        if (u.status !== 'clear') {
-            const bx = p.x+15; const by = p.y+15;
-            let statColor = 0xffffff;
-            let label = "!";
-            
-            if(u.status === 'suppressed_2') { statColor = 0xffff00; label="+2"; }
-            else if(u.status === 'suppressed_4') { statColor = 0xffff00; label="+4"; }
-            else if(u.status === 'suppressed_6') { statColor = 0xffff00; label="+6"; }
-            else if(u.status === 'shaken') { statColor = 0xff0000; label="!"; }
-            else if(u.status === 'damaged') { statColor = 0x8800cc; label="X"; }
-            else if(u.status === 'immobilized') { statColor = 0x8800cc; label="I"; }
-
-            overlayGroup.add(scene.add.graphics().fillStyle(statColor).fillRect(bx-8, by-6, 16, 12).lineStyle(1,0x000000).strokeRect(bx-8,by-6,16,12));
-            overlayGroup.add(scene.add.text(bx, by, label, {font:'9px Arial', fill:'#000', fontWeight:'bold'}).setOrigin(0.5));
-        }
-
-        const stack = stacks[`${u.q},${u.r}`];
-        if (stack && stack.length > 1 && stack[stack.length-1] === u) {
-             const bx = p.x+10; const by = p.y-18;
-             overlayGroup.add(scene.add.graphics().fillStyle(0xffffff).fillRect(bx, by, 16, 14).lineStyle(1,0x000000).strokeRect(bx,by,16,14));
-             overlayGroup.add(scene.add.text(bx+8, by+7, `+${stack.length-1}`, {font:'11px Arial', fill:'#000', fontStyle:'bold'}).setOrigin(0.5));
-        }
-    });
-
-    victoryLocations.forEach(vl => {
-        const p = getHexPoly(vl.q, vl.r);
-        overlayGroup.add(scene.add.star(p.x, p.y, 5, 8, 16, 0xffcc00).setStrokeStyle(2, 0x000000));
-        overlayGroup.add(scene.add.text(p.x, p.y+10, vl.points, {fontSize:'10px', stroke:'#000', strokeThickness:3}).setOrigin(0.5));
-    });
-    if (currentMode==='road' && lastRoadNode) {
-        const p = getHexPoly(lastRoadNode.q, lastRoadNode.r);
-        overlayGroup.add(scene.add.circle(p.x, p.y, 8, 0xffffff));
-    }
-}
-
-// --- EXACT GAME LOS ENGINE ---
-
-function toggleLOSTool() {
-    losTool = !losTool; losStartHex = null; losGraphics.clear();
-    const btn = document.getElementById('btn-los');
-    btn.style.background = losTool?'#4488ff':'#444'; btn.style.color = losTool?'#fff':'#4488ff';
-    document.getElementById('los-options').style.display = losTool ? 'block':'none';
-}
-window.setLOSType = (t) => { 
-    losUnitType = t; 
-    document.getElementById('los-btn-inf').classList.toggle('active', t==='infantry'); 
-    document.getElementById('los-btn-veh').classList.toggle('active', t==='vehicle');
-}
-
-function drawFullLOS(start, end) {
-    const res = calculateLOS(start, end, losUnitType);
-    let color = 0x00ff00; 
-    if (res.status === 'degraded') color = 0xffff00; 
-    if (res.status === 'blocked') color = 0xff0000;
-    
-    losGraphics.clear();
-    const p1 = getHexPoly(start.q, start.r); const p2 = getHexPoly(end.q, end.r);
-    losGraphics.lineStyle(4, color, 0.8).lineBetween(p1.x, p1.y, p2.x, p2.y);
-}
-
-function offsetToCube(q, r) {
-    const col = q; const row = r;
-    const x = col; const z = row - (col - (col & 1)) / 2; const y = -x - z;
-    return { x, y, z };
-}
-function getHexDistance(h1, h2) {
-    const a = offsetToCube(h1.q, h1.r); const b = offsetToCube(h2.q, h2.r);
-    return Math.max(Math.abs(a.x - b.x), Math.abs(a.y - b.y), Math.abs(a.z - b.z));
-}
-function findRoadPath(start, target) {
-    const visited = new Set(); const queue = [[start]];
-    while(queue.length > 0) {
-        const path = queue.shift(); const curr = path[path.length-1];
-        if(curr.q === target.q && curr.r === target.r) return path;
-        const key = `${curr.q},${curr.r}`; if(visited.has(key)) continue; visited.add(key);
-        const neighbors = [];
-        roadSegments.forEach(s => {
-            if(s.from.q===curr.q && s.from.r===curr.r) neighbors.push(hexMap[s.to.q][s.to.r]);
-            else if(s.to.q===curr.q && s.to.r===curr.r) neighbors.push(hexMap[s.from.q][s.from.r]);
-        });
-        neighbors.forEach(n => { if(n) queue.push([...path, n]); });
-    }
-    return null;
-}
-function getHexesAlongLine(startHex, targetHex) {
-    const hexes = []; 
-    const p1 = getHexPoly(startHex.q, startHex.r); const p2 = getHexPoly(targetHex.q, targetHex.r);
-    const dist = Phaser.Math.Distance.Between(p1.x, p1.y, p2.x, p2.y);
-    const steps = Math.ceil(dist / 10);
-    for(let i=0; i<=steps; i++) { 
-        const t = i/steps; const wx = p1.x + (p2.x-p1.x)*t; const wy = p1.y + (p2.y-p1.y)*t;
-        const h = getHexAtPoint(wx, wy); if(h && !hexes.includes(h)) hexes.push(h); 
-    }
-    return hexes;
-}
-function checkRoadLOS(startHex, targetHex, hexesOnLine) {
-    if (!startHex.hasRoad || !targetHex.hasRoad) return { isRoad: false };
-    const roadPath = findRoadPath(startHex, targetHex); 
-    if (!roadPath || roadPath.length < 2) return { isRoad: false };
-    
-    const p1 = getHexPoly(startHex.q, startHex.r); const p2 = getHexPoly(targetHex.q, targetHex.r);
-    const dx = p2.x - p1.x; const dy = p2.y - p1.y; const len = Math.sqrt(dx*dx + dy*dy);
-    
-    for (let i=0; i<roadPath.length-1; i++) {
-        const c = getHexPoly(roadPath[i].q, roadPath[i].r); 
-        const n = getHexPoly(roadPath[i+1].q, roadPath[i+1].r);
-        const sdx = n.x - c.x; const sdy = n.y - c.y; const slen = Math.sqrt(sdx*sdx + sdy*sdy);
-        const dot = (dx/len) * (sdx/slen) + (dy/len) * (sdy/slen);
-        if (dot < 0.96) return { isRoad: false };
-    }
-    for (let h of hexesOnLine) { if (!roadPath.find(rh => rh.q === h.q && rh.r === h.r)) return { isRoad: false }; }
-    return { isRoad: true };
-}
-
-function calculateLOS(startHex, targetHex, unitType = 'infantry') {
-    const fromTerrain = TERRAIN_TYPES[startHex.terrain];
-    // Corrected height lookup for Observer
-    const startH = unitType === 'vehicle' ? fromTerrain.vehicleUsable : fromTerrain.infantryUsable;
-    
-    const p1 = getHexPoly(startHex.q, startHex.r); const p2 = getHexPoly(targetHex.q, targetHex.r);
-    const distance = Phaser.Math.Distance.Between(p1.x, p1.y, p2.x, p2.y);
-    const steps = Math.ceil(distance / (HEX_RADIUS/10)); 
-
-    const hexesCrossed = new Set();
-    const edgeSegments = [];
-    let edgeRunLength = 0; let edgeHexPair = null;
-
-    for (let i = 0; i <= steps; i++) {
-        const t = i / steps; const x = p1.x + (p2.x - p1.x) * t; const y = p1.y + (p2.y - p1.y) * t;
-        const currentHex = getHexAtPoint(x, y);
-        if (!currentHex) continue;
-        if ((currentHex.q === startHex.q && currentHex.r === startHex.r) || (currentHex.q === targetHex.q && currentHex.r === targetHex.r)) continue;
-
-        const perpDx = -(p2.y - p1.y) / distance; const perpDy = (p2.x - p1.x) / distance;
-        const h1 = getHexAtPoint(x + perpDx * 3, y + perpDy * 3);
-        const h2 = getHexAtPoint(x - perpDx * 3, y - perpDy * 3);
-        
-        if (h1 && h2 && (h1.q !== h2.q || h1.r !== h2.r)) {
-            const pairKey = [`${h1.q},${h1.r}`, `${h2.q},${h2.r}`].sort().join('|');
-            if (edgeHexPair === pairKey) edgeRunLength++;
-            else { if (edgeRunLength > 5) edgeSegments.push(edgeHexPair); edgeHexPair = pairKey; edgeRunLength = 1; }
-        } else {
-            if (edgeRunLength > 5) edgeSegments.push(edgeHexPair);
-            edgeRunLength = 0; edgeHexPair = null;
-            hexesCrossed.add(`${currentHex.q},${currentHex.r}`);
-        }
-    }
-    if (edgeRunLength > 5) edgeSegments.push(edgeHexPair);
-
-    let degradingCount = 0; let hasBlocking = false;
-
-    for (let key of hexesCrossed) {
-        const [q, r] = key.split(',').map(Number); const terrain = TERRAIN_TYPES[hexMap[q][r].terrain];
-        let losEffect = terrain.los;
-        if (terrain.terrainHeight < startH) { if (losEffect === 'blocking') losEffect = 'degrading'; else if (losEffect === 'degrading') losEffect = 'clear'; }
-        if (losEffect === 'blocking') hasBlocking = true; else if (losEffect === 'degrading') degradingCount++;
-    }
-
-    for (let edgePair of edgeSegments) {
-        if (!edgePair) continue; const [k1, k2] = edgePair.split('|'); const [q1, r1] = k1.split(',').map(Number); const [q2, r2] = k2.split(',').map(Number);
-        const t1 = TERRAIN_TYPES[hexMap[q1][r1].terrain]; const t2 = TERRAIN_TYPES[hexMap[q2][r2].terrain];
-        let l1 = t1.los; let l2 = t2.los;
-        if (t1.terrainHeight < startH) l1 = (l1==='blocking'?'degrading':(l1==='degrading'?'clear':l1));
-        if (t2.terrainHeight < startH) l2 = (l2==='blocking'?'degrading':(l2==='degrading'?'clear':l2));
-        if (l1 === 'blocking' && l2 === 'blocking') hasBlocking = true; else if (l1 === 'blocking' || l2 === 'blocking') degradingCount++; else if (l1 === 'degrading' && l2 === 'degrading') degradingCount++;
-    }
-
-    let standardStatus = 'clear';
-    if (hasBlocking || degradingCount >= 2) standardStatus = 'blocked'; else if (degradingCount === 1) standardStatus = 'degraded';
-
-    const hexesOnLine = getHexesAlongLine(startHex, targetHex);
-    const roadRes = checkRoadLOS(startHex, targetHex, hexesOnLine);
-    if (roadRes.isRoad) {
-        const dist = getHexDistance(startHex, targetHex);
-        let roadStatus = 'blocked';
-        if (dist <= 5) roadStatus = 'clear'; else if (dist <= 10) roadStatus = 'degraded';
-        const rank = { 'clear': 3, 'degraded': 2, 'blocked': 1 };
-        if (rank[roadStatus] > rank[standardStatus]) return { status: roadStatus, isRoad: true };
-    }
-
-    return { status: standardStatus, isRoad: false };
-}
-
-// --- LIST HELPERS ---
+window.deleteUnit = (id) => { units = units.filter(x=>x.id!==id); updateInspector(); updateDataTab(selectedHex); refreshOverlays(); };
 
 function updateLists() {
     const renderUnitItem = (u, meta, delFn) => {
         let name = u.name;
         let qLabel = u.quality ? u.quality.charAt(0).toUpperCase() + u.quality.slice(1) : 'Regular';
-        
-        return `
-        <div class="list-item">
-            <div style="display:flex; align-items:center;">
-                <img src="${ASSETS_URL}counters/${u.image || (u.type + '.png')}" class="item-icon" onerror="this.src='data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7'">
-                <div class="item-info"><div class="item-title">${qLabel} ${name}</div><div class="item-meta">${meta}</div></div>
-            </div>
-            <span class="del-x" onclick="${delFn}(${u.id})">X</span>
-        </div>`;
+        return `<div class="list-item"><div style="display:flex; align-items:center;"><img src="${ASSETS_URL}counters/${u.image || (u.type + '.png')}" class="item-icon" onerror="this.src='data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7'"><div class="item-info"><div class="item-title">${qLabel} ${name}</div><div class="item-meta">${meta}</div></div></div><span class="del-x" onclick="${delFn}(${u.id})">X</span></div>`;
     };
-
     document.getElementById('list-tray-blue').innerHTML = trayUnits.filter(u=>u.side==='blue').map(u=>renderUnitItem(u, "Setup Tray", "remTray")).join('');
     document.getElementById('list-tray-red').innerHTML = trayUnits.filter(u=>u.side==='red').map(u=>renderUnitItem(u, "Setup Tray", "remTray")).join('');
-    
     document.getElementById('list-reinf').innerHTML = reinforcements.map(r => {
-        let locText = "";
-        if (r.locType === 'setup') locText = "[Setup Zone]";
-        else if (r.locType === 'hex') locText = `Hex [${r.locVal}]`;
-        else locText = `Edge [${r.locVal}]`;
+        let locText = r.locType === 'setup' ? "[Setup Zone]" : (r.locType === 'hex' ? `Hex [${r.locVal}]` : `Edge [${r.locVal}]`);
         return renderUnitItem(r, `Turn ${r.turn} (${r.chance}%) ${locText}`, "remReinf");
     }).join('');
-
     document.getElementById('list-offboard').innerHTML = offBoardAssets.map(o => {
         let name = (o.side==='blue'?'UK ':'GER ') + (o.type==='artillery'?'Artillery':'Air');
         return `<div class="list-item"><div class="item-info"><div class="item-title">${name}</div><div class="item-meta">Turn ${o.turn} (${o.chance}%)</div></div><span class="del-x" onclick="remOff(${o.id})">X</span></div>`;
     }).join('');
-
     document.getElementById('list-vl').innerHTML = victoryLocations.map(v => `<div class="list-item"><div class="item-info"><div class="item-title">Hex [${v.q},${v.r}]</div><div class="item-meta">${v.points} Pts</div></div><span class="del-x" onclick="remVL(${v.q},${v.r})">X</span></div>`).join('');
 }
 
 window.addTrayUnit = () => { 
-    const key = document.getElementById('tray-cat').value; 
-    const info = UNIT_DATA_REGISTRY[key]; 
-    if(info) { 
-        trayUnits.push({ 
-            id: idCounter++, 
-            side: document.getElementById('tray-side').value, 
-            type: key, 
-            category: info.category, 
-            name: info.name,
-            image: info.image, // Save Image ref for Engine
-            quality: document.getElementById('tray-quality').value
-        }); 
-        updateLists(); 
-    }
+    const key = document.getElementById('tray-cat').value; const info = UNIT_DATA_REGISTRY[key]; 
+    if(info) { trayUnits.push({ id: idCounter++, side: document.getElementById('tray-side').value, type: key, category: info.category, name: info.name, image: info.image, quality: document.getElementById('tray-quality').value }); updateLists(); }
 };
-
 window.addReinf = () => { 
-    const key = document.getElementById('reinf-cat').value; 
-    const info = UNIT_DATA_REGISTRY[key]; 
-    if(info) {
-        reinforcements.push({ 
-            id: idCounter++, 
-            side: document.getElementById('reinf-side').value, 
-            type: key, 
-            category: info.category, 
-            name: info.name,
-            image: info.image,
-            quality: document.getElementById('reinf-quality').value,
-            turn: document.getElementById('reinf-turn').value, 
-            chance: document.getElementById('reinf-chance').value, 
-            locType: document.getElementById('reinf-loc-type').value, 
-            locVal: document.getElementById('reinf-val').value 
-        }); 
-        updateLists(); 
-    }
+    const key = document.getElementById('reinf-cat').value; const info = UNIT_DATA_REGISTRY[key]; 
+    if(info) { reinforcements.push({ id: idCounter++, side: document.getElementById('reinf-side').value, type: key, category: info.category, name: info.name, image: info.image, quality: document.getElementById('reinf-quality').value, turn: document.getElementById('reinf-turn').value, chance: document.getElementById('reinf-chance').value, locType: document.getElementById('reinf-loc-type').value, locVal: document.getElementById('reinf-val').value }); updateLists(); }
 };
 window.addOffBoard = () => { offBoardAssets.push({ id: idCounter++, type: document.getElementById('off-type').value, side: document.getElementById('off-side').value, turn: document.getElementById('off-turn').value, chance: document.getElementById('off-chance').value }); updateLists(); };
 window.remTray = (id) => { trayUnits = trayUnits.filter(u=>u.id!==id); updateLists(); };
@@ -992,12 +596,9 @@ window.remVL = (q,r) => { victoryLocations = victoryLocations.filter(v=>!(v.q===
 
 // --- SYSTEM ---
 function initUI() {
-    const pal = document.getElementById('terrain-palette');
-    pal.innerHTML = '';
-    // Build from Dynamic Terrain Registry
+    const pal = document.getElementById('terrain-palette'); pal.innerHTML = '';
     for(const k in TERRAIN_TYPES) {
         const div = document.createElement('div'); div.className = 'terrain-item';
-        // Use first image in list for icon
         const firstImg = TERRAIN_TYPES[k].images[0] || 'clear1.png';
         div.innerHTML = `<img src="${ASSETS_URL}map/${firstImg}">`;
         div.onclick = () => { activeTerrain=k; setMode('paint'); document.querySelectorAll('.terrain-item').forEach(e=>e.classList.remove('selected')); div.classList.add('selected'); };
@@ -1005,8 +606,7 @@ function initUI() {
     }
 }
 window.setMode = (m) => {
-    currentMode = m; selectedHex = null; losTool=false; lastRoadNode=null; // Reset road chain
-    updateInspector(); refreshOverlays(); 
+    currentMode = m; selectedHex = null; losTool=false; lastRoadNode=null; updateInspector(); updateDataTab(null); refreshOverlays(); 
     document.getElementById('status-bar').style.display='block'; document.getElementById('status-bar').innerText = "MODE: "+m.toUpperCase();
     ['btn-select','btn-road','btn-road-del','btn-vl','btn-zone-uk','btn-zone-ger'].forEach(id=>document.getElementById(id).classList.remove('active'));
     if(document.getElementById('btn-'+m)) document.getElementById('btn-'+m).classList.add('active');
@@ -1021,31 +621,17 @@ window.loadJSON = () => {
     try {
         const data = JSON.parse(document.getElementById('json-input').value);
         document.getElementById('cols').value = data.map.cols; document.getElementById('rows').value = data.map.rows;
-        
         regenerateMap();
-        
         data.map.terrain.forEach(t => { if(hexMap[t.q]) { hexMap[t.q][t.r].terrain = t.type; paintHex(hexMap[t.q][t.r]); } });
         if(data.map.zones) data.map.zones.forEach(z => { if(hexMap[z.q]) hexMap[z.q][z.r].setupZone = z.side; });
         roadSegments = data.map.roads || [];
         units = data.units.locked || []; trayUnits = data.units.tray || []; reinforcements = data.units.reinforcements || [];
         if(data.victory) victoryLocations = data.victory.locations || [];
         
-        // REHYDRATE UNITS FROM NEW REGISTRY IF NEEDED
         [...units, ...trayUnits, ...reinforcements].forEach(u => {
-            if(u.type && !u.category) {
-                 const info = UNIT_DATA_REGISTRY[u.type];
-                 if(info) {
-                     u.category = info.category;
-                     u.name = info.name;
-                     u.image = info.image;
-                 } else {
-                     u.category = u.type; 
-                 }
-            }
-            if(!u.stance) u.stance = "deployed"; 
-            if(!u.quality) u.quality = "regular";
+            if(u.type && !u.category) { const info = UNIT_DATA_REGISTRY[u.type]; if(info) { u.category = info.category; u.name = info.name; u.image = info.image; } else { u.category = u.type; } }
+            if(!u.stance) u.stance = "deployed"; if(!u.quality) u.quality = "regular";
         });
-
         updateLists(); refreshOverlays(); toggleModal();
     } catch(e) { alert("Invalid JSON: " + e.message); }
 }
