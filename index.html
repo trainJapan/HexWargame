@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Wargame Engine v0.9.7 - Unit Quality Stars</title>
+    <title>Wargame Engine v0.9.8 - Data Driven</title>
     <script src="https://cdn.jsdelivr.net/npm/phaser@3.60.0/dist/phaser.min.js"></script>
     <style>
         :root {
@@ -292,34 +292,9 @@
 // --- Configuration ---
 const ASSETS_URL = 'https://raw.githubusercontent.com/trainJapan/HexWargame/main/artwork/';
 
-// --- DYNAMIC FILE LIST ---
-const UNIT_FILES = [
-    "UK_S_Rifle_Squad.png",
-    "GER_S_Rifle_Squad.png",
-    "UK_V_M3_Stuart.png",
-    "GER_V_Schwerer_Panzerspähwagen.png",
-    "UK_WT_HMG_Team.png",
-    "GER_WT_HMG_Team.png",
-    "UK_WT_PIAT_Team.png",
-    "GER_HWT_Leichtes_Infanteriegeschütz.png"
-];
-
-// Registry to store parsed data (Name, Side, Category)
-const UNIT_DATA_REGISTRY = {};
-
-const TERRAIN_TYPES = {
-    'clear':      { color: 0x98FB98, los: 'clear',     cost: 1,   terrainHeight: 0, infantryUsable: 0, vehicleUsable: 0 },
-    'fields':     { color: 0xCCAA00, los: 'degrading', cost: 1,   terrainHeight: 1, infantryUsable: 0, vehicleUsable: 0 },
-    'beach':      { color: 0xFFFF99, los: 'clear',     cost: 1,   terrainHeight: 0, infantryUsable: 0, vehicleUsable: 0 },
-    'broken':     { color: 0x8B4513, los: 'degrading', cost: 2,   terrainHeight: 1, infantryUsable: 0, vehicleUsable: 0 },
-    'orchard':    { color: 0x00FF00, los: 'degrading', cost: 2,   terrainHeight: 1, infantryUsable: 0, vehicleUsable: 0 },
-    'rural':      { color: 0xFF9999, los: 'degrading', cost: 2,   terrainHeight: 1, infantryUsable: 0, vehicleUsable: 0 },
-    'forest':     { color: 0x228B22, los: 'blocking',  cost: 3,   terrainHeight: 2, infantryUsable: 0, vehicleUsable: 0 },
-    'urban':      { color: 0xCC0000, los: 'blocking',  cost: 3,   terrainHeight: 2, infantryUsable: 2, vehicleUsable: 0 },
-    'industrial': { color: 0x808080, los: 'blocking',  cost: 3,   terrainHeight: 2, infantryUsable: 2, vehicleUsable: 0 },
-    'water':      { color: 0x4169E1, los: 'clear',     cost: 999, terrainHeight: 0, infantryUsable: 0, vehicleUsable: 0 },
-    'hill':       { color: 0x8B7355, los: 'degrading', cost: 2,   terrainHeight: 2, infantryUsable: 2, vehicleUsable: 2 }
-};
+// --- DYNAMIC REGISTRIES (Now Empty) ---
+let UNIT_DATA_REGISTRY = {};
+let TERRAIN_TYPES = {};
 
 const HEX_RADIUS = 40;
 
@@ -358,96 +333,96 @@ const config = {
 
 const game = new Phaser.Game(config);
 
-// --- PARSING HELPER ---
-function parseUnitFromFileName(filename) {
-    const nameOnly = filename.replace(/\.[^/.]+$/, "");
-    const parts = nameOnly.split('_');
-
-    // Default 
-    let side = 'neutral';
-    let category = 'squad';
-    let unitName = nameOnly;
-    let type = 'infantry';
-
-    if (parts.length >= 3) {
-        const sideCode = parts[0].toUpperCase();
-        const catCode = parts[1].toUpperCase();
-        
-        // Rejoin the rest with SPACES instead of underscores
-        unitName = parts.slice(2).join(' ');
-
-        if (sideCode === 'GER') side = 'red';
-        if (sideCode === 'UK' || sideCode === 'US') side = 'blue';
-
-        switch (catCode) {
-            case 'S': category = 'squad'; type='infantry'; break;
-            case 'T': category = 'team'; type='infantry'; break;
-            case 'WT': category = 'team'; type='infantry'; break;
-            case 'HWT': category = 'hwt'; type='vehicle'; break;
-            case 'V': category = 'vehicle'; type='vehicle'; break;
-        }
-    }
-
-    return {
-        key: nameOnly,
-        side: side,
-        category: category,
-        name: unitName,
-        heightType: type
-    };
-}
-
 function preloadScene() {
-    for (const [key, value] of Object.entries(TERRAIN_TYPES)) {
-        for (let i = 1; i <= 3; i++) { this.load.image(`${key}${i}`, `${ASSETS_URL}map/${key}${i}.png`); }
-    }
+    // 1. Load the Data Files
+    this.load.json('units_uk', 'units_UK.json');
+    this.load.json('units_ger', 'units_GER.json');
+    this.load.json('terrain_data', 'terrain.json');
     
-    // Dynamic Unit Loading
-    UNIT_FILES.forEach(filename => {
-        const info = parseUnitFromFileName(filename);
-        this.load.image(info.key, `${ASSETS_URL}counters/${filename}`);
-        UNIT_DATA_REGISTRY[info.key] = info;
-    });
-    
-    // Fallback texture just in case
+    // Fallback texture
     this.make.graphics({x:0,y:0,add:false}).fillStyle(0xffffff).fillRect(0,0,1,1).generateTexture('fallback', 1, 1);
 }
 
 function createScene() {
     scene = this;
-    hexGroup = this.add.group(); 
-    zoneGraphics = this.add.graphics().setDepth(20); 
-    roadGraphics = this.add.graphics().setDepth(100);
-    objGraphics = this.add.graphics().setDepth(150); 
     
-    selectionGraphics = this.add.graphics().setDepth(500); 
-    losGraphics = this.add.graphics().setDepth(550);       
+    // 2. Parse JSON Data
+    try {
+        const ukData = this.cache.json.get('units_uk') || {};
+        const gerData = this.cache.json.get('units_ger') || {};
+        const tData = this.cache.json.get('terrain_data') || {};
+
+        // Process Units
+        Object.entries(ukData).forEach(([key, data]) => { data.key = key; data.side = 'blue'; UNIT_DATA_REGISTRY[key] = data; });
+        Object.entries(gerData).forEach(([key, data]) => { data.key = key; data.side = 'red'; UNIT_DATA_REGISTRY[key] = data; });
+
+        // Process Terrain (Map JSON keys to Engine keys)
+        Object.entries(tData).forEach(([key, data]) => {
+            TERRAIN_TYPES[key] = {
+                images: data.images || [],
+                color: 0x555555,
+                los: (data.los_effect || 'clear').toLowerCase(),
+                cost: data.movement_cost || 1,
+                terrainHeight: data.terrain_height || 0,
+                infantryUsable: data.unit_height_infantry || 0,
+                vehicleUsable: data.unit_height_vehicle || 0
+            };
+        });
+
+        // 3. Queue Dynamic Asset Loading
+        let loadCount = 0;
+        Object.values(UNIT_DATA_REGISTRY).forEach(u => {
+            if(u.image) { this.load.image(u.key, ASSETS_URL + 'counters/' + u.image); loadCount++; }
+        });
+        Object.values(TERRAIN_TYPES).forEach(t => {
+            if(t.images) {
+                t.images.forEach(img => { 
+                    const k = img.replace(/\.[^/.]+$/, ""); 
+                    this.load.image(k, ASSETS_URL + 'map/' + img); 
+                });
+                loadCount++;
+            }
+        });
+
+        if(loadCount > 0) {
+            this.load.once('complete', () => { console.log("Assets Loaded"); startGame(); });
+            this.load.start();
+        } else { startGame(); }
+
+    } catch(e) { console.error("Error parsing JSON:", e); alert("Failed to load JSONs."); }
+}
+
+function startGame() {
+    hexGroup = scene.add.group(); 
+    zoneGraphics = scene.add.graphics().setDepth(20); 
+    roadGraphics = scene.add.graphics().setDepth(100);
+    objGraphics = scene.add.graphics().setDepth(150); 
     
-    unitGraphics = this.add.graphics().setDepth(700);      
-    badgeGraphics = this.add.graphics().setDepth(800);     
+    selectionGraphics = scene.add.graphics().setDepth(500); 
+    losGraphics = scene.add.graphics().setDepth(550);       
     
-    this.cameras.main.setBounds(-2000, -2000, 8000, 8000); 
-    this.input.mouse.disableContextMenu();
+    unitGraphics = scene.add.graphics().setDepth(700);      
+    badgeGraphics = scene.add.graphics().setDepth(800);     
     
-    this.input.on('wheel', (pointer, gameObjects, deltaX, deltaY) => {
+    scene.cameras.main.setBounds(-2000, -2000, 8000, 8000); 
+    scene.input.mouse.disableContextMenu();
+    
+    scene.input.on('wheel', (pointer, gameObjects, deltaX, deltaY) => {
         const zoom = scene.cameras.main.zoom - (deltaY * 0.001);
         scene.cameras.main.setZoom(Phaser.Math.Clamp(zoom, 0.3, 2));
     });
     
-    this.input.on('pointerdown', (pointer) => {
+    scene.input.on('pointerdown', (pointer) => {
         if (pointer.leftButtonDown()) handleLeftClick(pointer);
         if (pointer.rightButtonDown()) {
             if (currentAction) {
-                currentAction = null;
-                uiUpdate();
-                addToLog("Action cancelled.", "log-info");
+                currentAction = null; uiUpdate(); addToLog("Action cancelled.", "log-info");
             }
-            if (selectedTrayUnit) {
-                selectedTrayUnit = null; 
-                renderTray();
-            }
+            if (selectedTrayUnit) { selectedTrayUnit = null; renderTray(); }
         }
     });
+    
+    addToLog("System Ready. Load Scenario to begin.");
 }
 
 function updateScene() {
@@ -460,45 +435,34 @@ function updateScene() {
 
 // --- Helper: Asset Keys & Logic ---
 function getUnitKey(unit) {
-    // 1. Try exact type match from loaded files
-    if (unit.unitType && scene.textures.exists(unit.unitType)) {
-        return unit.unitType;
-    }
-    // 2. Try 'type' field from editor JSON
-    if (unit.type && scene.textures.exists(unit.type)) {
-        return unit.type;
-    }
+    // 1. Try 'type' (the registry key from the editor export)
+    if (unit.type && scene.textures.exists(unit.type)) return unit.type;
+    // 2. Try 'unitType' legacy
+    if (unit.unitType && scene.textures.exists(unit.unitType)) return unit.unitType;
     return 'fallback';
 }
 
 function getUnitImageURL(unit) {
     const key = getUnitKey(unit);
+    // If the key maps to a loaded image in Phaser, construct the URL for the HTML UI
+    // Note: We use the Registry to find the filename if possible
+    const info = UNIT_DATA_REGISTRY[unit.type];
+    if(info && info.image) return `${ASSETS_URL}counters/${info.image}`;
     return `${ASSETS_URL}counters/${key}.png`;
 }
 
 // --- UI Logic ---
 
 function uiUpdate() {
-    selectionGraphics.clear(); 
-    unitGraphics.clear();
-    badgeGraphics.clear();
-    
+    selectionGraphics.clear(); unitGraphics.clear(); badgeGraphics.clear();
     scene.children.list.filter(c => c.name === 'badgeText').forEach(c => c.destroy());
-
     redrawAllUnits(); 
-    
     if (!selectedUnit && selectedHex) {
-        selectionGraphics.lineStyle(3, 0xffffff, 1);
-        selectionGraphics.strokeCircle(selectedHex.x, selectedHex.y, HEX_RADIUS - 5);
+        selectionGraphics.lineStyle(3, 0xffffff, 1); selectionGraphics.strokeCircle(selectedHex.x, selectedHex.y, HEX_RADIUS - 5);
     }
-
-    if (selectedUnit) {
-        showUnitPanel(selectedUnit);
-    } else if (selectedHex) {
-        showTerrainPanel(selectedHex);
-    } else {
-        clearContextPanel();
-    }
+    if (selectedUnit) showUnitPanel(selectedUnit);
+    else if (selectedHex) showTerrainPanel(selectedHex);
+    else clearContextPanel();
 }
 
 function showUnitPanel(unit) {
@@ -508,8 +472,12 @@ function showUnitPanel(unit) {
     // Priority: Specific Name > Generated Name
     let titleText = unit.name; 
     if (!titleText) {
-        let catName = unit.category ? unit.category.charAt(0).toUpperCase() + unit.category.slice(1) : "Unit";
-        titleText = `${side} ${catName}`;
+        const info = UNIT_DATA_REGISTRY[unit.type];
+        if(info) titleText = info.name;
+        else {
+             let catName = unit.category ? unit.category.charAt(0).toUpperCase() + unit.category.slice(1) : "Unit";
+             titleText = `${side} ${catName}`;
+        }
     }
 
     document.getElementById('ctx-title').innerText = titleText;
@@ -539,26 +507,11 @@ function showUnitPanel(unit) {
     const leftEl = document.getElementById('ctx-status-left');
     let sColor = '#aaa'; let sText = "OPERATIONAL";
     
-    if(unit.status === 'clear') { 
-        sColor='#fff'; 
-        sText="OPERATIONAL"; 
-    }
-    else if(unit.status === 'shaken') { 
-        sColor='#ff4444'; 
-        sText="SHAKEN"; 
-    }
-    else if(unit.status === 'damaged') { 
-        sColor='#cc00cc'; 
-        sText="DAMAGED"; 
-    }
-    else if(unit.status === 'immobilized') { 
-        sColor='#cc00cc'; 
-        sText="IMMOBILIZED"; 
-    }
-    else if(unit.status.startsWith('suppressed')) { 
-        sColor='#ffff00'; 
-        sText="SUPPRESSED +" + unit.status.split('_')[1]; 
-    }
+    if(unit.status === 'clear') { sColor='#fff'; sText="OPERATIONAL"; }
+    else if(unit.status === 'shaken') { sColor='#ff4444'; sText="SHAKEN"; }
+    else if(unit.status === 'damaged') { sColor='#cc00cc'; sText="DAMAGED"; }
+    else if(unit.status === 'immobilized') { sColor='#cc00cc'; sText="IMMOBILIZED"; }
+    else if(unit.status.startsWith('suppressed')) { sColor='#ffff00'; sText="SUPPRESSED +" + unit.status.split('_')[1]; }
     
     leftEl.innerText = sText;
     leftEl.style.color = sColor;
@@ -607,8 +560,10 @@ function showUnitPanel(unit) {
     const tBadge = document.createElement('span');
     tBadge.className = 'badge badge-terrain';
     tBadge.innerText = terrain.toUpperCase();
-    tBadge.style.backgroundColor = '#' + tProps.color.toString(16);
-    tBadge.style.color = (tProps.color > 0x888888) ? '#000' : '#fff';
+    if(tProps) {
+        tBadge.style.backgroundColor = '#' + tProps.color.toString(16);
+        tBadge.style.color = (tProps.color > 0x888888) ? '#000' : '#fff';
+    }
     tBadge.onclick = () => { selectedUnit = null; selectedHex = hexMap[unit.q][unit.r]; uiUpdate(); };
     badgeContainer.appendChild(tBadge);
 
@@ -624,11 +579,20 @@ function showUnitPanel(unit) {
         badgeContainer.appendChild(b);
     }
 
+    // Look up Stats from Registry if missing on unit
+    const regInfo = UNIT_DATA_REGISTRY[unit.type] || {};
+    const stats = regInfo.stats || {};
+    // Use Unit's current MP if available, else Max
+    const maxMp = stats.Movement_Points || unit.maxMp || 6;
+    const curMp = (unit.mp !== undefined) ? unit.mp : maxMp;
+    const fp = stats.Firepower || unit.fp || 3;
+    const rng = stats.Range_Hexes || unit.range || 6;
+
     const statsHtml = `
         <div class="stat-row"><span class="stat-label">Morale:</span> <span class="stat-value">Steady</span></div>
-        <div class="stat-row"><span class="stat-label">MP:</span> <span class="stat-value">${unit.mp}/${unit.maxMp}</span></div>
-        <div class="stat-row"><span class="stat-label">Firepower:</span> <span class="stat-value">${unit.fp}</span></div>
-        <div class="stat-row"><span class="stat-label">Range:</span> <span class="stat-value">${unit.range}</span></div>
+        <div class="stat-row"><span class="stat-label">MP:</span> <span class="stat-value">${curMp}/${maxMp}</span></div>
+        <div class="stat-row"><span class="stat-label">Firepower:</span> <span class="stat-value">${fp}</span></div>
+        <div class="stat-row"><span class="stat-label">Range:</span> <span class="stat-value">${rng}</span></div>
         <div class="stat-row"><span class="stat-label">Facing:</span> <span class="stat-value">${["N","NE","SE","S","SW","NW"][unit.facing]}</span></div>
     `;
     document.getElementById('stats-header').innerText = 'UNIT STATISTICS';
@@ -648,25 +612,19 @@ function showUnitPanel(unit) {
             if (u === unit) item.style.borderColor = 'var(--accent)';
             const facingDir = ["N","NE","SE","S","SW","NW"][u.facing];
             
-            // Resolve Stance for Stack List
             let stText = "Deployed";
             if(u.stance === 'moving') stText = "Moving";
             else if(u.stance === 'cover') stText = "Cover";
             else if(u.stance === 'setup') stText = "Set Up";
-            else if(u.stance === 'deployed') stText = "Deployed";
             
-            // Resolve Status for Stack List
-            let statText = "Operational";
-            let statColor = "#fff";
+            let statText = "Operational"; let statColor = "#fff";
             if(u.status === 'shaken') { statText="Shaken"; statColor="#ff4444"; }
             else if(u.status === 'damaged') { statText="Damaged"; statColor="#cc00cc"; }
             else if(u.status === 'immobilized') { statText="Immobilized"; statColor="#cc00cc"; }
-            else if(u.status.startsWith('suppressed')) { 
-                statText="Suppressed +" + u.status.split('_')[1]; 
-                statColor="#ffff00"; 
-            }
+            else if(u.status.startsWith('suppressed')) { statText="Suppressed +" + u.status.split('_')[1]; statColor="#ffff00"; }
 
-            let stackName = u.name || u.category.toUpperCase();
+            let stackName = u.name;
+            if(!stackName && UNIT_DATA_REGISTRY[u.type]) stackName = UNIT_DATA_REGISTRY[u.type].name;
 
             item.innerHTML = `
                 <img class="stack-img" src="${getUnitImageURL(u)}">
@@ -689,16 +647,21 @@ function showTerrainPanel(hex) {
     const terrain = hex.terrain;
     const props = TERRAIN_TYPES[terrain];
     const variant = hex.variant || 1;
-    const imgUrl = `${ASSETS_URL}map/${terrain}${variant}.png`;
-    document.getElementById('ctx-img').innerHTML = `<img src="${imgUrl}">`;
+    // For HTML, construct URL manually since we can't easily grab texture key from registry in this scope without logic
+    // But we know the asset path structure
+    let firstImg = `${terrain}${variant}.png`;
+    if(props && props.images && props.images.length > 0) {
+        // Try to match variant
+        firstImg = props.images[variant-1] || props.images[0];
+    }
+    
+    document.getElementById('ctx-img').innerHTML = `<img src="${ASSETS_URL}map/${firstImg}">`;
     document.getElementById('ctx-title').innerText = terrain.toUpperCase();
     document.getElementById('ctx-subtitle').innerText = `COORD: ${hex.q}, ${hex.r}`;
     document.getElementById('unit-actions').style.display = 'none';
     
     document.getElementById('ctx-status-left').innerText = ""; document.getElementById('ctx-status-left').style.border="none";
     document.getElementById('ctx-stance-right').innerText = ""; document.getElementById('ctx-stance-right').style.border="none";
-    
-    // Clear stars for terrain
     document.getElementById('ctx-quality').innerText = "";
 
     const badgeContainer = document.getElementById('ctx-badges');
@@ -706,8 +669,10 @@ function showTerrainPanel(hex) {
     const tBadge = document.createElement('span');
     tBadge.className = 'badge badge-terrain';
     tBadge.innerText = terrain.toUpperCase();
-    tBadge.style.backgroundColor = '#' + props.color.toString(16);
-    tBadge.style.color = (props.color > 0x888888) ? '#000' : '#fff';
+    if(props) {
+        tBadge.style.backgroundColor = '#' + props.color.toString(16);
+        tBadge.style.color = (props.color > 0x888888) ? '#000' : '#fff';
+    }
     badgeContainer.appendChild(tBadge);
 
     if (hex.victoryPoints) {
@@ -718,15 +683,18 @@ function showTerrainPanel(hex) {
     }
     
     document.getElementById('stack-container').style.display = 'none';
-    const statsHtml = `
-        <div class="stat-row"><span class="stat-label">Move Cost:</span> <span class="stat-value">${props.cost}</span></div>
-        <div class="stat-row"><span class="stat-label">Height:</span> <span class="stat-value">${props.terrainHeight}</span></div>
-        <div class="stat-row"><span class="stat-label">LOS Effect:</span> <span class="stat-value">${props.los.toUpperCase()}</span></div>
-        <div class="stat-row"><span class="stat-label">Infantry Ht:</span> <span class="stat-value">${props.infantryUsable}</span></div>
-        <div class="stat-row"><span class="stat-label">Vehicle Ht:</span> <span class="stat-value">${props.vehicleUsable}</span></div>
-    `;
-    document.getElementById('stats-header').innerText = 'TERRAIN DATA';
-    document.getElementById('stats-content').innerHTML = statsHtml;
+    
+    if(props) {
+        const statsHtml = `
+            <div class="stat-row"><span class="stat-label">Move Cost:</span> <span class="stat-value">${props.cost}</span></div>
+            <div class="stat-row"><span class="stat-label">Height:</span> <span class="stat-value">${props.terrainHeight}</span></div>
+            <div class="stat-row"><span class="stat-label">LOS Effect:</span> <span class="stat-value">${props.los.toUpperCase()}</span></div>
+            <div class="stat-row"><span class="stat-label">Infantry Ht:</span> <span class="stat-value">${props.infantryUsable}</span></div>
+            <div class="stat-row"><span class="stat-label">Vehicle Ht:</span> <span class="stat-value">${props.vehicleUsable}</span></div>
+        `;
+        document.getElementById('stats-header').innerText = 'TERRAIN DATA';
+        document.getElementById('stats-content').innerHTML = statsHtml;
+    }
 }
 
 function clearContextPanel() {
@@ -803,14 +771,19 @@ function renderTray() {
         item.className = 'tray-item';
         if (selectedTrayUnit === u) item.classList.add('selected');
         
-        let displayName = u.name || u.category || u.type;
-        
-        // Use type (filename) as key if available
-        let imgKey = u.type || u.unitType;
-        if (!scene.textures.exists(imgKey)) imgKey = 'fallback';
+        // Lookup info
+        let displayName = u.name;
+        if(!displayName && UNIT_DATA_REGISTRY[u.type]) displayName = UNIT_DATA_REGISTRY[u.type].name;
+        if(!displayName) displayName = u.type;
+
+        // Image
+        let imgUrl = "";
+        const info = UNIT_DATA_REGISTRY[u.type];
+        if(info && info.image) imgUrl = `${ASSETS_URL}counters/${info.image}`;
+        else imgUrl = `${ASSETS_URL}counters/${u.type}.png`;
 
         item.innerHTML = `
-            <img src="${ASSETS_URL}counters/${imgKey}.png" class="tray-icon">
+            <img src="${imgUrl}" class="tray-icon" onerror="this.style.display='none'">
             <div>
                 <div style="font-weight:bold; font-size:12px; color:#fff">${displayName}</div>
                 <div style="font-size:10px; color:#aaa">Click map to deploy</div>
@@ -818,12 +791,10 @@ function renderTray() {
         `;
         item.onclick = () => {
             if (selectedTrayUnit === u) {
-                selectedTrayUnit = null; 
-                renderTray();
+                selectedTrayUnit = null; renderTray();
             } else {
                 selectedTrayUnit = u;
-                selectedUnit = null; 
-                renderTray(); 
+                selectedUnit = null; renderTray(); 
                 addToLog("Select a valid Zone Hex to deploy.", "log-info");
             }
         };
@@ -841,34 +812,35 @@ function deployTrayUnit(uData, hex) {
         return;
     }
 
-    // New Unit: Forces Stance=Deployed, Status=Clear
+    const regInfo = UNIT_DATA_REGISTRY[uData.type] || {};
+    const stats = regInfo.stats || {};
+    const maxMp = stats.Movement_Points || 6;
+    const hp = 5;
+    const fp = stats.Firepower || 3;
+    const rng = stats.Range_Hexes || 6;
+
     const newUnit = {
         id: unitIdCounter++,
         side: uData.side,
-        unitType: uData.type, // Store the specific file key
-        category: uData.category || 'squad',
-        name: uData.name, // Preserve name
-        quality: uData.quality || 'regular', // Preserve Quality
+        type: uData.type,
+        category: uData.category || regInfo.category || 'squad',
+        name: uData.name || regInfo.name,
+        quality: uData.quality || 'regular',
         q: hex.q, r: hex.r,
         facing: 0, 
         status: 'clear', 
         stance: 'deployed',
-        mp: 6, maxMp: 6, hp: 5, fp: 3, range: 6,
+        mp: maxMp, maxMp: maxMp, hp: hp, fp: fp, range: rng,
         isFixed: false
     };
 
-    // Stance Logic fix for HWT if needed later
-    
     units.push(newUnit);
-    
     trayUnits = trayUnits.filter(t => t !== uData);
     selectedTrayUnit = null;
     
     selectUnitInStack(newUnit);
-    displayMap(); 
-    renderTray(); 
-    uiUpdate();
-    addToLog(`${newUnit.name || newUnit.category} deployed.`);
+    displayMap(); renderTray(); uiUpdate();
+    addToLog(`${newUnit.name} deployed.`);
 }
 
 function redeployUnit() {
@@ -876,7 +848,7 @@ function redeployUnit() {
     const trayObj = {
         id: selectedUnit.id, 
         side: selectedUnit.side,
-        type: selectedUnit.unitType,
+        type: selectedUnit.type,
         category: selectedUnit.category,
         name: selectedUnit.name,
         quality: selectedUnit.quality
@@ -884,9 +856,7 @@ function redeployUnit() {
     trayUnits.push(trayObj);
     units = units.filter(u => u !== selectedUnit);
     selectedUnit = null;
-    displayMap();
-    renderTray();
-    uiUpdate();
+    displayMap(); renderTray(); uiUpdate();
     addToLog("Unit returned to Tray.");
 }
 
@@ -935,16 +905,13 @@ function redrawAllUnits() {
         if (isTop) drawStatusMarkers(unit, pos);
     });
 
-    // Draw Selection Ring - WORST CASE LOGIC
     if (selectedUnit || selectedHex) {
-        // Find which hex is active
         const activeHex = selectedUnit ? hexMap[selectedUnit.q][selectedUnit.r] : selectedHex;
         if(activeHex) {
             const hexUnits = units.filter(u => u.q === activeHex.q && u.r === activeHex.r);
             if(hexUnits.length > 0) {
-                // Determine Ring Color based on hierarchy
-                let ringColor = 0xffffff; // Default White
-                let worstLevel = 0; // 0=Clear, 1=Yellow, 2=Red, 3=Purple
+                let ringColor = 0xffffff;
+                let worstLevel = 0;
                 
                 hexUnits.forEach(u => {
                     let lvl = 0;
@@ -954,9 +921,9 @@ function redrawAllUnits() {
                     if(lvl > worstLevel) worstLevel = lvl;
                 });
                 
-                if(worstLevel === 1) ringColor = 0xffff00; // Yellow
-                if(worstLevel === 2) ringColor = 0xff0000; // Red
-                if(worstLevel === 3) ringColor = 0xcc00cc; // Purple
+                if(worstLevel === 1) ringColor = 0xffff00;
+                if(worstLevel === 2) ringColor = 0xff0000;
+                if(worstLevel === 3) ringColor = 0xcc00cc;
 
                 const p = getHexPosition(activeHex.q, activeHex.r);
                 selectionGraphics.lineStyle(3, ringColor, 1);
@@ -973,7 +940,6 @@ function drawFacingIndicator(unit, pos) {
     const triX = pos.x + Math.cos(angleRad) * indicatorDist;
     const triY = pos.y + Math.sin(angleRad) * indicatorDist;
 
-    // Stance Colors
     let triColor = 0xffffff;
     if(unit.stance === 'moving') triColor = 0x0055ff;
     else if(unit.stance === 'deployed') triColor = 0xff0000;
@@ -991,10 +957,8 @@ function drawFacingIndicator(unit, pos) {
 
 function drawStatusMarkers(unit, pos) {
     if (unit.status !== 'clear') {
-        const bx = pos.x + 15; 
-        const by = pos.y + 15;
-        let statColor = 0xffffff;
-        let label = "!";
+        const bx = pos.x + 15; const by = pos.y + 15;
+        let statColor = 0xffffff; let label = "!";
         
         if(unit.status === 'suppressed_2') { statColor = 0xffff00; label="+2"; }
         else if(unit.status === 'suppressed_4') { statColor = 0xffff00; label="+4"; }
@@ -1008,18 +972,14 @@ function drawStatusMarkers(unit, pos) {
         badgeGraphics.lineStyle(1, 0x000000, 1);
         badgeGraphics.strokeRect(bx - 8, by - 6, 16, 12);
         
-        scene.add.text(bx, by, label, { 
-            font: '9px Arial', fill: '#000', fontStyle: 'bold'
-        }).setOrigin(0.5).setDepth(810).setResolution(2).setName('badgeText');
+        scene.add.text(bx, by, label, { font: '9px Arial', fill: '#000', fontStyle: 'bold' }).setOrigin(0.5).setDepth(810).setResolution(2).setName('badgeText');
     }
 }
 
 // --- LOS Tool Logic ---
 
 function toggleLOSTool() {
-    losTool = !losTool;
-    losStartHex = null;
-    losGraphics.clear();
+    losTool = !losTool; losStartHex = null; losGraphics.clear();
     const container = document.getElementById('los-options');
     container.style.display = losTool ? 'flex' : 'none';
     document.getElementById('btn-los').classList.toggle('active', losTool);
@@ -1027,7 +987,6 @@ function toggleLOSTool() {
     if (losTool) {
         if (selectedUnit) {
             losStartHex = hexMap[selectedUnit.q][selectedUnit.r];
-            // Infer LOS type from unit category
             let cat = selectedUnit.category || 'squad';
             let lType = (cat==='vehicle' || cat==='hwt') ? 'vehicle' : 'infantry';
             setLOSType(lType); 
@@ -1037,12 +996,9 @@ function toggleLOSTool() {
             losStartHex = selectedHex;
             highlightHex(losStartHex, 0xffffff);
             addToLog(`LOS Start: Terrain at ${losStartHex.q},${losStartHex.r}`, "log-info");
-        } else {
-            addToLog("LOS Tool: Select Start Hex...", "log-info");
-        }
+        } else { addToLog("LOS Tool: Select Start Hex...", "log-info"); }
     } else {
-        addToLog("LOS Tool Deactivated.", "log-info");
-        uiUpdate(); 
+        addToLog("LOS Tool Deactivated.", "log-info"); uiUpdate(); 
     }
 }
 
@@ -1054,8 +1010,7 @@ function setLOSType(type) {
 
 function handleLOSToolClick(hex) {
     if (!losStartHex) {
-        losStartHex = hex;
-        highlightHex(hex, 0xffffff);
+        losStartHex = hex; highlightHex(hex, 0xffffff);
         addToLog("Start Hex selected. Select Target...", "log-info");
     } else {
         const result = calculateLOS(losStartHex, hex, losUnitType);
@@ -1081,7 +1036,6 @@ function changeFacing(unit, targetHex) {
     const targetPos = getHexPosition(targetHex.q, targetHex.r);
     const angleRad = Phaser.Math.Angle.Between(startPos.x, startPos.y, targetPos.x, targetPos.y);
     let angleDeg = Phaser.Math.RadToDeg(angleRad);
-    
     const idealAngles = [ -90, -30, 30, 90, 150, -150 ];
     let closestIndex = 0; let minDiff = 360;
     idealAngles.forEach((ideal, index) => {
@@ -1089,10 +1043,8 @@ function changeFacing(unit, targetHex) {
         if (diff < minDiff) { minDiff = diff; closestIndex = index; }
     });
     unit.facing = closestIndex;
-    uiUpdate();
-    addToLog(`Facing set to ${["N","NE","SE","S","SW","NW"][closestIndex]}`);
-    currentAction = null;
-    if(currentPhase === 'SETUP') redrawAllUnits(); 
+    uiUpdate(); addToLog(`Facing set to ${["N","NE","SE","S","SW","NW"][closestIndex]}`);
+    currentAction = null; if(currentPhase === 'SETUP') redrawAllUnits(); 
 }
 
 function executeMove(unit, targetHex) {
@@ -1112,8 +1064,7 @@ function executeMove(unit, targetHex) {
 
 function moveUnitTo(unit, hex) {
     unit.q = hex.q; unit.r = hex.r;
-    selectUnitInStack(unit); 
-    addToLog(`${unit.name || unit.category} moved.`);
+    selectUnitInStack(unit); addToLog(`${unit.name} moved.`);
 }
 
 function executeFire(attacker, targetUnit) {
@@ -1121,7 +1072,6 @@ function executeFire(attacker, targetUnit) {
     const startHex = hexMap[attacker.q][attacker.r];
     const targetHex = hexMap[targetUnit.q][targetUnit.r];
     
-    // Determine attacker height based on category
     let cat = attacker.category || 'squad';
     let attHeight = (cat==='vehicle' || cat==='hwt') ? 'vehicle' : 'infantry';
     
@@ -1145,16 +1095,13 @@ function executeFire(attacker, targetUnit) {
     targetUnit.hp -= damage;
     drawVisualLOSLine(startHex, targetHex, color);
     
-    let attName = attacker.name || attacker.category;
-    addToLog(`${attName} hits for ${damage} dmg.`, "log-combat");
+    addToLog(`${attacker.name} hits for ${damage} dmg.`, "log-combat");
     
     if (targetUnit.hp <= 0) {
         addToLog("Target Destroyed!", "log-combat");
         units = units.filter(u => u.id !== targetUnit.id);
         selectedUnit = null; uiUpdate();
-    } else {
-        uiUpdate();
-    }
+    } else { uiUpdate(); }
     setTimeout(() => losGraphics.clear(), 1000);
     currentAction = null;
 }
@@ -1233,27 +1180,23 @@ function loadScenario() {
         if (scenarioData.units.locked) {
             scenarioData.units.locked.forEach(u => {
                 u.isFixed = true; 
-                
-                // BACKWARD COMPATIBILITY & NEW NAMING
-                if(u.type && !u.category) {
-                     // Try to guess based on filename from registry
-                     const info = UNIT_DATA_REGISTRY[u.type];
-                     if(info) {
-                         u.category = info.category;
-                         u.name = info.name;
-                     } else {
-                         u.category = u.type; 
-                     }
+                // Hydrate from Registry if missing info
+                if(!u.category && UNIT_DATA_REGISTRY[u.type]) {
+                    const info = UNIT_DATA_REGISTRY[u.type];
+                    u.category = info.category;
+                    if(!u.name) u.name = info.name;
                 }
-                
-                // Map type to unitType for internal engine consistency
-                u.unitType = u.type;
-                
                 if(!u.stance) u.stance = 'deployed';
-                
-                // IMPORTANT LOGIC: Split "cover" based on category
                 if(u.stance === 'cover' && u.category === 'hwt') u.stance = 'setup';
                 
+                // Set initial dynamic stats if not in JSON
+                const stats = (UNIT_DATA_REGISTRY[u.type] || {}).stats || {};
+                u.maxMp = stats.Movement_Points || 6;
+                if(u.mp === undefined) u.mp = u.maxMp;
+                if(u.fp === undefined) u.fp = stats.Firepower || 3;
+                if(u.range === undefined) u.range = stats.Range_Hexes || 6;
+                if(u.hp === undefined) u.hp = 5;
+
                 units.push(u);
             });
         }
@@ -1261,10 +1204,8 @@ function loadScenario() {
         if (scenarioData.units.tray) {
             trayUnits = [...scenarioData.units.tray];
             trayUnits.forEach(u => { 
-                if(!u.category) u.category = u.type; 
-                // Ensure name and specific type exist
-                const info = UNIT_DATA_REGISTRY[u.type];
-                if(info && !u.name) u.name = info.name;
+                if(!u.category && UNIT_DATA_REGISTRY[u.type]) u.category = UNIT_DATA_REGISTRY[u.type].category;
+                if(!u.name && UNIT_DATA_REGISTRY[u.type]) u.name = UNIT_DATA_REGISTRY[u.type].name;
             });
         }
         
@@ -1279,9 +1220,7 @@ function loadScenario() {
         document.getElementById('phase-display').innerText = 'SETUP';
         document.getElementById('btn-phase').innerText = 'Finish Setup';
         
-        displayMap(); 
-        renderTray(); 
-        toggleMapLoader();
+        displayMap(); renderTray(); toggleMapLoader();
         addToLog("Scenario Loaded. Begin Deployment.");
         
     } catch (e) { alert('Invalid JSON: ' + e.message); console.error(e); }
@@ -1290,16 +1229,11 @@ function loadScenario() {
 function displayMap() {
     if (!mapData) return;
     
-    hexGroup.clear(true, true); 
-    roadGraphics.clear(); 
-    zoneGraphics.clear();
-    objGraphics.clear();
-    objectiveSprites.forEach(s => s.destroy());
-    objectiveSprites = [];
+    hexGroup.clear(true, true); roadGraphics.clear(); zoneGraphics.clear();
+    objGraphics.clear(); objectiveSprites.forEach(s => s.destroy()); objectiveSprites = [];
     
     hexMap = {};
-    const cols = mapData.cols || 0;
-    const rows = mapData.rows || 0;
+    const cols = mapData.cols || 0; const rows = mapData.rows || 0;
 
     for (let q = 0; q < cols; q++) {
         hexMap[q] = {};
@@ -1321,10 +1255,7 @@ function displayMap() {
                 hexMap[z.q][z.r].setupZone = z.side;
                 const p = getHexPosition(z.q, z.r);
                 const pts = []; 
-                for(let i=0; i<6; i++) {
-                    const a = Math.PI/3*i; 
-                    pts.push({x: p.x+HEX_RADIUS*Math.cos(a), y: p.y+HEX_RADIUS*Math.sin(a)}); 
-                }
+                for(let i=0; i<6; i++) { const a = Math.PI/3*i; pts.push({x: p.x+HEX_RADIUS*Math.cos(a), y: p.y+HEX_RADIUS*Math.sin(a)}); }
                 const color = z.side === 'blue' ? 0x4488ff : 0xff4444;
                 zoneGraphics.fillStyle(color, 0.2).fillPoints(pts, true);
             }
@@ -1341,8 +1272,7 @@ function displayMap() {
                 const hex = hexMap[obj.q][obj.r];
                 hex.victoryPoints = obj.points || 100;
                 const star = scene.add.star(hex.x, hex.y, 5, 8, 16, 0xffcc00);
-                star.setStrokeStyle(2, 0x000000);
-                star.setDepth(150);
+                star.setStrokeStyle(2, 0x000000); star.setDepth(150);
                 objectiveSprites.push(star);
                 const txt = scene.add.text(hex.x, hex.y + 10, hex.victoryPoints.toString(), {
                     fontSize: '10px', stroke: '#000', strokeThickness: 3, fill: '#fff', fontStyle: 'bold'
@@ -1361,7 +1291,7 @@ function drawHex(hex) {
     if (!hex.variant) hex.variant = Phaser.Math.Between(1, 3);
     const textureKey = `${terrainType}${hex.variant}`;
     
-    // EDITOR STYLE LINES: 1px width, 0.5 opacity
+    // Check if dynamic texture exists (loaded from JSON list)
     if (scene.textures.exists(textureKey)) {
         const img = scene.add.image(x, y, textureKey).setDisplaySize(HEX_RADIUS * 2, HEX_RADIUS * 2);
         const shape = scene.make.graphics().fillStyle(0xffffff).beginPath();
@@ -1373,7 +1303,10 @@ function drawHex(hex) {
         for (let i = 0; i < 6; i++) { const angle = (Math.PI / 3) * i; const hx = x + HEX_RADIUS * Math.cos(angle); const hy = y + HEX_RADIUS * Math.sin(angle); if (i === 0) outline.moveTo(hx, hy); else outline.lineTo(hx, hy); }
         outline.closePath().strokePath(); hexGroup.add(outline);
     } else {
-        const g = scene.add.graphics().fillStyle(TERRAIN_TYPES[terrainType].color).lineStyle(1, 0x333333, 0.5).beginPath();
+        // Fallback to Registry Color or Grey
+        let color = 0x555555;
+        if(TERRAIN_TYPES[terrainType]) color = TERRAIN_TYPES[terrainType].color || 0x555555;
+        const g = scene.add.graphics().fillStyle(color).lineStyle(1, 0x333333, 0.5).beginPath();
         for (let i = 0; i < 6; i++) { const angle = (Math.PI / 3) * i; const hx = x + HEX_RADIUS * Math.cos(angle); const hy = y + HEX_RADIUS * Math.sin(angle); if (i === 0) g.moveTo(hx, hy); else g.lineTo(hx, hy); }
         g.closePath().fillPath().strokePath(); hexGroup.add(g);
     }
@@ -1424,7 +1357,9 @@ function getPhysicalRange(startHex, targetHex) {
 }
 function calculateLOS(startHex, targetHex, unitType = 'infantry') {
     const fromTerrain = TERRAIN_TYPES[startHex.terrain];
+    // Dynamic Height lookup from Registry
     const fromUsableHeight = unitType === 'vehicle' ? fromTerrain.vehicleUsable : fromTerrain.infantryUsable;
+    
     const dx = targetHex.x - startHex.x; const dy = targetHex.y - startHex.y; const distance = Math.sqrt(dx * dx + dy * dy); const steps = Math.ceil(distance / 2); 
     const hexesCrossed = new Set(); const edgeSegments = []; let edgeRunLength = 0; let edgeHexPair = null;
     for (let i = 0; i <= steps; i++) {
