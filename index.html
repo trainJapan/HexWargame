@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Wargame Engine v0.9.9 - Modes, D10 & Victory</title>
+    <title>Wargame Engine v0.9.10 - Fixed Setup & D10</title>
     <script src="https://cdn.jsdelivr.net/npm/phaser@3.60.0/dist/phaser.min.js"></script>
     <style>
         :root {
@@ -74,7 +74,7 @@
         .btn.active { background: var(--accent); color: #000; border-color: var(--accent); }
         .btn:disabled { opacity: 0.5; cursor: not-allowed; }
 
-        /* LIST STYLES (Tray, Reinf, Strikes) */
+        /* LIST STYLES */
         .list-item {
             display: flex; align-items: center; gap: 10px;
             background: #222; border: 1px solid #444;
@@ -93,41 +93,45 @@
 
         /* D10 DICE CSS */
         #dice-overlay {
-            position: absolute; top: 20%; left: 50%; transform: translateX(-50%);
-            display: none; flex-direction: column; align-items: center; gap: 15px;
-            z-index: 2000; pointer-events: none;
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.6); 
+            display: none; flex-direction: column; align-items: center; justify-content: center; gap: 20px;
+            z-index: 2000;
         }
         
         .d10-container {
-            width: 80px; height: 80px; position: relative;
-            animation: shake 0.1s infinite;
+            width: 120px; height: 120px; position: relative;
+            filter: drop-shadow(0 10px 10px rgba(0,0,0,0.5));
         }
-        /* Kite Shape using clip-path */
-        .d10-shape {
-            width: 100%; height: 100%;
-            background: linear-gradient(135deg, #ff8800 0%, #cc4400 100%);
-            clip-path: polygon(50% 0%, 100% 35%, 50% 100%, 0% 35%);
-            display: flex; align-items: center; justify-content: center;
-            box-shadow: inset 0 0 10px rgba(0,0,0,0.5);
-        }
+        
+        /* SVG Animation Class */
+        .dice-shaking { animation: shake 0.1s infinite; }
+
         .d10-val {
-            font-size: 32px; font-weight: bold; color: white;
-            margin-bottom: 10px; /* Push up slightly to center in the kite */
-            text-shadow: 1px 1px 2px black;
+            position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+            font-size: 42px; font-weight: bold; color: white;
+            text-shadow: 2px 2px 4px black; font-family: 'Arial', sans-serif;
+            pointer-events: none;
         }
 
         .dice-label {
-            background: rgba(0,0,0,0.8); color: white; padding: 5px 15px;
-            border-radius: 15px; font-weight: bold; font-size: 14px;
+            background: #111; color: var(--accent); padding: 10px 30px;
+            border-radius: 4px; font-weight: bold; font-size: 18px;
             text-transform: uppercase; border: 1px solid var(--accent);
+            box-shadow: 0 0 15px rgba(0,0,0,0.8);
         }
 
+        .dice-btn {
+            background: var(--blue-team); color: white; border: none;
+            padding: 10px 40px; font-size: 16px; font-weight: bold;
+            border-radius: 4px; cursor: pointer; display: none;
+            box-shadow: 0 0 10px rgba(68, 136, 255, 0.5);
+        }
+        .dice-btn:hover { background: #3377ff; }
+
         @keyframes shake {
-            0% { transform: rotate(0deg); }
-            25% { transform: rotate(5deg); }
-            50% { transform: rotate(-5deg); }
-            75% { transform: rotate(5deg); }
-            100% { transform: rotate(0deg); }
+            0% { transform: rotate(0deg); } 25% { transform: rotate(5deg); }
+            50% { transform: rotate(-5deg); } 75% { transform: rotate(5deg); } 100% { transform: rotate(0deg); }
         }
 
         /* MODALS */
@@ -215,8 +219,8 @@
     </div>
 
     <div class="menu-btn-group">
-        <button class="btn" onclick="setListMode('reinforcements')" id="btn-reinf">REINFORCEMENTS</button>
-        <button class="btn" onclick="setListMode('strikes')" id="btn-strikes">OFF-BOARD STRIKES</button>
+        <button class="btn" onclick="toggleListMode('reinforcements')" id="btn-reinf">REINFORCEMENTS</button>
+        <button class="btn" onclick="toggleListMode('strikes')" id="btn-strikes">OFF-BOARD STRIKES</button>
         <button class="btn btn-primary" id="btn-phase" onclick="nextPhase()">Finish Setup</button>
     </div>
     
@@ -251,10 +255,24 @@
     <div id="dice-overlay">
         <div class="dice-label" id="dice-label">Rolling...</div>
         <div class="d10-container" id="dice-anim">
-            <div class="d10-shape">
-                <div class="d10-val" id="dice-val">0</div>
-            </div>
+            <svg width="120" height="120" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+                <defs>
+                    <linearGradient id="diceGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                        <stop offset="0%" style="stop-color:#ffaa00;stop-opacity:1" />
+                        <stop offset="100%" style="stop-color:#cc4400;stop-opacity:1" />
+                    </linearGradient>
+                </defs>
+                <path d="M50 5 L95 27.5 L95 72.5 L50 95 L5 72.5 L5 27.5 Z" fill="url(#diceGrad)" stroke="#fff" stroke-width="2"/>
+                <path d="M50 5 L50 50" stroke="#fff" stroke-width="2"/>
+                <path d="M50 50 L95 27.5" stroke="#fff" stroke-width="2"/>
+                <path d="M50 50 L5 27.5" stroke="#fff" stroke-width="2"/>
+                <path d="M50 50 L50 95" stroke="#fff" stroke-width="2"/>
+                <path d="M5 72.5 L50 95" stroke="rgba(255,255,255,0.3)" stroke-width="1"/>
+                <path d="M95 72.5 L50 95" stroke="rgba(255,255,255,0.3)" stroke-width="1"/>
+            </svg>
+            <div class="d10-val" id="dice-val">0</div>
         </div>
+        <button class="dice-btn" id="dice-ok-btn">CONTINUE</button>
     </div>
 
     <div id="game-over-modal" class="modal-overlay">
@@ -320,13 +338,17 @@ let losTool = false;
 let losStartHex = null;
 let losUnitType = 'infantry';
 let units = [];
-let trayUnits = []; // Units available for deployment (Setup OR Reinforcements)
+
+// Separate Data Lists
+let setupTrayUnits = []; // Units for Phase 1 Setup
+let reinforcementUnits = []; // Units arriving later
 let strikes = [];   // Offboard assets
+
 let unitIdCounter = 2000;
 let currentTurn = 1;
 let currentPhase = 'SETUP'; 
 let scores = { blue: 0, red: 0 };
-let captureOwners = {}; // Key "q,r" => 'blue'/'red'
+let captureOwners = {}; 
 let currentListMode = 'tray'; // 'tray', 'reinforcements', 'strikes'
 
 // Selection State
@@ -334,11 +356,13 @@ let selectedUnit = null;
 let selectedHex = null; 
 let selectedTrayItem = null; // Can be unit OR asset
 let currentAction = null; 
+let isDeploying = false; // Flag to show zones during gameplay
 
 // Phaser Objects
 let scene, hexGroup, zoneGraphics, objGraphics, roadGraphics, losGraphics, unitGraphics, selectionGraphics, badgeGraphics, hexMap = {};
 let unitSprites = {};
 let objectiveSprites = []; 
+let diceCallback = null; // For the OK button
 
 const config = {
     type: Phaser.AUTO, parent: 'game-container',
@@ -397,9 +421,18 @@ function initEngine() {
         if (pointer.leftButtonDown()) handleLeftClick(pointer);
         if (pointer.rightButtonDown()) {
             if (currentAction) { currentAction = null; uiUpdate(); addToLog("Action cancelled.", "log-info"); }
-            if (selectedTrayItem) { selectedTrayItem = null; updateDynamicList(); }
+            if (selectedTrayItem) { 
+                selectedTrayItem = null; 
+                isDeploying = false; // Hide zones if cancelling
+                displayMap(); // Redraw to clear zones
+                updateDynamicList(); 
+            }
         }
     });
+    
+    // Dice Button listener
+    document.getElementById('dice-ok-btn').addEventListener('click', closeDiceOverlay);
+    
     addToLog("System Ready. Load Scenario to begin.");
 }
 
@@ -417,13 +450,15 @@ function rollD10(label, callback) {
     const container = document.getElementById('dice-anim');
     const valDisplay = document.getElementById('dice-val');
     const lbl = document.getElementById('dice-label');
+    const btn = document.getElementById('dice-ok-btn');
     
     overlay.style.display = 'flex';
+    btn.style.display = 'none'; // Hide OK button while rolling
     lbl.innerText = label || "ROLLING...";
-    container.style.animation = 'shake 0.05s infinite';
+    container.classList.add('dice-shaking');
+    diceCallback = callback;
     
     let result = 1;
-    // Cycling animation
     const interval = setInterval(() => {
         result = Phaser.Math.Between(1, 10);
         valDisplay.innerText = result === 10 ? "0" : result;
@@ -433,22 +468,23 @@ function rollD10(label, callback) {
         clearInterval(interval);
         result = Phaser.Math.Between(1, 10); // Final Roll
         valDisplay.innerText = result === 10 ? "0" : result;
-        container.style.animation = 'none';
+        container.classList.remove('dice-shaking');
         lbl.innerText = `RESULT: ${result === 10 ? "0 (10)" : result}`;
-        
-        setTimeout(() => {
-            overlay.style.display = 'none';
-            if(callback) callback(result);
-        }, 1200);
+        btn.style.display = 'block'; // Show OK button
+        // Store result for callback but wait for user
+        diceCallback = () => { if(callback) callback(result); };
     }, 800);
+}
+
+function closeDiceOverlay() {
+    document.getElementById('dice-overlay').style.display = 'none';
+    if(diceCallback) diceCallback();
+    diceCallback = null;
 }
 
 // --- VICTORY SYSTEM ---
 function checkInitialControl() {
-    // Check all units on board for initial VP capture (pre-placed units)
-    units.forEach(u => {
-        checkControl(u);
-    });
+    units.forEach(u => { checkControl(u); });
 }
 
 function checkControl(unit) {
@@ -464,27 +500,19 @@ function checkControl(unit) {
 }
 
 function updateScore() {
-    scores.blue = 0;
-    scores.red = 0;
+    scores.blue = 0; scores.red = 0;
     for(const key in captureOwners) {
         const [q,r] = key.split(',').map(Number);
         const hex = hexMap[q][r];
-        if(hex && hex.victoryPoints) {
-            scores[captureOwners[key]] += hex.victoryPoints;
-        }
+        if(hex && hex.victoryPoints) { scores[captureOwners[key]] += hex.victoryPoints; }
     }
     document.getElementById('score-blue').innerText = scores.blue;
     document.getElementById('score-red').innerText = scores.red;
-    
     const total = scores.blue + scores.red;
     if(total > 0) {
         const pct = (scores.blue / total) * 100;
         document.getElementById('score-bar').style.width = `${pct}%`;
-    } else {
-        document.getElementById('score-bar').style.width = `50%`;
-    }
-    
-    // Force refresh to update badge colors
+    } else { document.getElementById('score-bar').style.width = `50%`; }
     if(currentPhase !== 'SETUP') displayMap(); 
     checkSuddenDeath();
 }
@@ -513,8 +541,18 @@ function endGame(winner, reason) {
 }
 
 // --- LIST & TRAY SYSTEM ---
-function setListMode(mode) {
-    currentListMode = mode;
+function toggleListMode(targetMode) {
+    // If clicking the same button twice, toggle back to 'tray' (default)
+    if (currentListMode === targetMode) {
+        currentListMode = 'tray';
+    } else {
+        currentListMode = targetMode;
+    }
+    
+    // Update button states
+    document.getElementById('btn-reinf').classList.toggle('active', currentListMode === 'reinforcements');
+    document.getElementById('btn-strikes').classList.toggle('active', currentListMode === 'strikes');
+    
     updateDynamicList();
 }
 
@@ -525,18 +563,21 @@ function updateDynamicList() {
     let title = "";
     let listData = [];
     
-    // Setup Phase: Force Tray mode logic inside the generic container
-    if(currentPhase === 'SETUP') {
+    // Setup Phase: Force Tray mode logic inside the generic container if not looking at others
+    if(currentPhase === 'SETUP' && currentListMode === 'tray') {
         title = "SETUP TRAY";
-        listData = trayUnits;
-    } else {
-        if(currentListMode === 'reinforcements') {
-            title = "REINFORCEMENTS";
-            listData = trayUnits; // In game, trayUnits holds pending reinforcements
-        } else if (currentListMode === 'strikes') {
-            title = "OFF-BOARD STRIKES";
-            listData = strikes;
-        }
+        listData = setupTrayUnits;
+    } else if (currentListMode === 'tray') {
+        // In Action Phase, Tray is usually empty/hidden unless we want to show it?
+        // User asked for "Default view".
+        title = "ACTIVE TRAY"; 
+        listData = []; // Or maybe removed units? For now empty.
+    } else if(currentListMode === 'reinforcements') {
+        title = "REINFORCEMENTS";
+        listData = reinforcementUnits; 
+    } else if (currentListMode === 'strikes') {
+        title = "OFF-BOARD STRIKES";
+        listData = strikes;
     }
 
     container.innerHTML = `<div class="panel-header" style="font-size:14px; border-width:1px;">${title}</div>`;
@@ -547,48 +588,39 @@ function updateDynamicList() {
     }
 
     listData.forEach(item => {
-        // Render Unit or Asset
         const div = document.createElement('div');
         div.className = 'list-item';
         if(selectedTrayItem === item) div.classList.add('selected');
         
         if(item.isAsset) {
-            // Offboard Asset
             div.innerHTML = `
                 <div style="font-size:24px;">🚀</div>
                 <div class="list-info">
                     <div class="list-title">${item.type.toUpperCase()}</div>
                     <div class="list-meta">Turn ${item.turn} (${item.chance}%)</div>
-                </div>
-            `;
+                </div>`;
         } else {
-            // Unit
-            // Get Stars
             let qStars = "★★"; 
             if(item.quality === 'low') qStars = "★";
             else if(item.quality === 'elite') qStars = "★★★";
 
-            // Get Image
             let imgUrl = "";
             const info = UNIT_DATA_REGISTRY[item.type];
             let displayName = item.name || (info ? info.name : item.type);
             if(info && info.image) imgUrl = `${ASSETS_URL}counters/${info.image}`;
             else imgUrl = `${ASSETS_URL}counters/${item.type}.png`;
 
-            // Setup Details vs Reinforcement Details
             let details = "Click map to deploy";
-            if(currentPhase !== 'SETUP') {
-                if(parseInt(item.turn) > currentTurn) {
-                    details = `<span style="color:#888">Arrives Turn ${item.turn}</span>`;
-                    div.style.opacity = "0.5";
-                } else {
-                    // It is available
-                    div.classList.add('arrival');
-                    let locText = "Setup Zone";
-                    if(item.locType === 'hex') locText = `Hex [${item.locVal}]`;
-                    if(item.locType === 'edge') locText = `Map Edge`;
-                    details = `<span style="color:#00ff00">Deploy: ${locText}</span>`;
-                }
+            // Check arrival logic
+            if(currentPhase !== 'SETUP' && parseInt(item.turn) > currentTurn) {
+                details = `<span style="color:#888">Arrives Turn ${item.turn}</span>`;
+                div.style.opacity = "0.5";
+            } else if (currentPhase !== 'SETUP') {
+                div.classList.add('arrival');
+                let locText = "Setup Zone";
+                if(item.locType === 'hex') locText = `Hex [${item.locVal}]`;
+                if(item.locType === 'edge') locText = `Map Edge`;
+                details = `<span style="color:#00ff00">Deploy: ${locText}</span>`;
             }
 
             div.innerHTML = `
@@ -600,12 +632,20 @@ function updateDynamicList() {
             `;
 
             div.onclick = () => {
-                if(currentPhase !== 'SETUP' && parseInt(item.turn) > currentTurn) return; // Cannot select future units
+                if(currentPhase !== 'SETUP' && parseInt(item.turn) > currentTurn) return; 
+                
                 if(selectedTrayItem === item) {
                     selectedTrayItem = null;
+                    isDeploying = false; // Hide zones
+                    displayMap(); // Clear zones
                 } else {
                     selectedTrayItem = item;
                     selectedUnit = null;
+                    // If it's a zone deployment or setup phase, show zones!
+                    if (currentPhase === 'SETUP' || !item.locType || item.locType === 'zone') {
+                        isDeploying = true;
+                        displayMap(); // Redraw with zones
+                    }
                     addToLog(`Selected ${displayName}. Click valid hex to deploy.`, "log-info");
                 }
                 updateDynamicList();
@@ -623,12 +663,8 @@ function deployTrayUnit(uData, hex) {
         if (uData.side === 'red' && hex.setupZone === 'red') valid = true;
     } else {
         // Reinforcement Logic
-        // Check Arrival Turn
-        if(parseInt(uData.turn) > currentTurn) {
-            addToLog("Unit has not arrived yet.", "log-combat"); return;
-        }
+        if(parseInt(uData.turn) > currentTurn) { addToLog("Unit has not arrived yet.", "log-combat"); return; }
 
-        // Check Location Constraints
         if(uData.locType === 'hex') {
             const [tq, tr] = uData.locVal.split(',').map(Number);
             if(hex.q === tq && hex.r === tr) valid = true;
@@ -638,9 +674,10 @@ function deployTrayUnit(uData, hex) {
             if(isEdge) valid = true;
             else { addToLog("Must deploy on Map Edge.", "log-combat"); return; }
         } else {
-            // Default to Zone
+            // Default to Zone (Uses Setup Zones data)
             if (uData.side === 'blue' && hex.setupZone === 'blue') valid = true;
             if (uData.side === 'red' && hex.setupZone === 'red') valid = true;
+            // Also allow deploying on Friendly Controlled VP? (Rule ambiguity, sticking to Setup Zone for now)
         }
     }
 
@@ -671,26 +708,35 @@ function deployTrayUnit(uData, hex) {
     };
 
     units.push(newUnit);
-    // Remove from tray/reinforcement list
-    trayUnits = trayUnits.filter(t => t !== uData);
+    
+    // Remove from specific array
+    if(currentPhase === 'SETUP') {
+        setupTrayUnits = setupTrayUnits.filter(t => t !== uData);
+    } else {
+        reinforcementUnits = reinforcementUnits.filter(t => t !== uData);
+    }
     
     selectedTrayItem = null;
+    isDeploying = false;
     selectUnitInStack(newUnit);
     displayMap(); 
     updateDynamicList(); 
     uiUpdate();
     addToLog(`${newUnit.name} deployed.`);
-    checkControl(newUnit); // Check if deployed on VP
+    checkControl(newUnit);
 }
 
 
 // --- TURN SYSTEM ---
 function startGameMode(mode) {
     document.getElementById('mode-modal').style.display = 'none';
-    // Init Setup
     currentPhase = 'SETUP';
     document.getElementById('phase-display').innerText = 'SETUP';
     document.getElementById('btn-phase').innerText = 'Finish Setup';
+    
+    // Setup Phase: Make sure Setup Tray is visible
+    currentListMode = 'tray';
+    isDeploying = true; // Show zones by default in setup
     updateDynamicList();
     displayMap(); 
     addToLog("Setup Phase Started.");
@@ -698,23 +744,23 @@ function startGameMode(mode) {
 
 function nextPhase() {
     if (currentPhase === 'SETUP') {
-        if (trayUnits.some(u => !u.turn)) { // Check for units without turn (setup units)
+        if (setupTrayUnits.length > 0) {
              if(!confirm("Undeployed Setup units remain. Start anyway?")) return;
         }
         
         currentPhase = 'Action Phase';
         document.getElementById('btn-phase').innerText = "End Turn";
+        isDeploying = false; // Hide setup zones
         
-        checkInitialControl(); // Scan VPs
+        checkInitialControl(); 
         displayMap();
         addToLog("=== MATCH START ===", "log-turn");
         addToLog(`Turn ${currentTurn} Started.`, "log-turn");
         
-        // Switch to Reinforcement view if Setup Tray empty or done
-        setListMode('reinforcements');
+        // Switch to Reinforcements view if Setup Tray done
+        toggleListMode('reinforcements');
         
     } else {
-        // End Current Turn
         addToLog(`Turn ${currentTurn} Ended.`, "log-turn");
         units.forEach(u => u.mp = u.maxMp);
         
@@ -732,12 +778,11 @@ function nextPhase() {
     }
     
     document.getElementById('phase-display').innerText = currentPhase;
-    updateDynamicList(); // Refreshes reinforcement availability
+    updateDynamicList(); 
     uiUpdate();
 }
 
 // --- STANDARD LOGIC ---
-
 function handleLeftClick(pointer) {
     const hex = getHexAtPoint(pointer.worldX, pointer.worldY);
     if (!hex) { selectedUnit = null; selectedHex = null; uiUpdate(); return; }
@@ -853,20 +898,16 @@ function loadScenario() {
         scenarioData = JSON.parse(txt);
         mapData = scenarioData.map; 
 
-        units = []; trayUnits = []; strikes = [];
+        units = []; setupTrayUnits = []; reinforcementUnits = []; strikes = [];
         
         // Locked Units
         if (scenarioData.units.locked) {
             scenarioData.units.locked.forEach(u => {
                 u.isFixed = true; 
-                if(!u.category && UNIT_DATA_REGISTRY[u.type]) {
-                    const info = UNIT_DATA_REGISTRY[u.type];
-                    u.category = info.category;
-                    if(!u.name) u.name = info.name;
-                }
+                // ... (Parsing logic remains similar, simplified for brevity)
+                if(!u.category && UNIT_DATA_REGISTRY[u.type]) { const info = UNIT_DATA_REGISTRY[u.type]; u.category = info.category; if(!u.name) u.name = info.name; }
                 if(!u.stance) u.stance = 'deployed';
                 if(u.stance === 'cover' && u.category === 'hwt') u.stance = 'setup';
-                
                 const stats = (UNIT_DATA_REGISTRY[u.type] || {}).stats || {};
                 u.maxMp = stats.Movement_Points || 6;
                 if(u.mp === undefined) u.mp = u.maxMp;
@@ -877,32 +918,29 @@ function loadScenario() {
             });
         }
         
-        // Setup Tray Units (No Turn defined)
+        // Sort Tray vs Reinforcements
         if (scenarioData.units.tray) {
-            const setupUnits = scenarioData.units.tray.filter(u => !u.turn);
-            setupUnits.forEach(u => { 
+            scenarioData.units.tray.forEach(u => {
                 if(!u.category && UNIT_DATA_REGISTRY[u.type]) u.category = UNIT_DATA_REGISTRY[u.type].category;
                 if(!u.name && UNIT_DATA_REGISTRY[u.type]) u.name = UNIT_DATA_REGISTRY[u.type].name;
-                trayUnits.push(u);
+                
+                if (u.turn && parseInt(u.turn) > 0) {
+                    reinforcementUnits.push(u); // It's a reinforcement
+                } else {
+                    setupTrayUnits.push(u); // It's initial setup
+                }
             });
         }
-
-        // Reinforcements (Turn defined)
+        // Handle explicit reinforcements array if present in older JSONs, merge them
         if (scenarioData.units.reinforcements) {
             scenarioData.units.reinforcements.forEach(r => {
                  if(!r.category && UNIT_DATA_REGISTRY[r.type]) r.category = UNIT_DATA_REGISTRY[r.type].category;
                  if(!r.name && UNIT_DATA_REGISTRY[r.type]) r.name = UNIT_DATA_REGISTRY[r.type].name;
-                 trayUnits.push(r); // Add to trayUnits but they will be filtered in UI
+                 reinforcementUnits.push(r);
             });
         }
 
-        // Off-Board Assets
-        if (scenarioData.support) {
-            scenarioData.support.forEach(s => {
-                s.isAsset = true;
-                strikes.push(s);
-            });
-        }
+        if (scenarioData.support) { scenarioData.support.forEach(s => { s.isAsset = true; strikes.push(s); }); }
         
         document.getElementById('scenario-info-box').innerHTML = `
             <strong style="color:white">${scenarioData.info.title}</strong><br>
@@ -911,14 +949,13 @@ function loadScenario() {
         `;
         document.getElementById('max-turns').innerText = scenarioData.info.maxTurns;
 
-        // Show Mode Modal
         toggleMapLoader();
         document.getElementById('mode-modal').style.display = 'flex';
         
     } catch (e) { alert('Invalid JSON: ' + e.message); console.error(e); }
 }
 
-// ... PRESERVED FUNCTIONS (LOS, HEX GEOMETRY, ETC) ...
+// ... PRESERVED FUNCTIONS ...
 function getUnitKey(unit) { if (unit.type && scene.textures.exists(unit.type)) return unit.type; if (unit.unitType && scene.textures.exists(unit.unitType)) return unit.unitType; return 'fallback'; }
 function getUnitImageURL(unit) { const key = getUnitKey(unit); const info = UNIT_DATA_REGISTRY[unit.type]; if(info && info.image) return `${ASSETS_URL}counters/${info.image}`; return `${ASSETS_URL}counters/${key}.png`; }
 function uiUpdate() { selectionGraphics.clear(); unitGraphics.clear(); badgeGraphics.clear(); scene.children.list.filter(c => c.name === 'badgeText').forEach(c => c.destroy()); redrawAllUnits(); if (!selectedUnit && selectedHex) { selectionGraphics.lineStyle(3, 0xffffff, 1); selectionGraphics.strokeCircle(selectedHex.x, selectedHex.y, HEX_RADIUS - 5); } if (selectedUnit) showUnitPanel(selectedUnit); else if (selectedHex) showTerrainPanel(selectedHex); else clearContextPanel(); }
@@ -926,7 +963,7 @@ function showUnitPanel(unit) { document.getElementById('ctx-img').innerHTML = `<
 function showTerrainPanel(hex) { const terrain = hex.terrain; const props = TERRAIN_TYPES[terrain]; const variant = hex.variant || 1; let firstImg = `${terrain}${variant}.png`; if(props && props.images && props.images.length > 0) { firstImg = props.images[variant-1] || props.images[0]; } document.getElementById('ctx-img').innerHTML = `<img src="${ASSETS_URL}map/${firstImg}">`; document.getElementById('ctx-title').innerText = terrain.toUpperCase(); document.getElementById('ctx-subtitle').innerText = `COORD: ${hex.q}, ${hex.r}`; document.getElementById('unit-actions').style.display = 'none'; document.getElementById('ctx-status-left').innerText = ""; document.getElementById('ctx-status-left').style.border="none"; document.getElementById('ctx-stance-right').innerText = ""; document.getElementById('ctx-stance-right').style.border="none"; document.getElementById('ctx-quality').innerText = ""; const badgeContainer = document.getElementById('ctx-badges'); badgeContainer.innerHTML = ''; const tBadge = document.createElement('span'); tBadge.className = 'badge badge-terrain'; tBadge.innerText = terrain.toUpperCase(); if(props) { tBadge.style.backgroundColor = '#' + props.color.toString(16); tBadge.style.color = (props.color > 0x888888) ? '#000' : '#fff'; } badgeContainer.appendChild(tBadge); if (hex.victoryPoints) { const vpBadge = document.createElement('span'); vpBadge.className = 'badge badge-vp'; vpBadge.innerText = `VP: ${hex.victoryPoints}`; badgeContainer.appendChild(vpBadge); } const key = `${hex.q},${hex.r}`; if(captureOwners[key]) { const cBadge = document.createElement('span'); cBadge.className='badge'; cBadge.style.background = captureOwners[key]==='blue' ? 'var(--blue-team)':'var(--red-team)'; cBadge.innerText = "OWNED"; badgeContainer.appendChild(cBadge); } document.getElementById('stack-container').style.display = 'none'; if(props) { const statsHtml = `<div class="stat-row"><span class="stat-label">Move Cost:</span> <span class="stat-value">${props.cost}</span></div><div class="stat-row"><span class="stat-label">Height:</span> <span class="stat-value">${props.terrainHeight}</span></div><div class="stat-row"><span class="stat-label">LOS Effect:</span> <span class="stat-value">${props.los.toUpperCase()}</span></div><div class="stat-row"><span class="stat-label">Infantry Ht:</span> <span class="stat-value">${props.infantryUsable}</span></div><div class="stat-row"><span class="stat-label">Vehicle Ht:</span> <span class="stat-value">${props.vehicleUsable}</span></div>`; document.getElementById('stats-header').innerText = 'TERRAIN DATA'; document.getElementById('stats-content').innerHTML = statsHtml; } }
 function clearContextPanel() { document.getElementById('ctx-img').innerHTML = ''; document.getElementById('ctx-title').innerText = 'No Selection'; document.getElementById('ctx-subtitle').innerText = '-'; document.getElementById('ctx-badges').innerHTML = ''; document.getElementById('ctx-quality').innerText = ''; document.getElementById('unit-actions').style.display = 'none'; document.getElementById('stats-content').innerHTML = ''; document.getElementById('stack-container').style.display = 'none'; document.getElementById('ctx-status-left').innerText = ""; document.getElementById('ctx-status-left').style.border="none"; document.getElementById('ctx-stance-right').innerText = ""; document.getElementById('ctx-stance-right').style.border="none"; }
 function selectUnitInStack(unit) { selectedUnit = unit; selectedHex = null; units = units.filter(u => u !== unit); units.push(unit); uiUpdate(); }
-function redeployUnit() { if (!selectedUnit || currentPhase !== 'SETUP' || selectedUnit.isFixed) return; const trayObj = { id: selectedUnit.id, side: selectedUnit.side, type: selectedUnit.type, category: selectedUnit.category, name: selectedUnit.name, quality: selectedUnit.quality }; trayUnits.push(trayObj); units = units.filter(u => u !== selectedUnit); selectedUnit = null; displayMap(); updateDynamicList(); uiUpdate(); addToLog("Unit returned to Tray."); }
+function redeployUnit() { if (!selectedUnit || currentPhase !== 'SETUP' || selectedUnit.isFixed) return; const trayObj = { id: selectedUnit.id, side: selectedUnit.side, type: selectedUnit.type, category: selectedUnit.category, name: selectedUnit.name, quality: selectedUnit.quality }; setupTrayUnits.push(trayObj); units = units.filter(u => u !== selectedUnit); selectedUnit = null; displayMap(); updateDynamicList(); uiUpdate(); addToLog("Unit returned to Tray."); }
 function redrawAllUnits() { Object.values(unitSprites).forEach(sprite => sprite.destroy()); unitSprites = {}; const stackCounts = {}; units.forEach(u => { if(u.hp <= 0) return; const key = `${u.q},${u.r}`; stackCounts[key] = (stackCounts[key] || 0) + 1; }); units.forEach(unit => { if (unit.hp <= 0) return; const pos = getHexPosition(unit.q, unit.r); const key = getUnitKey(unit); if (scene.textures.exists(key)) { const sprite = scene.add.image(pos.x, pos.y, key); sprite.setDisplaySize(HEX_RADIUS * 1.25, HEX_RADIUS * 1.25); sprite.setDepth(600); unitSprites[unit.id] = sprite; } drawFacingIndicator(unit, pos); const isTop = (units.filter(u => u.q === unit.q && u.r === unit.r).pop() === unit); const count = stackCounts[`${unit.q},${unit.r}`]; if (count > 1 && isTop) { const badgeX = pos.x + 10; const badgeY = pos.y - 18; badgeGraphics.fillStyle(0xffffff, 1); badgeGraphics.fillRect(badgeX, badgeY, 16, 14); badgeGraphics.lineStyle(1, 0x000000, 1); badgeGraphics.strokeRect(badgeX, badgeY, 16, 14); scene.add.text(badgeX + 8, badgeY + 7, `+${count-1}`, { font: '11px Arial', fill: '#000', fontStyle:'bold' }).setOrigin(0.5).setDepth(810).setResolution(2).setName('badgeText'); } if (isTop) drawStatusMarkers(unit, pos); }); if (selectedUnit || selectedHex) { const activeHex = selectedUnit ? hexMap[selectedUnit.q][selectedUnit.r] : selectedHex; if(activeHex) { const hexUnits = units.filter(u => u.q === activeHex.q && u.r === activeHex.r); if(hexUnits.length > 0) { let ringColor = 0xffffff; let worstLevel = 0; hexUnits.forEach(u => { let lvl = 0; if(u.status.startsWith('suppressed')) lvl = 1; if(u.status === 'shaken') lvl = 2; if(u.status === 'damaged' || u.status === 'immobilized') lvl = 3; if(lvl > worstLevel) worstLevel = lvl; }); if(worstLevel === 1) ringColor = 0xffff00; if(worstLevel === 2) ringColor = 0xff0000; if(worstLevel === 3) ringColor = 0xcc00cc; const p = getHexPosition(activeHex.q, activeHex.r); selectionGraphics.lineStyle(3, ringColor, 1); selectionGraphics.strokeCircle(p.x, p.y, HEX_RADIUS * 0.7); } } } }
 function drawFacingIndicator(unit, pos) { const facingAngles = [-90, -30, 30, 90, 150, -150]; const angleRad = Phaser.Math.DegToRad(facingAngles[unit.facing]); const indicatorDist = HEX_RADIUS * 0.75; const triX = pos.x + Math.cos(angleRad) * indicatorDist; const triY = pos.y + Math.sin(angleRad) * indicatorDist; let triColor = 0xffffff; if(unit.stance === 'moving') triColor = 0x0055ff; else if(unit.stance === 'deployed') triColor = 0xff0000; else if(unit.stance === 'cover' || unit.stance === 'setup') triColor = 0xff8095; unitGraphics.fillStyle(triColor, 1); const size = 8; unitGraphics.beginPath(); unitGraphics.moveTo(triX + Math.cos(angleRad)*size, triY + Math.sin(angleRad)*size); unitGraphics.lineTo(triX + Math.cos(angleRad+2.5)*size, triY + Math.sin(angleRad+2.5)*size); unitGraphics.lineTo(triX + Math.cos(angleRad-2.5)*size, triY + Math.sin(angleRad-2.5)*size); unitGraphics.closePath(); unitGraphics.fillPath(); }
 function drawStatusMarkers(unit, pos) { if (unit.status !== 'clear') { const bx = pos.x + 15; const by = pos.y + 15; let statColor = 0xffffff; let label = "!"; if(unit.status === 'suppressed_2') { statColor = 0xffff00; label="+2"; } else if(unit.status === 'suppressed_4') { statColor = 0xffff00; label="+4"; } else if(unit.status === 'suppressed_6') { statColor = 0xffff00; label="+6"; } else if(unit.status === 'shaken') { statColor = 0xff0000; label="!"; } else if(unit.status === 'damaged') { statColor = 0x8800cc; label="X"; } else if(unit.status === 'immobilized') { statColor = 0x8800cc; label="I"; } badgeGraphics.fillStyle(statColor, 1); badgeGraphics.fillRect(bx - 8, by - 6, 16, 12); badgeGraphics.lineStyle(1, 0x000000, 1); badgeGraphics.strokeRect(bx - 8, by - 6, 16, 12); scene.add.text(bx, by, label, { font: '9px Arial', fill: '#000', fontStyle: 'bold' }).setOrigin(0.5).setDepth(810).setResolution(2).setName('badgeText'); } }
@@ -939,7 +976,10 @@ function addToLog(msg, cssClass = "") { const container = document.getElementByI
 function toggleMapLoader() { const el = document.getElementById('json-modal'); el.style.display = (el.style.display === 'block') ? 'none' : 'block'; }
 function highlightHex(hex, color) { selectionGraphics.lineStyle(4, color); selectionGraphics.strokeCircle(hex.x, hex.y, HEX_RADIUS - 5); }
 function drawVisualLOSLine(start, end, color) { losGraphics.clear(); losGraphics.lineStyle(4, color, 0.8); losGraphics.beginPath(); losGraphics.moveTo(start.x, start.y); losGraphics.lineTo(end.x, end.y); losGraphics.strokePath(); }
-function displayMap() { if (!mapData) return; hexGroup.clear(true, true); roadGraphics.clear(); zoneGraphics.clear(); objGraphics.clear(); objectiveSprites.forEach(s => s.destroy()); objectiveSprites = []; hexMap = {}; const cols = mapData.cols || 0; const rows = mapData.rows || 0; for (let q = 0; q < cols; q++) { hexMap[q] = {}; for (let r = 0; r < rows; r++) { const pos = getHexPosition(q, r); hexMap[q][r] = { terrain: 'clear', x: pos.x, y: pos.y, q: q, r: r, hasRoad: false, variant: null }; } } if (mapData.terrain) mapData.terrain.forEach(t => { if (hexMap[t.q] && hexMap[t.q][t.r]) hexMap[t.q][t.r].terrain = t.type; }); if (mapData.roads) mapData.roads.forEach(road => { if (hexMap[road.from.q]) hexMap[road.from.q][road.from.r].hasRoad = true; if (hexMap[road.to.q]) hexMap[road.to.q][road.to.r].hasRoad = true; }); if (currentPhase === 'SETUP' && mapData.zones) { mapData.zones.forEach(z => { if (hexMap[z.q] && hexMap[z.q][z.r]) { hexMap[z.q][z.r].setupZone = z.side; const p = getHexPosition(z.q, z.r); const pts = []; for(let i=0; i<6; i++) { const a = Math.PI/3*i; pts.push({x: p.x+HEX_RADIUS*Math.cos(a), y: p.y+HEX_RADIUS*Math.sin(a)}); } const color = z.side === 'blue' ? 0x4488ff : 0xff4444; zoneGraphics.fillStyle(color, 0.2).fillPoints(pts, true); } }); } const oldObjectives = mapData.objectives || mapData.victoryHexes || []; const newObjectives = (scenarioData && scenarioData.victory && scenarioData.victory.locations) ? scenarioData.victory.locations : []; const allObjectives = [...oldObjectives, ...newObjectives]; if (allObjectives.length > 0) { allObjectives.forEach(obj => { if (hexMap[obj.q] && hexMap[obj.q][obj.r]) { const hex = hexMap[obj.q][obj.r]; hex.victoryPoints = obj.points || 100; const star = scene.add.star(hex.x, hex.y, 5, 8, 16, 0xffcc00); star.setStrokeStyle(2, 0x000000); star.setDepth(150); objectiveSprites.push(star); const txt = scene.add.text(hex.x, hex.y + 10, hex.victoryPoints.toString(), { fontSize: '10px', stroke: '#000', strokeThickness: 3, fill: '#fff', fontStyle: 'bold' }).setOrigin(0.5).setDepth(151); objectiveSprites.push(txt); } }); } for (let q = 0; q < cols; q++) { for (let r = 0; r < rows; r++) { drawHex(hexMap[q][r]); } } drawRoads(); redrawAllUnits(); }
+function displayMap() { if (!mapData) return; hexGroup.clear(true, true); roadGraphics.clear(); zoneGraphics.clear(); objGraphics.clear(); objectiveSprites.forEach(s => s.destroy()); objectiveSprites = []; hexMap = {}; const cols = mapData.cols || 0; const rows = mapData.rows || 0; for (let q = 0; q < cols; q++) { hexMap[q] = {}; for (let r = 0; r < rows; r++) { const pos = getHexPosition(q, r); hexMap[q][r] = { terrain: 'clear', x: pos.x, y: pos.y, q: q, r: r, hasRoad: false, variant: null }; } } if (mapData.terrain) mapData.terrain.forEach(t => { if (hexMap[t.q] && hexMap[t.q][t.r]) hexMap[t.q][t.r].terrain = t.type; }); if (mapData.roads) mapData.roads.forEach(road => { if (hexMap[road.from.q]) hexMap[road.from.q][road.from.r].hasRoad = true; if (hexMap[road.to.q]) hexMap[road.to.q][road.to.r].hasRoad = true; }); 
+/* MODIFIED ZONE RENDER LOGIC */
+if (mapData.zones && (currentPhase === 'SETUP' || isDeploying)) { mapData.zones.forEach(z => { if (hexMap[z.q] && hexMap[z.q][z.r]) { hexMap[z.q][z.r].setupZone = z.side; const p = getHexPosition(z.q, z.r); const pts = []; for(let i=0; i<6; i++) { const a = Math.PI/3*i; pts.push({x: p.x+HEX_RADIUS*Math.cos(a), y: p.y+HEX_RADIUS*Math.sin(a)}); } const color = z.side === 'blue' ? 0x4488ff : 0xff4444; zoneGraphics.fillStyle(color, 0.2).fillPoints(pts, true); } }); } 
+const oldObjectives = mapData.objectives || mapData.victoryHexes || []; const newObjectives = (scenarioData && scenarioData.victory && scenarioData.victory.locations) ? scenarioData.victory.locations : []; const allObjectives = [...oldObjectives, ...newObjectives]; if (allObjectives.length > 0) { allObjectives.forEach(obj => { if (hexMap[obj.q] && hexMap[obj.q][obj.r]) { const hex = hexMap[obj.q][obj.r]; hex.victoryPoints = obj.points || 100; const star = scene.add.star(hex.x, hex.y, 5, 8, 16, 0xffcc00); star.setStrokeStyle(2, 0x000000); star.setDepth(150); objectiveSprites.push(star); const txt = scene.add.text(hex.x, hex.y + 10, hex.victoryPoints.toString(), { fontSize: '10px', stroke: '#000', strokeThickness: 3, fill: '#fff', fontStyle: 'bold' }).setOrigin(0.5).setDepth(151); objectiveSprites.push(txt); } }); } for (let q = 0; q < cols; q++) { for (let r = 0; r < rows; r++) { drawHex(hexMap[q][r]); } } drawRoads(); redrawAllUnits(); }
 function drawHex(hex) { const terrainType = hex.terrain; const x = hex.x; const y = hex.y; if (!hex.variant) hex.variant = Phaser.Math.Between(1, 3); const textureKey = `${terrainType}${hex.variant}`; if (scene.textures.exists(textureKey)) { const img = scene.add.image(x, y, textureKey).setDisplaySize(HEX_RADIUS * 2, HEX_RADIUS * 2); const shape = scene.make.graphics().fillStyle(0xffffff).beginPath(); for (let i = 0; i < 6; i++) { const angle = (Math.PI / 3) * i; const hx = x + HEX_RADIUS * Math.cos(angle); const hy = y + HEX_RADIUS * Math.sin(angle); if (i === 0) shape.moveTo(hx, hy); else shape.lineTo(hx, hy); } shape.closePath().fillPath(); img.setMask(shape.createGeometryMask()); hexGroup.add(img); const outline = scene.add.graphics().lineStyle(1, 0x333333, 0.5).beginPath(); for (let i = 0; i < 6; i++) { const angle = (Math.PI / 3) * i; const hx = x + HEX_RADIUS * Math.cos(angle); const hy = y + HEX_RADIUS * Math.sin(angle); if (i === 0) outline.moveTo(hx, hy); else outline.lineTo(hx, hy); } outline.closePath().strokePath(); hexGroup.add(outline); } else { let color = 0x555555; if(TERRAIN_TYPES[terrainType]) color = TERRAIN_TYPES[terrainType].color || 0x555555; const g = scene.add.graphics().fillStyle(color).lineStyle(1, 0x333333, 0.5).beginPath(); for (let i = 0; i < 6; i++) { const angle = (Math.PI / 3) * i; const hx = x + HEX_RADIUS * Math.cos(angle); const hy = y + HEX_RADIUS * Math.sin(angle); if (i === 0) g.moveTo(hx, hy); else g.lineTo(hx, hy); } g.closePath().fillPath().strokePath(); hexGroup.add(g); } }
 function drawRoads() { if (!mapData || !mapData.roads) return; roadGraphics.lineStyle(6, 0x555555, 0.8); mapData.roads.forEach(seg => { const h1 = hexMap[seg.from.q][seg.from.r]; const h2 = hexMap[seg.to.q][seg.to.r]; if (h1 && h2) roadGraphics.beginPath().moveTo(h1.x, h1.y).lineTo(h2.x, h2.y).strokePath(); }); }
 function getHexPosition(q, r) { const x = q * HEX_RADIUS * 1.5; const y = r * HEX_RADIUS * Math.sqrt(3) + (q % 2 === 1 ? HEX_RADIUS * Math.sqrt(3) / 2 : 0); return { x, y }; }
