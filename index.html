@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Wargame Engine v0.9.10 - Fixed Setup & D10</title>
+    <title>Wargame Engine v0.9.10 - Fixed Setup & Accurate D10</title>
     <script src="https://cdn.jsdelivr.net/npm/phaser@3.60.0/dist/phaser.min.js"></script>
     <style>
         :root {
@@ -100,16 +100,15 @@
         }
         
         .d10-container {
-            width: 120px; height: 120px; position: relative;
+            width: 150px; height: 150px; position: relative;
             filter: drop-shadow(0 10px 10px rgba(0,0,0,0.5));
         }
         
-        /* SVG Animation Class */
         .dice-shaking { animation: shake 0.1s infinite; }
 
         .d10-val {
-            position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
-            font-size: 42px; font-weight: bold; color: white;
+            position: absolute; top: 48%; left: 50%; transform: translate(-50%, -50%);
+            font-size: 48px; font-weight: bold; color: white;
             text-shadow: 2px 2px 4px black; font-family: 'Arial', sans-serif;
             pointer-events: none;
         }
@@ -255,20 +254,21 @@
     <div id="dice-overlay">
         <div class="dice-label" id="dice-label">Rolling...</div>
         <div class="d10-container" id="dice-anim">
-            <svg width="120" height="120" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+            <svg width="150" height="150" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
                 <defs>
                     <linearGradient id="diceGrad" x1="0%" y1="0%" x2="100%" y2="100%">
                         <stop offset="0%" style="stop-color:#ffaa00;stop-opacity:1" />
                         <stop offset="100%" style="stop-color:#cc4400;stop-opacity:1" />
                     </linearGradient>
                 </defs>
-                <path d="M50 5 L95 27.5 L95 72.5 L50 95 L5 72.5 L5 27.5 Z" fill="url(#diceGrad)" stroke="#fff" stroke-width="2"/>
-                <path d="M50 5 L50 50" stroke="#fff" stroke-width="2"/>
-                <path d="M50 50 L95 27.5" stroke="#fff" stroke-width="2"/>
-                <path d="M50 50 L5 27.5" stroke="#fff" stroke-width="2"/>
-                <path d="M50 50 L50 95" stroke="#fff" stroke-width="2"/>
-                <path d="M5 72.5 L50 95" stroke="rgba(255,255,255,0.3)" stroke-width="1"/>
-                <path d="M95 72.5 L50 95" stroke="rgba(255,255,255,0.3)" stroke-width="1"/>
+                <path d="M50 2 L95 35 L77 85 L23 85 L5 35 Z" fill="url(#diceGrad)" stroke="#fff" stroke-width="2" stroke-linejoin="round"/>
+                
+                <path d="M50 2 L77 35 L50 60 L23 35 Z" fill="none" stroke="#fff" stroke-width="2" stroke-linejoin="round"/>
+                
+                <path d="M5 35 L23 35" stroke="#fff" stroke-width="2"/>
+                <path d="M95 35 L77 35" stroke="#fff" stroke-width="2"/>
+                <path d="M23 85 L50 60" stroke="#fff" stroke-width="2"/>
+                <path d="M77 85 L50 60" stroke="#fff" stroke-width="2"/>
             </svg>
             <div class="d10-val" id="dice-val">0</div>
         </div>
@@ -542,36 +542,28 @@ function endGame(winner, reason) {
 
 // --- LIST & TRAY SYSTEM ---
 function toggleListMode(targetMode) {
-    // If clicking the same button twice, toggle back to 'tray' (default)
     if (currentListMode === targetMode) {
         currentListMode = 'tray';
     } else {
         currentListMode = targetMode;
     }
-    
-    // Update button states
     document.getElementById('btn-reinf').classList.toggle('active', currentListMode === 'reinforcements');
     document.getElementById('btn-strikes').classList.toggle('active', currentListMode === 'strikes');
-    
     updateDynamicList();
 }
 
 function updateDynamicList() {
     const container = document.getElementById('dynamic-list-area');
     container.innerHTML = '';
-    
     let title = "";
     let listData = [];
     
-    // Setup Phase: Force Tray mode logic inside the generic container if not looking at others
     if(currentPhase === 'SETUP' && currentListMode === 'tray') {
         title = "SETUP TRAY";
         listData = setupTrayUnits;
     } else if (currentListMode === 'tray') {
-        // In Action Phase, Tray is usually empty/hidden unless we want to show it?
-        // User asked for "Default view".
         title = "ACTIVE TRAY"; 
-        listData = []; // Or maybe removed units? For now empty.
+        listData = []; 
     } else if(currentListMode === 'reinforcements') {
         title = "REINFORCEMENTS";
         listData = reinforcementUnits; 
@@ -593,26 +585,21 @@ function updateDynamicList() {
         if(selectedTrayItem === item) div.classList.add('selected');
         
         if(item.isAsset) {
-            div.innerHTML = `
-                <div style="font-size:24px;">🚀</div>
-                <div class="list-info">
-                    <div class="list-title">${item.type.toUpperCase()}</div>
-                    <div class="list-meta">Turn ${item.turn} (${item.chance}%)</div>
-                </div>`;
+            div.innerHTML = `<div style="font-size:24px;">🚀</div><div class="list-info"><div class="list-title">${item.type.toUpperCase()}</div><div class="list-meta">Turn ${item.turn} (${item.chance}%)</div></div>`;
         } else {
             let qStars = "★★"; 
             if(item.quality === 'low') qStars = "★";
             else if(item.quality === 'elite') qStars = "★★★";
-
             let imgUrl = "";
             const info = UNIT_DATA_REGISTRY[item.type];
             let displayName = item.name || (info ? info.name : item.type);
             if(info && info.image) imgUrl = `${ASSETS_URL}counters/${info.image}`;
             else imgUrl = `${ASSETS_URL}counters/${item.type}.png`;
-
+            
             let details = "Click map to deploy";
-            // Check arrival logic
-            if(currentPhase !== 'SETUP' && parseInt(item.turn) > currentTurn) {
+            let isFuture = (currentPhase !== 'SETUP' && parseInt(item.turn) > currentTurn);
+            
+            if(isFuture) {
                 details = `<span style="color:#888">Arrives Turn ${item.turn}</span>`;
                 div.style.opacity = "0.5";
             } else if (currentPhase !== 'SETUP') {
@@ -623,30 +610,21 @@ function updateDynamicList() {
                 details = `<span style="color:#00ff00">Deploy: ${locText}</span>`;
             }
 
-            div.innerHTML = `
-                <img src="${imgUrl}" class="list-icon" onerror="this.style.display='none'">
-                <div class="list-info">
-                    <div class="list-title">${displayName} <span class="list-stars">${qStars}</span></div>
-                    <div class="list-meta">${details}</div>
-                </div>
-            `;
+            div.innerHTML = `<img src="${imgUrl}" class="list-icon" onerror="this.style.display='none'"><div class="list-info"><div class="list-title">${displayName} <span class="list-stars">${qStars}</span></div><div class="list-meta">${details}</div></div>`;
 
             div.onclick = () => {
-                if(currentPhase !== 'SETUP' && parseInt(item.turn) > currentTurn) return; 
-                
                 if(selectedTrayItem === item) {
                     selectedTrayItem = null;
-                    isDeploying = false; // Hide zones
-                    displayMap(); // Clear zones
+                    isDeploying = false;
+                    displayMap(); 
                 } else {
                     selectedTrayItem = item;
                     selectedUnit = null;
-                    // If it's a zone deployment or setup phase, show zones!
-                    if (currentPhase === 'SETUP' || !item.locType || item.locType === 'zone') {
-                        isDeploying = true;
-                        displayMap(); // Redraw with zones
-                    }
-                    addToLog(`Selected ${displayName}. Click valid hex to deploy.`, "log-info");
+                    isDeploying = true;
+                    displayMap();
+                    if(currentPhase === 'SETUP') addToLog(`Selected ${displayName}. Click valid hex to deploy.`, "log-info");
+                    else if(isFuture) addToLog(`${displayName} arrives on Turn ${item.turn}.`, "log-info");
+                    else addToLog(`Selected ${displayName}. Click valid hex to deploy.`, "log-info");
                 }
                 updateDynamicList();
             };
@@ -656,36 +634,33 @@ function updateDynamicList() {
 }
 
 function deployTrayUnit(uData, hex) {
-    let valid = false;
+    // 1. CHECK TURN
+    if(currentPhase !== 'SETUP' && parseInt(uData.turn) > currentTurn) {
+        addToLog("Unit has not arrived yet.", "log-combat"); return;
+    }
     
+    // 2. CHECK LOCATION VALIDITY
+    let valid = false;
     if(currentPhase === 'SETUP') {
         if (uData.side === 'blue' && hex.setupZone === 'blue') valid = true;
         if (uData.side === 'red' && hex.setupZone === 'red') valid = true;
     } else {
-        // Reinforcement Logic
-        if(parseInt(uData.turn) > currentTurn) { addToLog("Unit has not arrived yet.", "log-combat"); return; }
-
         if(uData.locType === 'hex') {
             const [tq, tr] = uData.locVal.split(',').map(Number);
             if(hex.q === tq && hex.r === tr) valid = true;
-            else { addToLog(`Must deploy at Hex [${tq},${tr}]`, "log-combat"); return; }
         } else if (uData.locType === 'edge') {
-            const isEdge = (hex.q === 0 || hex.q === mapData.cols-1 || hex.r === 0 || hex.r === mapData.rows-1);
-            if(isEdge) valid = true;
-            else { addToLog("Must deploy on Map Edge.", "log-combat"); return; }
+            if(hex.q === 0 || hex.q === mapData.cols-1 || hex.r === 0 || hex.r === mapData.rows-1) valid = true;
         } else {
-            // Default to Zone (Uses Setup Zones data)
             if (uData.side === 'blue' && hex.setupZone === 'blue') valid = true;
             if (uData.side === 'red' && hex.setupZone === 'red') valid = true;
-            // Also allow deploying on Friendly Controlled VP? (Rule ambiguity, sticking to Setup Zone for now)
         }
     }
 
     if (!valid) {
-        addToLog(`Invalid Deployment Location.`, "log-combat");
-        return;
+        addToLog(`Invalid Deployment Location.`, "log-combat"); return;
     }
 
+    // 3. CREATE UNIT
     const regInfo = UNIT_DATA_REGISTRY[uData.type] || {};
     const stats = regInfo.stats || {};
     const maxMp = stats.Movement_Points || 6;
@@ -700,21 +675,14 @@ function deployTrayUnit(uData, hex) {
         name: uData.name || regInfo.name,
         quality: uData.quality || 'regular',
         q: hex.q, r: hex.r,
-        facing: 0, 
-        status: 'clear', 
-        stance: 'deployed',
-        mp: maxMp, maxMp: maxMp, hp: 5, fp: fp, range: rng,
-        isFixed: false
+        facing: 0, status: 'clear', stance: 'deployed',
+        mp: maxMp, maxMp: maxMp, hp: 5, fp: fp, range: rng, isFixed: false
     };
 
     units.push(newUnit);
     
-    // Remove from specific array
-    if(currentPhase === 'SETUP') {
-        setupTrayUnits = setupTrayUnits.filter(t => t !== uData);
-    } else {
-        reinforcementUnits = reinforcementUnits.filter(t => t !== uData);
-    }
+    if(currentPhase === 'SETUP') setupTrayUnits = setupTrayUnits.filter(t => t !== uData);
+    else reinforcementUnits = reinforcementUnits.filter(t => t !== uData);
     
     selectedTrayItem = null;
     isDeploying = false;
@@ -726,17 +694,14 @@ function deployTrayUnit(uData, hex) {
     checkControl(newUnit);
 }
 
-
 // --- TURN SYSTEM ---
 function startGameMode(mode) {
     document.getElementById('mode-modal').style.display = 'none';
     currentPhase = 'SETUP';
     document.getElementById('phase-display').innerText = 'SETUP';
     document.getElementById('btn-phase').innerText = 'Finish Setup';
-    
-    // Setup Phase: Make sure Setup Tray is visible
     currentListMode = 'tray';
-    isDeploying = true; // Show zones by default in setup
+    isDeploying = true; 
     updateDynamicList();
     displayMap(); 
     addToLog("Setup Phase Started.");
@@ -744,26 +709,18 @@ function startGameMode(mode) {
 
 function nextPhase() {
     if (currentPhase === 'SETUP') {
-        if (setupTrayUnits.length > 0) {
-             if(!confirm("Undeployed Setup units remain. Start anyway?")) return;
-        }
-        
+        if (setupTrayUnits.length > 0) { if(!confirm("Undeployed Setup units remain. Start anyway?")) return; }
         currentPhase = 'Action Phase';
         document.getElementById('btn-phase').innerText = "End Turn";
-        isDeploying = false; // Hide setup zones
-        
+        isDeploying = false; 
         checkInitialControl(); 
         displayMap();
         addToLog("=== MATCH START ===", "log-turn");
         addToLog(`Turn ${currentTurn} Started.`, "log-turn");
-        
-        // Switch to Reinforcements view if Setup Tray done
         toggleListMode('reinforcements');
-        
     } else {
         addToLog(`Turn ${currentTurn} Ended.`, "log-turn");
         units.forEach(u => u.mp = u.maxMp);
-        
         currentTurn++;
         if(currentTurn > scenarioData.info.maxTurns) {
             let win = 'draw';
@@ -772,11 +729,9 @@ function nextPhase() {
             endGame(win, "Turn Limit Reached");
             return;
         }
-
         document.getElementById('turn-counter').innerText = currentTurn;
         addToLog(`Turn ${currentTurn} Started.`, "log-turn");
     }
-    
     document.getElementById('phase-display').innerText = currentPhase;
     updateDynamicList(); 
     uiUpdate();
@@ -786,25 +741,21 @@ function nextPhase() {
 function handleLeftClick(pointer) {
     const hex = getHexAtPoint(pointer.worldX, pointer.worldY);
     if (!hex) { selectedUnit = null; selectedHex = null; uiUpdate(); return; }
-
     if (losTool) { handleLOSToolClick(hex); return; }
 
+    // TRAY DEPLOYMENT HANDLER
     if (selectedTrayItem && !selectedTrayItem.isAsset) {
         deployTrayUnit(selectedTrayItem, hex);
         return;
     }
 
     const hexUnits = units.filter(u => u.q === hex.q && u.r === hex.r && u.hp > 0);
-
     if (currentAction && selectedUnit) {
         if (currentAction === 'FIRE') {
             const target = hexUnits.find(u => u.side !== selectedUnit.side);
             executeFire(selectedUnit, target);
-        } else if (currentAction === 'FACING') {
-            changeFacing(selectedUnit, hex);
-        } else {
-            executeMove(selectedUnit, hex);
-        }
+        } else if (currentAction === 'FACING') { changeFacing(selectedUnit, hex); } 
+        else { executeMove(selectedUnit, hex); }
         return;
     }
 
@@ -812,9 +763,7 @@ function handleLeftClick(pointer) {
         const topUnit = hexUnits[hexUnits.length - 1];
         selectUnitInStack(topUnit);
     } else {
-        selectedUnit = null;
-        selectedHex = hex;
-        uiUpdate();
+        selectedUnit = null; selectedHex = hex; uiUpdate();
     }
 }
 
@@ -858,33 +807,27 @@ function executeFire(attacker, targetUnit) {
         currentAction = null; return;
     }
     
-    // VISUAL D10 ROLL
     rollD10("TO HIT (5+)", (roll) => {
         let hit = roll >= 5;
         let color = hit ? 0x00ff00 : 0xaaaaaa;
         let damage = 0;
-        
         if (hit) {
             damage = attacker.fp; 
             if (los.status === 'degraded') { damage -= 1; addToLog("Degraded LOS (-1)", "log-info"); color = 0xffaa00; }
             const sector = getTargetSector(attacker, targetUnit);
             if (sector === 'REAR') { damage += 2; addToLog("Rear Shot (+2)", "log-combat"); color = 0xff0000; }
             damage = Math.max(1, damage);
-            
             targetUnit.hp -= damage;
             addToLog(`Hit! Roll ${roll}. Dmg: ${damage}`, "log-combat");
         } else {
             addToLog(`Miss. Roll ${roll}.`, "log-info");
         }
-        
         drawVisualLOSLine(startHex, targetHex, color);
-        
         if (targetUnit.hp <= 0) {
             addToLog("Target Destroyed!", "log-combat");
             units = units.filter(u => u.id !== targetUnit.id);
             selectedUnit = null; uiUpdate();
         } else { uiUpdate(); }
-        
         setTimeout(() => losGraphics.clear(), 1000);
         currentAction = null;
     });
@@ -893,45 +836,30 @@ function executeFire(attacker, targetUnit) {
 function loadScenario() {
     let txt = document.getElementById('json-input').value;
     txt = txt.replace(/[\n\r\t]+/g, ' ').replace(/\u00A0/g, ' ').trim();
-
     try {
         scenarioData = JSON.parse(txt);
         mapData = scenarioData.map; 
-
         units = []; setupTrayUnits = []; reinforcementUnits = []; strikes = [];
         
-        // Locked Units
         if (scenarioData.units.locked) {
             scenarioData.units.locked.forEach(u => {
                 u.isFixed = true; 
-                // ... (Parsing logic remains similar, simplified for brevity)
                 if(!u.category && UNIT_DATA_REGISTRY[u.type]) { const info = UNIT_DATA_REGISTRY[u.type]; u.category = info.category; if(!u.name) u.name = info.name; }
-                if(!u.stance) u.stance = 'deployed';
-                if(u.stance === 'cover' && u.category === 'hwt') u.stance = 'setup';
+                if(!u.stance) u.stance = 'deployed'; if(u.stance === 'cover' && u.category === 'hwt') u.stance = 'setup';
                 const stats = (UNIT_DATA_REGISTRY[u.type] || {}).stats || {};
-                u.maxMp = stats.Movement_Points || 6;
-                if(u.mp === undefined) u.mp = u.maxMp;
-                if(u.fp === undefined) u.fp = stats.Firepower || 3;
-                if(u.range === undefined) u.range = stats.Range_Hexes || 6;
-                if(u.hp === undefined) u.hp = 5;
+                u.maxMp = stats.Movement_Points || 6; if(u.mp === undefined) u.mp = u.maxMp; if(u.fp === undefined) u.fp = stats.Firepower || 3;
+                if(u.range === undefined) u.range = stats.Range_Hexes || 6; if(u.hp === undefined) u.hp = 5;
                 units.push(u);
             });
         }
         
-        // Sort Tray vs Reinforcements
         if (scenarioData.units.tray) {
             scenarioData.units.tray.forEach(u => {
                 if(!u.category && UNIT_DATA_REGISTRY[u.type]) u.category = UNIT_DATA_REGISTRY[u.type].category;
                 if(!u.name && UNIT_DATA_REGISTRY[u.type]) u.name = UNIT_DATA_REGISTRY[u.type].name;
-                
-                if (u.turn && parseInt(u.turn) > 0) {
-                    reinforcementUnits.push(u); // It's a reinforcement
-                } else {
-                    setupTrayUnits.push(u); // It's initial setup
-                }
+                if (u.turn && parseInt(u.turn) > 0) reinforcementUnits.push(u); else setupTrayUnits.push(u);
             });
         }
-        // Handle explicit reinforcements array if present in older JSONs, merge them
         if (scenarioData.units.reinforcements) {
             scenarioData.units.reinforcements.forEach(r => {
                  if(!r.category && UNIT_DATA_REGISTRY[r.type]) r.category = UNIT_DATA_REGISTRY[r.type].category;
@@ -939,19 +867,12 @@ function loadScenario() {
                  reinforcementUnits.push(r);
             });
         }
-
         if (scenarioData.support) { scenarioData.support.forEach(s => { s.isAsset = true; strikes.push(s); }); }
         
-        document.getElementById('scenario-info-box').innerHTML = `
-            <strong style="color:white">${scenarioData.info.title}</strong><br>
-            <span style="color:#aaa">${scenarioData.info.author}</span><br>
-            <p style="margin:5px 0 0 0; font-size:11px; color:#888">${scenarioData.info.description}</p>
-        `;
+        document.getElementById('scenario-info-box').innerHTML = `<strong style="color:white">${scenarioData.info.title}</strong><br><span style="color:#aaa">${scenarioData.info.author}</span><br><p style="margin:5px 0 0 0; font-size:11px; color:#888">${scenarioData.info.description}</p>`;
         document.getElementById('max-turns').innerText = scenarioData.info.maxTurns;
-
         toggleMapLoader();
         document.getElementById('mode-modal').style.display = 'flex';
-        
     } catch (e) { alert('Invalid JSON: ' + e.message); console.error(e); }
 }
 
@@ -977,8 +898,12 @@ function toggleMapLoader() { const el = document.getElementById('json-modal'); e
 function highlightHex(hex, color) { selectionGraphics.lineStyle(4, color); selectionGraphics.strokeCircle(hex.x, hex.y, HEX_RADIUS - 5); }
 function drawVisualLOSLine(start, end, color) { losGraphics.clear(); losGraphics.lineStyle(4, color, 0.8); losGraphics.beginPath(); losGraphics.moveTo(start.x, start.y); losGraphics.lineTo(end.x, end.y); losGraphics.strokePath(); }
 function displayMap() { if (!mapData) return; hexGroup.clear(true, true); roadGraphics.clear(); zoneGraphics.clear(); objGraphics.clear(); objectiveSprites.forEach(s => s.destroy()); objectiveSprites = []; hexMap = {}; const cols = mapData.cols || 0; const rows = mapData.rows || 0; for (let q = 0; q < cols; q++) { hexMap[q] = {}; for (let r = 0; r < rows; r++) { const pos = getHexPosition(q, r); hexMap[q][r] = { terrain: 'clear', x: pos.x, y: pos.y, q: q, r: r, hasRoad: false, variant: null }; } } if (mapData.terrain) mapData.terrain.forEach(t => { if (hexMap[t.q] && hexMap[t.q][t.r]) hexMap[t.q][t.r].terrain = t.type; }); if (mapData.roads) mapData.roads.forEach(road => { if (hexMap[road.from.q]) hexMap[road.from.q][road.from.r].hasRoad = true; if (hexMap[road.to.q]) hexMap[road.to.q][road.to.r].hasRoad = true; }); 
-/* MODIFIED ZONE RENDER LOGIC */
-if (mapData.zones && (currentPhase === 'SETUP' || isDeploying)) { mapData.zones.forEach(z => { if (hexMap[z.q] && hexMap[z.q][z.r]) { hexMap[z.q][z.r].setupZone = z.side; const p = getHexPosition(z.q, z.r); const pts = []; for(let i=0; i<6; i++) { const a = Math.PI/3*i; pts.push({x: p.x+HEX_RADIUS*Math.cos(a), y: p.y+HEX_RADIUS*Math.sin(a)}); } const color = z.side === 'blue' ? 0x4488ff : 0xff4444; zoneGraphics.fillStyle(color, 0.2).fillPoints(pts, true); } }); } 
+/* UPDATED ZONE RENDER LOGIC */
+if (mapData.zones) { mapData.zones.forEach(z => { if (hexMap[z.q] && hexMap[z.q][z.r]) { hexMap[z.q][z.r].setupZone = z.side; 
+if (currentPhase === 'SETUP' || (isDeploying && (!selectedTrayItem.locType || selectedTrayItem.locType === 'zone') && selectedTrayItem.side === z.side)) {
+const p = getHexPosition(z.q, z.r); const pts = []; for(let i=0; i<6; i++) { const a = Math.PI/3*i; pts.push({x: p.x+HEX_RADIUS*Math.cos(a), y: p.y+HEX_RADIUS*Math.sin(a)}); } const color = z.side === 'blue' ? 0x4488ff : 0xff4444; zoneGraphics.fillStyle(color, 0.2).fillPoints(pts, true); }}});}
+/* SPECIFIC HEX HIGHLIGHT LOGIC */
+if (isDeploying && selectedTrayItem && selectedTrayItem.locType === 'hex') { const [tq, tr] = selectedTrayItem.locVal.split(',').map(Number); if(hexMap[tq] && hexMap[tq][tr]) { const p = getHexPosition(tq, tr); const pts = []; for(let i=0; i<6; i++) { const a = Math.PI/3*i; pts.push({x: p.x+HEX_RADIUS*Math.cos(a), y: p.y+HEX_RADIUS*Math.sin(a)}); } const color = selectedTrayItem.side === 'blue' ? 0x4488ff : 0xff4444; zoneGraphics.fillStyle(color, 0.4).fillPoints(pts, true); }}
 const oldObjectives = mapData.objectives || mapData.victoryHexes || []; const newObjectives = (scenarioData && scenarioData.victory && scenarioData.victory.locations) ? scenarioData.victory.locations : []; const allObjectives = [...oldObjectives, ...newObjectives]; if (allObjectives.length > 0) { allObjectives.forEach(obj => { if (hexMap[obj.q] && hexMap[obj.q][obj.r]) { const hex = hexMap[obj.q][obj.r]; hex.victoryPoints = obj.points || 100; const star = scene.add.star(hex.x, hex.y, 5, 8, 16, 0xffcc00); star.setStrokeStyle(2, 0x000000); star.setDepth(150); objectiveSprites.push(star); const txt = scene.add.text(hex.x, hex.y + 10, hex.victoryPoints.toString(), { fontSize: '10px', stroke: '#000', strokeThickness: 3, fill: '#fff', fontStyle: 'bold' }).setOrigin(0.5).setDepth(151); objectiveSprites.push(txt); } }); } for (let q = 0; q < cols; q++) { for (let r = 0; r < rows; r++) { drawHex(hexMap[q][r]); } } drawRoads(); redrawAllUnits(); }
 function drawHex(hex) { const terrainType = hex.terrain; const x = hex.x; const y = hex.y; if (!hex.variant) hex.variant = Phaser.Math.Between(1, 3); const textureKey = `${terrainType}${hex.variant}`; if (scene.textures.exists(textureKey)) { const img = scene.add.image(x, y, textureKey).setDisplaySize(HEX_RADIUS * 2, HEX_RADIUS * 2); const shape = scene.make.graphics().fillStyle(0xffffff).beginPath(); for (let i = 0; i < 6; i++) { const angle = (Math.PI / 3) * i; const hx = x + HEX_RADIUS * Math.cos(angle); const hy = y + HEX_RADIUS * Math.sin(angle); if (i === 0) shape.moveTo(hx, hy); else shape.lineTo(hx, hy); } shape.closePath().fillPath(); img.setMask(shape.createGeometryMask()); hexGroup.add(img); const outline = scene.add.graphics().lineStyle(1, 0x333333, 0.5).beginPath(); for (let i = 0; i < 6; i++) { const angle = (Math.PI / 3) * i; const hx = x + HEX_RADIUS * Math.cos(angle); const hy = y + HEX_RADIUS * Math.sin(angle); if (i === 0) outline.moveTo(hx, hy); else outline.lineTo(hx, hy); } outline.closePath().strokePath(); hexGroup.add(outline); } else { let color = 0x555555; if(TERRAIN_TYPES[terrainType]) color = TERRAIN_TYPES[terrainType].color || 0x555555; const g = scene.add.graphics().fillStyle(color).lineStyle(1, 0x333333, 0.5).beginPath(); for (let i = 0; i < 6; i++) { const angle = (Math.PI / 3) * i; const hx = x + HEX_RADIUS * Math.cos(angle); const hy = y + HEX_RADIUS * Math.sin(angle); if (i === 0) g.moveTo(hx, hy); else g.lineTo(hx, hy); } g.closePath().fillPath().strokePath(); hexGroup.add(g); } }
 function drawRoads() { if (!mapData || !mapData.roads) return; roadGraphics.lineStyle(6, 0x555555, 0.8); mapData.roads.forEach(seg => { const h1 = hexMap[seg.from.q][seg.from.r]; const h2 = hexMap[seg.to.q][seg.to.r]; if (h1 && h2) roadGraphics.beginPath().moveTo(h1.x, h1.y).lineTo(h2.x, h2.y).strokePath(); }); }
