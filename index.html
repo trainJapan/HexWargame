@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Wargame Engine v0.9.10 - Fixed Setup & Accurate D10</title>
+    <title>Wargame Engine v0.9.11 - Final Fixes</title>
     <script src="https://cdn.jsdelivr.net/npm/phaser@3.60.0/dist/phaser.min.js"></script>
     <style>
         :root {
@@ -91,7 +91,7 @@
         .list-meta { font-size:10px; color:#aaa; }
         .list-stars { color: #ffd700; font-size: 10px; margin-left: 5px; }
 
-        /* D10 DICE CSS */
+        /* D10 DICE CSS - UPDATED */
         #dice-overlay {
             position: absolute; top: 0; left: 0; width: 100%; height: 100%;
             background: rgba(0,0,0,0.6); 
@@ -99,16 +99,18 @@
             z-index: 2000;
         }
         
+        /* Larger Container */
         .d10-container {
-            width: 150px; height: 150px; position: relative;
-            filter: drop-shadow(0 10px 10px rgba(0,0,0,0.5));
+            width: 180px; height: 180px; position: relative;
+            filter: drop-shadow(0 15px 15px rgba(0,0,0,0.6));
         }
         
         .dice-shaking { animation: shake 0.1s infinite; }
 
+        /* Number moved higher (top: 38%) */
         .d10-val {
-            position: absolute; top: 48%; left: 50%; transform: translate(-50%, -50%);
-            font-size: 48px; font-weight: bold; color: white;
+            position: absolute; top: 38%; left: 50%; transform: translate(-50%, -50%);
+            font-size: 56px; font-weight: bold; color: white;
             text-shadow: 2px 2px 4px black; font-family: 'Arial', sans-serif;
             pointer-events: none;
         }
@@ -254,21 +256,20 @@
     <div id="dice-overlay">
         <div class="dice-label" id="dice-label">Rolling...</div>
         <div class="d10-container" id="dice-anim">
-            <svg width="150" height="150" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+            <svg width="180" height="180" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
                 <defs>
                     <linearGradient id="diceGrad" x1="0%" y1="0%" x2="100%" y2="100%">
                         <stop offset="0%" style="stop-color:#ffaa00;stop-opacity:1" />
                         <stop offset="100%" style="stop-color:#cc4400;stop-opacity:1" />
                     </linearGradient>
                 </defs>
-                <path d="M50 2 L95 35 L77 85 L23 85 L5 35 Z" fill="url(#diceGrad)" stroke="#fff" stroke-width="2" stroke-linejoin="round"/>
                 
-                <path d="M50 2 L77 35 L50 60 L23 35 Z" fill="none" stroke="#fff" stroke-width="2" stroke-linejoin="round"/>
+                <path d="M50 2 L95 38 L78 88 L22 88 L5 38 Z" fill="url(#diceGrad)" stroke="#fff" stroke-width="2" stroke-linejoin="round"/>
                 
-                <path d="M5 35 L23 35" stroke="#fff" stroke-width="2"/>
-                <path d="M95 35 L77 35" stroke="#fff" stroke-width="2"/>
-                <path d="M23 85 L50 60" stroke="#fff" stroke-width="2"/>
-                <path d="M77 85 L50 60" stroke="#fff" stroke-width="2"/>
+                <path d="M50 2 L80 38 L50 65 L20 38 Z" fill="none" stroke="#fff" stroke-width="2" stroke-linejoin="round"/>
+                
+                <path d="M5 38 L20 38" stroke="#fff" stroke-width="2"/> <path d="M95 38 L80 38" stroke="#fff" stroke-width="2"/> <path d="M22 88 L50 65" stroke="#fff" stroke-width="2"/>
+                <path d="M78 88 L50 65" stroke="#fff" stroke-width="2"/>
             </svg>
             <div class="d10-val" id="dice-val">0</div>
         </div>
@@ -423,16 +424,14 @@ function initEngine() {
             if (currentAction) { currentAction = null; uiUpdate(); addToLog("Action cancelled.", "log-info"); }
             if (selectedTrayItem) { 
                 selectedTrayItem = null; 
-                isDeploying = false; // Hide zones if cancelling
-                displayMap(); // Redraw to clear zones
+                isDeploying = false; 
+                displayMap(); 
                 updateDynamicList(); 
             }
         }
     });
     
-    // Dice Button listener
     document.getElementById('dice-ok-btn').addEventListener('click', closeDiceOverlay);
-    
     addToLog("System Ready. Load Scenario to begin.");
 }
 
@@ -471,7 +470,6 @@ function rollD10(label, callback) {
         container.classList.remove('dice-shaking');
         lbl.innerText = `RESULT: ${result === 10 ? "0 (10)" : result}`;
         btn.style.display = 'block'; // Show OK button
-        // Store result for callback but wait for user
         diceCallback = () => { if(callback) callback(result); };
     }, 800);
 }
@@ -491,7 +489,6 @@ function checkControl(unit) {
     if(!unit || unit.hp <= 0) return;
     const key = `${unit.q},${unit.r}`;
     const hex = hexMap[unit.q][unit.r];
-    
     if(hex && hex.victoryPoints && captureOwners[key] !== unit.side) {
         captureOwners[key] = unit.side;
         addToLog(`${unit.side.toUpperCase()} captured VL at ${unit.q},${unit.r}!`, "log-capture");
@@ -622,7 +619,10 @@ function updateDynamicList() {
                     selectedUnit = null;
                     isDeploying = true;
                     displayMap();
-                    if(currentPhase === 'SETUP') addToLog(`Selected ${displayName}. Click valid hex to deploy.`, "log-info");
+                    if(currentPhase === 'SETUP' && !setupTrayUnits.includes(item)) {
+                         addToLog(`${displayName} arrives Turn ${item.turn}. (View Only)`, "log-info");
+                    }
+                    else if(currentPhase === 'SETUP') addToLog(`Selected ${displayName}. Click valid hex to deploy.`, "log-info");
                     else if(isFuture) addToLog(`${displayName} arrives on Turn ${item.turn}.`, "log-info");
                     else addToLog(`Selected ${displayName}. Click valid hex to deploy.`, "log-info");
                 }
@@ -634,12 +634,18 @@ function updateDynamicList() {
 }
 
 function deployTrayUnit(uData, hex) {
-    // 1. CHECK TURN
+    // 1. SETUP PHASE GUARD: Prevent deploying reinforcements
+    if (currentPhase === 'SETUP' && !setupTrayUnits.includes(uData)) {
+        addToLog("Cannot deploy Reinforcements during Setup!", "log-combat");
+        return;
+    }
+
+    // 2. CHECK TURN
     if(currentPhase !== 'SETUP' && parseInt(uData.turn) > currentTurn) {
         addToLog("Unit has not arrived yet.", "log-combat"); return;
     }
     
-    // 2. CHECK LOCATION VALIDITY
+    // 3. CHECK LOCATION VALIDITY
     let valid = false;
     if(currentPhase === 'SETUP') {
         if (uData.side === 'blue' && hex.setupZone === 'blue') valid = true;
@@ -651,6 +657,7 @@ function deployTrayUnit(uData, hex) {
         } else if (uData.locType === 'edge') {
             if(hex.q === 0 || hex.q === mapData.cols-1 || hex.r === 0 || hex.r === mapData.rows-1) valid = true;
         } else {
+            // Zone deployment for reinforcement
             if (uData.side === 'blue' && hex.setupZone === 'blue') valid = true;
             if (uData.side === 'red' && hex.setupZone === 'red') valid = true;
         }
@@ -660,7 +667,6 @@ function deployTrayUnit(uData, hex) {
         addToLog(`Invalid Deployment Location.`, "log-combat"); return;
     }
 
-    // 3. CREATE UNIT
     const regInfo = UNIT_DATA_REGISTRY[uData.type] || {};
     const stats = regInfo.stats || {};
     const maxMp = stats.Movement_Points || 6;
@@ -899,11 +905,30 @@ function highlightHex(hex, color) { selectionGraphics.lineStyle(4, color); selec
 function drawVisualLOSLine(start, end, color) { losGraphics.clear(); losGraphics.lineStyle(4, color, 0.8); losGraphics.beginPath(); losGraphics.moveTo(start.x, start.y); losGraphics.lineTo(end.x, end.y); losGraphics.strokePath(); }
 function displayMap() { if (!mapData) return; hexGroup.clear(true, true); roadGraphics.clear(); zoneGraphics.clear(); objGraphics.clear(); objectiveSprites.forEach(s => s.destroy()); objectiveSprites = []; hexMap = {}; const cols = mapData.cols || 0; const rows = mapData.rows || 0; for (let q = 0; q < cols; q++) { hexMap[q] = {}; for (let r = 0; r < rows; r++) { const pos = getHexPosition(q, r); hexMap[q][r] = { terrain: 'clear', x: pos.x, y: pos.y, q: q, r: r, hasRoad: false, variant: null }; } } if (mapData.terrain) mapData.terrain.forEach(t => { if (hexMap[t.q] && hexMap[t.q][t.r]) hexMap[t.q][t.r].terrain = t.type; }); if (mapData.roads) mapData.roads.forEach(road => { if (hexMap[road.from.q]) hexMap[road.from.q][road.from.r].hasRoad = true; if (hexMap[road.to.q]) hexMap[road.to.q][road.to.r].hasRoad = true; }); 
 /* UPDATED ZONE RENDER LOGIC */
-if (mapData.zones) { mapData.zones.forEach(z => { if (hexMap[z.q] && hexMap[z.q][z.r]) { hexMap[z.q][z.r].setupZone = z.side; 
-if (currentPhase === 'SETUP' || (isDeploying && (!selectedTrayItem.locType || selectedTrayItem.locType === 'zone') && selectedTrayItem.side === z.side)) {
-const p = getHexPosition(z.q, z.r); const pts = []; for(let i=0; i<6; i++) { const a = Math.PI/3*i; pts.push({x: p.x+HEX_RADIUS*Math.cos(a), y: p.y+HEX_RADIUS*Math.sin(a)}); } const color = z.side === 'blue' ? 0x4488ff : 0xff4444; zoneGraphics.fillStyle(color, 0.2).fillPoints(pts, true); }}});}
+if (mapData.zones) { 
+    mapData.zones.forEach(z => { 
+        if (hexMap[z.q] && hexMap[z.q][z.r]) { 
+            hexMap[z.q][z.r].setupZone = z.side; 
+            // Draw IF in setup OR if actively deploying a unit that uses zones
+            if (currentPhase === 'SETUP' || (isDeploying && (!selectedTrayItem.locType || selectedTrayItem.locType === 'zone') && selectedTrayItem.side === z.side)) {
+                const p = getHexPosition(z.q, z.r); 
+                const pts = []; for(let i=0; i<6; i++) { const a = Math.PI/3*i; pts.push({x: p.x+HEX_RADIUS*Math.cos(a), y: p.y+HEX_RADIUS*Math.sin(a)}); } 
+                const color = z.side === 'blue' ? 0x4488ff : 0xff4444; 
+                zoneGraphics.fillStyle(color, 0.2).fillPoints(pts, true); 
+            }
+        } 
+    }); 
+}
 /* SPECIFIC HEX HIGHLIGHT LOGIC */
-if (isDeploying && selectedTrayItem && selectedTrayItem.locType === 'hex') { const [tq, tr] = selectedTrayItem.locVal.split(',').map(Number); if(hexMap[tq] && hexMap[tq][tr]) { const p = getHexPosition(tq, tr); const pts = []; for(let i=0; i<6; i++) { const a = Math.PI/3*i; pts.push({x: p.x+HEX_RADIUS*Math.cos(a), y: p.y+HEX_RADIUS*Math.sin(a)}); } const color = selectedTrayItem.side === 'blue' ? 0x4488ff : 0xff4444; zoneGraphics.fillStyle(color, 0.4).fillPoints(pts, true); }}
+if (isDeploying && selectedTrayItem && selectedTrayItem.locType === 'hex') { 
+    const [tq, tr] = selectedTrayItem.locVal.split(',').map(Number); 
+    if(hexMap[tq] && hexMap[tq][tr]) { 
+        const p = getHexPosition(tq, tr); 
+        const pts = []; for(let i=0; i<6; i++) { const a = Math.PI/3*i; pts.push({x: p.x+HEX_RADIUS*Math.cos(a), y: p.y+HEX_RADIUS*Math.sin(a)}); } 
+        const color = selectedTrayItem.side === 'blue' ? 0x4488ff : 0xff4444; 
+        zoneGraphics.fillStyle(color, 0.4).fillPoints(pts, true); 
+    }
+}
 const oldObjectives = mapData.objectives || mapData.victoryHexes || []; const newObjectives = (scenarioData && scenarioData.victory && scenarioData.victory.locations) ? scenarioData.victory.locations : []; const allObjectives = [...oldObjectives, ...newObjectives]; if (allObjectives.length > 0) { allObjectives.forEach(obj => { if (hexMap[obj.q] && hexMap[obj.q][obj.r]) { const hex = hexMap[obj.q][obj.r]; hex.victoryPoints = obj.points || 100; const star = scene.add.star(hex.x, hex.y, 5, 8, 16, 0xffcc00); star.setStrokeStyle(2, 0x000000); star.setDepth(150); objectiveSprites.push(star); const txt = scene.add.text(hex.x, hex.y + 10, hex.victoryPoints.toString(), { fontSize: '10px', stroke: '#000', strokeThickness: 3, fill: '#fff', fontStyle: 'bold' }).setOrigin(0.5).setDepth(151); objectiveSprites.push(txt); } }); } for (let q = 0; q < cols; q++) { for (let r = 0; r < rows; r++) { drawHex(hexMap[q][r]); } } drawRoads(); redrawAllUnits(); }
 function drawHex(hex) { const terrainType = hex.terrain; const x = hex.x; const y = hex.y; if (!hex.variant) hex.variant = Phaser.Math.Between(1, 3); const textureKey = `${terrainType}${hex.variant}`; if (scene.textures.exists(textureKey)) { const img = scene.add.image(x, y, textureKey).setDisplaySize(HEX_RADIUS * 2, HEX_RADIUS * 2); const shape = scene.make.graphics().fillStyle(0xffffff).beginPath(); for (let i = 0; i < 6; i++) { const angle = (Math.PI / 3) * i; const hx = x + HEX_RADIUS * Math.cos(angle); const hy = y + HEX_RADIUS * Math.sin(angle); if (i === 0) shape.moveTo(hx, hy); else shape.lineTo(hx, hy); } shape.closePath().fillPath(); img.setMask(shape.createGeometryMask()); hexGroup.add(img); const outline = scene.add.graphics().lineStyle(1, 0x333333, 0.5).beginPath(); for (let i = 0; i < 6; i++) { const angle = (Math.PI / 3) * i; const hx = x + HEX_RADIUS * Math.cos(angle); const hy = y + HEX_RADIUS * Math.sin(angle); if (i === 0) outline.moveTo(hx, hy); else outline.lineTo(hx, hy); } outline.closePath().strokePath(); hexGroup.add(outline); } else { let color = 0x555555; if(TERRAIN_TYPES[terrainType]) color = TERRAIN_TYPES[terrainType].color || 0x555555; const g = scene.add.graphics().fillStyle(color).lineStyle(1, 0x333333, 0.5).beginPath(); for (let i = 0; i < 6; i++) { const angle = (Math.PI / 3) * i; const hx = x + HEX_RADIUS * Math.cos(angle); const hy = y + HEX_RADIUS * Math.sin(angle); if (i === 0) g.moveTo(hx, hy); else g.lineTo(hx, hy); } g.closePath().fillPath().strokePath(); hexGroup.add(g); } }
 function drawRoads() { if (!mapData || !mapData.roads) return; roadGraphics.lineStyle(6, 0x555555, 0.8); mapData.roads.forEach(seg => { const h1 = hexMap[seg.from.q][seg.from.r]; const h2 = hexMap[seg.to.q][seg.to.r]; if (h1 && h2) roadGraphics.beginPath().moveTo(h1.x, h1.y).lineTo(h2.x, h2.y).strokePath(); }); }
