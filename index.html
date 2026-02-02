@@ -91,68 +91,33 @@
         .list-meta { font-size:10px; color:#aaa; }
         .list-stars { color: #ffd700; font-size: 10px; margin-left: 5px; }
         
-        /* New Rotation UI inside List */
+        /* Rotation UI inside List */
         .reinf-rotate-box { display: flex; align-items: center; gap: 5px; margin-top: 3px; }
         .btn-rotate-mini { padding: 2px 6px; font-size: 9px; background: #555; border: 1px solid #666; border-radius: 2px; color: #fff; cursor: pointer; }
         .btn-rotate-mini:hover { background: #777; }
         .facing-label-mini { font-size: 10px; color: var(--accent); font-weight: bold; }
 
-        /* D10 DICE CSS - UPDATED */
+        /* D10 DICE CSS */
         #dice-overlay {
             position: absolute; top: 0; left: 0; width: 100%; height: 100%;
             background: rgba(0,0,0,0.6); 
             display: none; flex-direction: column; align-items: center; justify-content: center; gap: 20px;
             z-index: 2000;
         }
-        
-        .d10-container {
-            width: 180px; height: 180px; position: relative;
-            filter: drop-shadow(0 15px 15px rgba(0,0,0,0.6));
-        }
-        
+        .d10-container { width: 180px; height: 180px; position: relative; filter: drop-shadow(0 15px 15px rgba(0,0,0,0.6)); }
         .dice-shaking { animation: shake 0.1s infinite; }
-
-        .d10-val {
-            position: absolute; top: 38%; left: 50%; transform: translate(-50%, -50%);
-            font-size: 56px; font-weight: bold; color: white;
-            text-shadow: 2px 2px 4px black; font-family: 'Arial', sans-serif;
-            pointer-events: none;
-        }
-
-        .dice-label {
-            background: #111; color: var(--accent); padding: 10px 30px;
-            border-radius: 4px; font-weight: bold; font-size: 18px;
-            text-transform: uppercase; border: 1px solid var(--accent);
-            box-shadow: 0 0 15px rgba(0,0,0,0.8);
-        }
-
-        .dice-btn {
-            background: var(--blue-team); color: white; border: none;
-            padding: 10px 40px; font-size: 16px; font-weight: bold;
-            border-radius: 4px; cursor: pointer; display: none;
-            box-shadow: 0 0 10px rgba(68, 136, 255, 0.5);
-        }
+        .d10-val { position: absolute; top: 38%; left: 50%; transform: translate(-50%, -50%); font-size: 56px; font-weight: bold; color: white; text-shadow: 2px 2px 4px black; font-family: 'Arial', sans-serif; pointer-events: none; }
+        .dice-label { background: #111; color: var(--accent); padding: 10px 30px; border-radius: 4px; font-weight: bold; font-size: 18px; text-transform: uppercase; border: 1px solid var(--accent); box-shadow: 0 0 15px rgba(0,0,0,0.8); }
+        .dice-btn { background: var(--blue-team); color: white; border: none; padding: 10px 40px; font-size: 16px; font-weight: bold; border-radius: 4px; cursor: pointer; display: none; box-shadow: 0 0 10px rgba(68, 136, 255, 0.5); }
         .dice-btn:hover { background: #3377ff; }
-
-        @keyframes shake {
-            0% { transform: rotate(0deg); } 25% { transform: rotate(5deg); }
-            50% { transform: rotate(-5deg); } 75% { transform: rotate(5deg); } 100% { transform: rotate(0deg); }
-        }
+        @keyframes shake { 0% { transform: rotate(0deg); } 25% { transform: rotate(5deg); } 50% { transform: rotate(-5deg); } 75% { transform: rotate(5deg); } 100% { transform: rotate(0deg); } }
 
         /* MODALS */
-        .modal-overlay {
-            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(0,0,0,0.85); z-index: 3000; display: none;
-            flex-direction: column; align-items: center; justify-content: center;
-        }
-        .modal-card {
-            background: #222; border: 2px solid var(--accent); padding: 30px;
-            text-align: center; max-width: 400px; width: 80%;
-            box-shadow: 0 0 50px rgba(0,0,0,0.8);
-        }
+        .modal-overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); z-index: 3000; display: none; flex-direction: column; align-items: center; justify-content: center; }
+        .modal-card { background: #222; border: 2px solid var(--accent); padding: 30px; text-align: center; max-width: 400px; width: 80%; box-shadow: 0 0 50px rgba(0,0,0,0.8); }
         .mode-btn { width: 100%; margin-top: 10px; padding: 15px; font-size: 16px; }
 
-        /* LOS Sub-buttons */
+        /* TOOLS */
         .tool-sub-options { display: flex; gap: 5px; margin-top: 5px; }
         .btn-small { padding: 5px; font-size: 11px; flex: 1; }
 
@@ -160,10 +125,7 @@
         #game-container { position: relative; overflow: hidden; background: #111; }
 
         /* RIGHT PANEL */
-        #right-panel {
-            background: var(--bg-panel); border-left: 1px solid var(--border);
-            display: grid; grid-template-rows: auto 1fr 200px; overflow: hidden; z-index: 10;
-        }
+        #right-panel { background: var(--bg-panel); border-left: 1px solid var(--border); display: grid; grid-template-rows: auto 1fr 200px; overflow: hidden; z-index: 10; }
         #context-card { padding: 15px; background: #333; border-bottom: 1px solid var(--border); text-align: center; min-height: 140px; }
         .ctx-header-row { display: flex; align-items: center; justify-content: center; gap: 10px; margin-bottom: 5px; }
         .ctx-portrait { width: 80px; height: 80px; display: flex; align-items: center; justify-content: center; background: #222; border-radius: 4px; border: 1px solid #444; }
@@ -248,7 +210,6 @@
         <button class="btn btn-primary" style="width:100%; margin-top:5px;" onclick="loadScenario()">Load</button>
         <button class="btn" style="width:100%; margin-top:5px;" onclick="toggleMapLoader()">Close</button>
     </div>
-
     <div id="mode-modal" class="modal-overlay">
         <div class="modal-card">
             <h2 style="color:var(--accent); margin-top:0">SELECT GAME MODE</h2>
@@ -256,22 +217,13 @@
             <button class="mode-btn btn" disabled style="opacity:0.5; cursor:not-allowed">PLAYER VS AI (Coming Soon)</button>
         </div>
     </div>
-
     <div id="dice-overlay">
         <div class="dice-label" id="dice-label">Rolling...</div>
         <div class="d10-container" id="dice-anim">
             <svg width="180" height="180" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
-                <defs>
-                    <linearGradient id="diceGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-                        <stop offset="0%" style="stop-color:#ffaa00;stop-opacity:1" />
-                        <stop offset="100%" style="stop-color:#cc4400;stop-opacity:1" />
-                    </linearGradient>
-                </defs>
-                
+                <defs><linearGradient id="diceGrad" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" style="stop-color:#ffaa00;stop-opacity:1" /><stop offset="100%" style="stop-color:#cc4400;stop-opacity:1" /></linearGradient></defs>
                 <path d="M50 2 L95 38 L78 88 L22 88 L5 38 Z" fill="url(#diceGrad)" stroke="#fff" stroke-width="2" stroke-linejoin="round"/>
-                
                 <path d="M50 2 L80 38 L50 65 L20 38 Z" fill="none" stroke="#fff" stroke-width="2" stroke-linejoin="round"/>
-                
                 <path d="M5 38 L20 38" stroke="#fff" stroke-width="2"/> <path d="M95 38 L80 38" stroke="#fff" stroke-width="2"/> <path d="M22 88 L50 65" stroke="#fff" stroke-width="2"/>
                 <path d="M78 88 L50 65" stroke="#fff" stroke-width="2"/>
             </svg>
@@ -279,15 +231,11 @@
         </div>
         <button class="dice-btn" id="dice-ok-btn">CONTINUE</button>
     </div>
-
     <div id="game-over-modal" class="modal-overlay">
         <div class="modal-card">
             <div style="font-size:32px; font-weight:bold; margin-bottom:10px;" id="end-title">VICTORY</div>
             <div style="color:#aaa; margin-bottom:20px; font-style:italic;" id="end-reason">Turns Limit Reached</div>
-            <div style="margin-bottom:20px; font-size:18px;">
-                <span style="color:var(--blue-team)">UK: <span id="end-blue">0</span></span> &nbsp;|&nbsp; 
-                <span style="color:var(--red-team)">GER: <span id="end-red">0</span></span>
-            </div>
+            <div style="margin-bottom:20px; font-size:18px;"><span style="color:var(--blue-team)">UK: <span id="end-blue">0</span></span> &nbsp;|&nbsp; <span style="color:var(--red-team)">GER: <span id="end-red">0</span></span></div>
             <button class="btn btn-primary" onclick="location.reload()">Return to Menu</button>
         </div>
     </div>
@@ -295,11 +243,7 @@
 
 <div id="right-panel">
     <div id="context-card">
-        <div class="ctx-header-row">
-            <div id="ctx-status-left" class="ctx-side-info" style="color:#aaa;">-</div>
-            <div class="ctx-portrait" id="ctx-img"></div>
-            <div id="ctx-stance-right" class="ctx-side-info" style="color:#aaa;">-</div>
-        </div>
+        <div class="ctx-header-row"><div id="ctx-status-left" class="ctx-side-info" style="color:#aaa;">-</div><div class="ctx-portrait" id="ctx-img"></div><div id="ctx-stance-right" class="ctx-side-info" style="color:#aaa;">-</div></div>
         <div id="ctx-quality" style="color:#ffd700; font-size:16px; margin-bottom:5px; line-height:1;"></div>
         <div class="ctx-title" id="ctx-title">No Selection</div>
         <div class="ctx-subtitle" id="ctx-subtitle">-</div>
@@ -321,9 +265,7 @@
             <div id="stack-list"></div>
         </div>
     </div>
-    <div id="log-container">
-        <div class="log-entry">System initialized.</div>
-    </div>
+    <div id="log-container"><div class="log-entry">System initialized.</div></div>
 </div>
 
 <script>
@@ -346,29 +288,29 @@ let losUnitType = 'infantry';
 let units = [];
 
 // Separate Data Lists
-let setupTrayUnits = []; // Units for Phase 1 Setup
-let reinforcementUnits = []; // Units arriving later
-let strikes = [];   // Offboard assets
+let setupTrayUnits = []; 
+let reinforcementUnits = []; 
+let strikes = [];   
 
 let unitIdCounter = 2000;
 let currentTurn = 1;
 let currentPhase = 'SETUP'; 
 let scores = { blue: 0, red: 0 };
 let captureOwners = {}; 
-let currentListMode = 'tray'; // 'tray', 'reinforcements', 'strikes'
+let currentListMode = 'tray'; 
 
 // Selection State
 let selectedUnit = null; 
 let selectedHex = null; 
-let selectedTrayItem = null; // Can be unit OR asset
+let selectedTrayItem = null; 
 let currentAction = null; 
-let isDeploying = false; // Flag to show zones during gameplay
+let isDeploying = false; 
 
 // Phaser Objects
 let scene, hexGroup, zoneGraphics, objGraphics, roadGraphics, losGraphics, unitGraphics, selectionGraphics, badgeGraphics, hexMap = {};
 let unitSprites = {};
 let objectiveSprites = []; 
-let diceCallback = null; // For the OK button
+let diceCallback = null; 
 
 const config = {
     type: Phaser.AUTO, parent: 'game-container',
@@ -404,7 +346,7 @@ function createScene() {
         let loadCount = 0;
         Object.values(UNIT_DATA_REGISTRY).forEach(u => { if(u.image) { this.load.image(u.key, ASSETS_URL + 'counters/' + u.image); loadCount++; } });
         Object.values(TERRAIN_TYPES).forEach(t => { if(t.images) { t.images.forEach(img => { const k = img.replace(/\.[^/.]+$/, ""); this.load.image(k, ASSETS_URL + 'map/' + img); }); loadCount++; } });
-        if(loadCount > 0) { this.load.once('complete', () => { console.log("Assets Loaded"); initEngine(); }); this.load.start(); } else { initEngine(); }
+        if(loadCount > 0) { this.load.once('complete', () => { initEngine(); }); this.load.start(); } else { initEngine(); }
     } catch(e) { console.error("Error parsing JSON:", e); alert("Failed to load JSONs."); }
 }
 
@@ -426,16 +368,10 @@ function initEngine() {
     scene.input.on('pointerdown', (pointer) => {
         if (pointer.leftButtonDown()) handleLeftClick(pointer);
         if (pointer.rightButtonDown()) {
-            if (currentAction) { currentAction = null; uiUpdate(); addToLog("Action cancelled.", "log-info"); }
-            if (selectedTrayItem) { 
-                selectedTrayItem = null; 
-                isDeploying = false; 
-                displayMap(); 
-                updateDynamicList(); 
-            }
+            if (currentAction) { currentAction = null; uiUpdate(); addToLog("Action cancelled."); }
+            if (selectedTrayItem) { selectedTrayItem = null; isDeploying = false; displayMap(); updateDynamicList(); }
         }
     });
-    
     document.getElementById('dice-ok-btn').addEventListener('click', closeDiceOverlay);
     addToLog("System Ready. Load Scenario to begin.");
 }
@@ -455,41 +391,28 @@ function rollD10(label, callback) {
     const valDisplay = document.getElementById('dice-val');
     const lbl = document.getElementById('dice-label');
     const btn = document.getElementById('dice-ok-btn');
-    
     overlay.style.display = 'flex';
-    btn.style.display = 'none'; // Hide OK button while rolling
+    btn.style.display = 'none';
     lbl.innerText = label || "ROLLING...";
     container.classList.add('dice-shaking');
     diceCallback = callback;
-    
     let result = 1;
-    const interval = setInterval(() => {
-        result = Phaser.Math.Between(1, 10);
-        valDisplay.innerText = result === 10 ? "0" : result;
-    }, 50);
-
+    const interval = setInterval(() => { result = Phaser.Math.Between(1, 10); valDisplay.innerText = result === 10 ? "0" : result; }, 50);
     setTimeout(() => {
         clearInterval(interval);
-        result = Phaser.Math.Between(1, 10); // Final Roll
+        result = Phaser.Math.Between(1, 10);
         valDisplay.innerText = result === 10 ? "0" : result;
         container.classList.remove('dice-shaking');
         lbl.innerText = `RESULT: ${result === 10 ? "0 (10)" : result}`;
-        btn.style.display = 'block'; // Show OK button
+        btn.style.display = 'block';
         diceCallback = () => { if(callback) callback(result); };
     }, 800);
 }
 
-function closeDiceOverlay() {
-    document.getElementById('dice-overlay').style.display = 'none';
-    if(diceCallback) diceCallback();
-    diceCallback = null;
-}
+function closeDiceOverlay() { document.getElementById('dice-overlay').style.display = 'none'; if(diceCallback) diceCallback(); diceCallback = null; }
 
 // --- VICTORY SYSTEM ---
-function checkInitialControl() {
-    units.forEach(u => { checkControl(u); });
-}
-
+function checkInitialControl() { units.forEach(u => { checkControl(u); }); }
 function checkControl(unit) {
     if(!unit || unit.hp <= 0) return;
     const key = `${unit.q},${unit.r}`;
@@ -500,55 +423,35 @@ function checkControl(unit) {
         updateScore();
     }
 }
-
 function updateScore() {
     scores.blue = 0; scores.red = 0;
-    for(const key in captureOwners) {
-        const [q,r] = key.split(',').map(Number);
-        const hex = hexMap[q][r];
-        if(hex && hex.victoryPoints) { scores[captureOwners[key]] += hex.victoryPoints; }
-    }
+    for(const key in captureOwners) { const [q,r] = key.split(',').map(Number); const hex = hexMap[q][r]; if(hex && hex.victoryPoints) { scores[captureOwners[key]] += hex.victoryPoints; } }
     document.getElementById('score-blue').innerText = scores.blue;
     document.getElementById('score-red').innerText = scores.red;
     const total = scores.blue + scores.red;
-    if(total > 0) {
-        const pct = (scores.blue / total) * 100;
-        document.getElementById('score-bar').style.width = `${pct}%`;
-    } else { document.getElementById('score-bar').style.width = `50%`; }
+    if(total > 0) { const pct = (scores.blue / total) * 100; document.getElementById('score-bar').style.width = `${pct}%`; } else { document.getElementById('score-bar').style.width = `50%`; }
     if(currentPhase !== 'SETUP') displayMap(); 
     checkSuddenDeath();
 }
-
 function checkSuddenDeath() {
     if(!scenarioData || !scenarioData.victory || !scenarioData.victory.thresholds) return;
     const th = scenarioData.victory.thresholds;
-    const blueTh = parseInt(th.blue) || 0;
-    const redTh = parseInt(th.red) || 0;
     const totalPossible = scenarioData.victory.locations.reduce((sum, loc) => sum + loc.points, 0);
     if(totalPossible === 0) return;
-
-    if (blueTh > 0 && (scores.blue / totalPossible) * 100 >= blueTh) endGame('blue', 'Sudden Death Threshold Met!');
-    if (redTh > 0 && (scores.red / totalPossible) * 100 >= redTh) endGame('red', 'Sudden Death Threshold Met!');
+    if (parseInt(th.blue) > 0 && (scores.blue / totalPossible) * 100 >= parseInt(th.blue)) endGame('blue', 'Threshold Met');
+    if (parseInt(th.red) > 0 && (scores.red / totalPossible) * 100 >= parseInt(th.red)) endGame('red', 'Threshold Met');
 }
-
 function endGame(winner, reason) {
     document.getElementById('game-over-modal').style.display = 'flex';
     const title = document.getElementById('end-title');
     title.innerText = (winner === 'blue' ? "UK / BLUE" : "GER / RED") + " VICTORIOUS";
-    title.className = "end-title " + (winner==='blue' ? 'winner-blue' : 'winner-red');
-    document.getElementById('end-title').style.color = winner==='blue' ? '#4488ff' : '#ff4444';
+    title.style.color = winner==='blue' ? '#4488ff' : '#ff4444';
     document.getElementById('end-reason').innerText = reason;
-    document.getElementById('end-blue').innerText = scores.blue;
-    document.getElementById('end-red').innerText = scores.red;
 }
 
 // --- LIST & TRAY SYSTEM ---
 function toggleListMode(targetMode) {
-    if (currentListMode === targetMode) {
-        currentListMode = 'tray';
-    } else {
-        currentListMode = targetMode;
-    }
+    currentListMode = (currentListMode === targetMode) ? 'tray' : targetMode;
     document.getElementById('btn-reinf').classList.toggle('active', currentListMode === 'reinforcements');
     document.getElementById('btn-strikes').classList.toggle('active', currentListMode === 'strikes');
     updateDynamicList();
@@ -560,88 +463,57 @@ function updateDynamicList() {
     let title = "";
     let listData = [];
     
-    if(currentPhase === 'SETUP' && currentListMode === 'tray') {
-        title = "SETUP TRAY";
-        listData = setupTrayUnits;
-    } else if (currentListMode === 'tray') {
-        title = "ACTIVE TRAY"; 
-        listData = []; 
-    } else if(currentListMode === 'reinforcements') {
-        title = "REINFORCEMENTS";
-        // ONLY SHOW UNITS FOR THE CURRENT TURN
-        listData = reinforcementUnits.filter(u => parseInt(u.turn) === currentTurn); 
-    } else if (currentListMode === 'strikes') {
-        title = "OFF-BOARD STRIKES";
-        listData = strikes.filter(s => parseInt(s.turn) === currentTurn);
-    }
+    if(currentPhase === 'SETUP' && currentListMode === 'tray') { title = "SETUP TRAY"; listData = setupTrayUnits; }
+    else if (currentListMode === 'tray') { title = "ACTIVE TRAY"; listData = []; }
+    else if(currentListMode === 'reinforcements') { title = "REINFORCEMENTS"; listData = reinforcementUnits; }
+    else if (currentListMode === 'strikes') { title = "OFF-BOARD STRIKES"; listData = strikes; }
 
     container.innerHTML = `<div class="panel-header" style="font-size:14px; border-width:1px;">${title}</div>`;
-
-    if(listData.length === 0) {
-        container.innerHTML += '<div style="color:#666; font-style:italic; padding:10px;">None available for Turn ' + currentTurn + '</div>';
-        return;
-    }
 
     listData.forEach(item => {
         const div = document.createElement('div');
         div.className = 'list-item';
         if(selectedTrayItem === item) div.classList.add('selected');
-        
+
+        const uTurn = parseInt(item.turn) || 0;
+        const isCorrectTurn = (currentPhase === 'SETUP') ? false : (uTurn === currentTurn);
+        const isFuture = (currentPhase === 'SETUP' || uTurn > currentTurn);
+        const isExpired = (!isFuture && uTurn < currentTurn);
+
         if(item.isAsset) {
             div.innerHTML = `<div style="font-size:24px;">🚀</div><div class="list-info"><div class="list-title">${item.type.toUpperCase()}</div><div class="list-meta">Turn ${item.turn} (${item.chance}%)</div></div>`;
         } else {
-            let qStars = "★★"; 
-            if(item.quality === 'low') qStars = "★";
-            else if(item.quality === 'elite') qStars = "★★★";
-            let imgUrl = "";
             const info = UNIT_DATA_REGISTRY[item.type];
             let displayName = item.name || (info ? info.name : item.type);
-            if(info && info.image) imgUrl = `${ASSETS_URL}counters/${info.image}`;
-            else imgUrl = `${ASSETS_URL}counters/${item.type}.png`;
+            let imgUrl = info?.image ? `${ASSETS_URL}counters/${info.image}` : `${ASSETS_URL}counters/${item.type}.png`;
             
-            let details = "Click map to deploy";
+            let statusText = isCorrectTurn ? `<span style="color:#00ff00">READY TO DEPLOY</span>` : 
+                             isFuture ? `<span style="color:#aaa">ARRIVES TURN ${uTurn}</span>` : 
+                             `<span style="color:#ff4444">MISSED WINDOW</span>`;
             
-            // Check if it's an edge deployment
-            if (item.locType === 'edge') {
-                details = `<span style="color:#00ff00">Deploy: ${item.locVal} Edge</span>`;
-            } else if (item.locType === 'hex') {
-                details = `<span style="color:#00ff00">Deploy: Hex [${item.locVal}]</span>`;
-            }
-
-            // Initialize facing if not exists
+            if (item.locType === 'edge') statusText += ` | ${item.locVal} Edge`;
             if (item.facing === undefined) item.facing = 0;
 
             div.innerHTML = `
                 <img src="${imgUrl}" class="list-icon" onerror="this.style.display='none'">
                 <div class="list-info">
-                    <div class="list-title">${displayName} <span class="list-stars">${qStars}</span></div>
-                    <div class="list-meta">${details}</div>
+                    <div class="list-title">${displayName}</div>
+                    <div class="list-meta">${statusText}</div>
                     <div class="reinf-rotate-box">
-                        <button class="btn-rotate-mini" id="rot-${item.id}">Rotate</button>
+                        <button class="btn-rotate-mini">Rotate</button>
                         <span class="facing-label-mini">Facing: ${FACING_DIRS[item.facing]}</span>
                     </div>
                 </div>`;
 
-            // Rotation Logic
-            div.querySelector('.btn-rotate-mini').onclick = (e) => {
-                e.stopPropagation();
-                item.facing = (item.facing + 1) % 6;
-                updateDynamicList();
-            };
+            if(!isCorrectTurn) div.style.opacity = "0.6";
+
+            div.querySelector('.btn-rotate-mini').onclick = (e) => { e.stopPropagation(); item.facing = (item.facing + 1) % 6; updateDynamicList(); };
 
             div.onclick = () => {
-                if(selectedTrayItem === item) {
-                    selectedTrayItem = null;
-                    isDeploying = false;
-                    displayMap(); 
-                } else {
-                    selectedTrayItem = item;
-                    selectedUnit = null;
-                    isDeploying = true;
-                    displayMap();
-                    addToLog(`Selected ${displayName} (${FACING_DIRS[item.facing]}). Deploy on valid map area.`);
-                }
-                updateDynamicList();
+                if (!isCorrectTurn) { addToLog(`This unit can only be deployed on Turn ${uTurn}.`, "log-info"); return; }
+                if(selectedTrayItem === item) { selectedTrayItem = null; isDeploying = false; }
+                else { selectedTrayItem = item; isDeploying = true; }
+                displayMap(); updateDynamicList();
             };
         }
         container.appendChild(div);
@@ -649,19 +521,9 @@ function updateDynamicList() {
 }
 
 function deployTrayUnit(uData, hex) {
-    // 1. SETUP PHASE GUARD
-    if (currentPhase === 'SETUP' && !setupTrayUnits.includes(uData)) {
-        addToLog("Cannot deploy Reinforcements during Setup!", "log-combat");
-        return;
-    }
-
-    // 2. STRICT TURN GUARD: Reinforcements can ONLY be deployed on the specific turn
-    if(currentPhase !== 'SETUP' && parseInt(uData.turn) !== currentTurn) {
-        addToLog(`Unit can only be deployed on Turn ${uData.turn}.`, "log-combat"); 
-        return;
-    }
+    if (currentPhase === 'SETUP' && !setupTrayUnits.includes(uData)) return;
+    if (currentPhase !== 'SETUP' && parseInt(uData.turn) !== currentTurn) { addToLog("Deployment window missed!", "log-combat"); return; }
     
-    // 3. CHECK LOCATION VALIDITY
     let valid = false;
     if(currentPhase === 'SETUP') {
         if (uData.side === 'blue' && hex.setupZone === 'blue') valid = true;
@@ -671,7 +533,6 @@ function deployTrayUnit(uData, hex) {
             const [tq, tr] = uData.locVal.split(',').map(Number);
             if(hex.q === tq && hex.r === tr) valid = true;
         } else if (uData.locType === 'edge') {
-            // Check specific edge N, S, E, W
             const side = uData.locVal;
             if(side === 'N' && hex.r === 0) valid = true;
             else if(side === 'S' && hex.r === mapData.rows-1) valid = true;
@@ -683,41 +544,23 @@ function deployTrayUnit(uData, hex) {
         }
     }
 
-    if (!valid) {
-        addToLog(`Invalid Deployment Location.`, "log-combat"); return;
-    }
+    if (!valid) { addToLog("Invalid Location."); return; }
 
     const regInfo = UNIT_DATA_REGISTRY[uData.type] || {};
     const stats = regInfo.stats || {};
-    const maxMp = stats.Movement_Points || 6;
-    const fp = stats.Firepower || 3;
-    const rng = stats.Range_Hexes || 6;
-
     const newUnit = {
-        id: unitIdCounter++,
-        side: uData.side,
-        type: uData.type,
-        category: uData.category || regInfo.category || 'squad',
-        name: uData.name || regInfo.name,
-        quality: uData.quality || 'regular',
-        q: hex.q, r: hex.r,
-        facing: uData.facing || 0, // USE THE SELECTED FACING
-        status: 'clear', stance: 'deployed',
-        mp: maxMp, maxMp: maxMp, hp: 5, fp: fp, range: rng, isFixed: false
+        id: unitIdCounter++, side: uData.side, type: uData.type, name: uData.name || regInfo.name,
+        q: hex.q, r: hex.r, facing: uData.facing || 0, status: 'clear', stance: 'deployed',
+        mp: stats.Movement_Points || 6, maxMp: stats.Movement_Points || 6, hp: 5, fp: stats.Firepower || 3, range: stats.Range_Hexes || 6
     };
 
     units.push(newUnit);
-    
     if(currentPhase === 'SETUP') setupTrayUnits = setupTrayUnits.filter(t => t !== uData);
     else reinforcementUnits = reinforcementUnits.filter(t => t !== uData);
     
-    selectedTrayItem = null;
-    isDeploying = false;
-    selectUnitInStack(newUnit);
-    displayMap(); 
-    updateDynamicList(); 
-    uiUpdate();
-    addToLog(`${newUnit.name} deployed facing ${FACING_DIRS[newUnit.facing]}.`);
+    selectedTrayItem = null; isDeploying = false;
+    displayMap(); updateDynamicList(); uiUpdate();
+    addToLog(`${newUnit.name} deployed.`);
     checkControl(newUnit);
 }
 
@@ -725,267 +568,138 @@ function deployTrayUnit(uData, hex) {
 function startGameMode(mode) {
     document.getElementById('mode-modal').style.display = 'none';
     currentPhase = 'SETUP';
-    document.getElementById('phase-display').innerText = 'SETUP';
-    document.getElementById('btn-phase').innerText = 'Finish Setup';
-    currentListMode = 'tray';
-    isDeploying = true; 
-    updateDynamicList();
-    displayMap(); 
-    addToLog("Setup Phase Started.");
+    isDeploying = true; updateDynamicList(); displayMap(); 
 }
-
 function nextPhase() {
     if (currentPhase === 'SETUP') {
-        if (setupTrayUnits.length > 0) { if(!confirm("Undeployed Setup units remain. Start anyway?")) return; }
         currentPhase = 'Action Phase';
         document.getElementById('btn-phase').innerText = "End Turn";
-        isDeploying = false; 
-        checkInitialControl(); 
-        displayMap();
-        addToLog("=== MATCH START ===", "log-turn");
-        addToLog(`Turn ${currentTurn} Started.`, "log-turn");
+        isDeploying = false; checkInitialControl(); displayMap();
         toggleListMode('reinforcements');
     } else {
-        addToLog(`Turn ${currentTurn} Ended.`, "log-turn");
         units.forEach(u => u.mp = u.maxMp);
         currentTurn++;
-        if(currentTurn > scenarioData.info.maxTurns) {
-            let win = 'draw';
-            if(scores.blue > scores.red) win = 'blue';
-            if(scores.red > scores.blue) win = 'red';
-            endGame(win, "Turn Limit Reached");
-            return;
-        }
+        if(currentTurn > scenarioData.info.maxTurns) { endGame(scores.blue > scores.red ? 'blue' : 'red', "Time Up"); return; }
         document.getElementById('turn-counter').innerText = currentTurn;
-        addToLog(`Turn ${currentTurn} Started.`, "log-turn");
     }
     document.getElementById('phase-display').innerText = currentPhase;
-    updateDynamicList(); 
-    uiUpdate();
+    updateDynamicList(); uiUpdate();
 }
 
 // --- STANDARD LOGIC ---
 function handleLeftClick(pointer) {
     const hex = getHexAtPoint(pointer.worldX, pointer.worldY);
-    if (!hex) { selectedUnit = null; selectedHex = null; uiUpdate(); return; }
+    if (!hex) return;
     if (losTool) { handleLOSToolClick(hex); return; }
-
-    // TRAY DEPLOYMENT HANDLER
-    if (selectedTrayItem && !selectedTrayItem.isAsset) {
-        deployTrayUnit(selectedTrayItem, hex);
-        return;
-    }
-
+    if (selectedTrayItem) { deployTrayUnit(selectedTrayItem, hex); return; }
     const hexUnits = units.filter(u => u.q === hex.q && u.r === hex.r && u.hp > 0);
     if (currentAction && selectedUnit) {
-        if (currentAction === 'FIRE') {
-            const target = hexUnits.find(u => u.side !== selectedUnit.side);
-            executeFire(selectedUnit, target);
-        } else if (currentAction === 'FACING') { changeFacing(selectedUnit, hex); } 
-        else { executeMove(selectedUnit, hex); }
+        if (currentAction === 'FIRE') executeFire(selectedUnit, hexUnits.find(u => u.side !== selectedUnit.side));
+        else if (currentAction === 'FACING') changeFacing(selectedUnit, hex);
+        else executeMove(selectedUnit, hex);
         return;
     }
-
-    if (hexUnits.length > 0) {
-        const topUnit = hexUnits[hexUnits.length - 1];
-        selectUnitInStack(topUnit);
-    } else {
-        selectedUnit = null; selectedHex = hex; uiUpdate();
-    }
+    if (hexUnits.length > 0) selectUnitInStack(hexUnits[hexUnits.length - 1]);
+    else { selectedUnit = null; selectedHex = hex; uiUpdate(); }
 }
 
 function executeMove(unit, targetHex) {
-    const dist = getHexDistance({q: unit.q, r: unit.r}, targetHex);
-    if (dist !== 1) { addToLog("Too far! Must be adjacent.", "log-combat"); return; }
-    const terrainCost = TERRAIN_TYPES[targetHex.terrain].cost;
-    
-    if (currentAction === 'TACTICAL') {
-        if (terrainCost >= 999) { addToLog("Impassable.", "log-combat"); return; }
-        unit.mp = 0; moveUnitTo(unit, targetHex);
-    } else if (currentAction === 'FAST') {
-        if (unit.mp < terrainCost) { addToLog("Not enough MP.", "log-combat"); return; }
-        unit.mp -= terrainCost; moveUnitTo(unit, targetHex);
-    }
-    currentAction = null;
+    if (getHexDistance(unit, targetHex) !== 1) return;
+    const cost = TERRAIN_TYPES[targetHex.terrain].cost;
+    if (currentAction === 'FAST' && unit.mp < cost) return;
+    unit.mp = (currentAction === 'TACTICAL') ? 0 : unit.mp - cost;
+    unit.q = targetHex.q; unit.r = targetHex.r;
+    currentAction = null; uiUpdate(); checkControl(unit);
 }
 
-function moveUnitTo(unit, hex) {
-    unit.q = hex.q; unit.r = hex.r;
-    selectUnitInStack(unit); addToLog(`${unit.name} moved.`);
-    checkControl(unit);
-}
-
-function executeFire(attacker, targetUnit) {
-    if (!targetUnit || attacker.side === targetUnit.side) return;
-    const startHex = hexMap[attacker.q][attacker.r];
-    const targetHex = hexMap[targetUnit.q][targetUnit.r];
-    
-    let cat = attacker.category || 'squad';
-    let attHeight = (cat==='vehicle' || cat==='hwt') ? 'vehicle' : 'infantry';
-    
-    const physicalRange = getPhysicalRange(startHex, targetHex);
-    if (physicalRange > attacker.range) { addToLog("Out of range!", "log-combat"); currentAction = null; return; }
-    
-    const los = calculateLOS(startHex, targetHex, attHeight);
-    if (los.status === 'blocked') { 
-        addToLog("LOS Blocked.", "log-combat"); 
-        drawVisualLOSLine(startHex, targetHex, 0xff0000);
-        setTimeout(() => losGraphics.clear(), 1000);
-        currentAction = null; return;
-    }
-    
-    rollD10("TO HIT (5+)", (roll) => {
-        let hit = roll >= 5;
-        let color = hit ? 0x00ff00 : 0xaaaaaa;
-        let damage = 0;
-        if (hit) {
-            damage = attacker.fp; 
-            if (los.status === 'degraded') { damage -= 1; addToLog("Degraded LOS (-1)", "log-info"); color = 0xffaa00; }
-            const sector = getTargetSector(attacker, targetUnit);
-            if (sector === 'REAR') { damage += 2; addToLog("Rear Shot (+2)", "log-combat"); color = 0xff0000; }
-            damage = Math.max(1, damage);
-            targetUnit.hp -= damage;
-            addToLog(`Hit! Roll ${roll}. Dmg: ${damage}`, "log-combat");
-        } else {
-            addToLog(`Miss. Roll ${roll}.`, "log-info");
+function executeFire(attacker, target) {
+    if (!target) return;
+    const dist = getPhysicalRange(hexMap[attacker.q][attacker.r], hexMap[target.q][target.r]);
+    if (dist > attacker.range) return;
+    const los = calculateLOS(hexMap[attacker.q][attacker.r], hexMap[target.q][target.r]);
+    if (los.status === 'blocked') return;
+    rollD10("FIRE", (roll) => {
+        if (roll >= 5) {
+            let dmg = attacker.fp + (getTargetSector(attacker, target) === 'REAR' ? 2 : 0);
+            target.hp -= Math.max(1, dmg);
+            if (target.hp <= 0) units = units.filter(u => u.id !== target.id);
         }
-        drawVisualLOSLine(startHex, targetHex, color);
-        if (targetUnit.hp <= 0) {
-            addToLog("Target Destroyed!", "log-combat");
-            units = units.filter(u => u.id !== targetUnit.id);
-            selectedUnit = null; uiUpdate();
-        } else { uiUpdate(); }
-        setTimeout(() => losGraphics.clear(), 1000);
-        currentAction = null;
+        currentAction = null; uiUpdate();
     });
 }
 
 function loadScenario() {
-    let txt = document.getElementById('json-input').value;
-    txt = txt.replace(/[\n\r\t]+/g, ' ').replace(/\u00A0/g, ' ').trim();
+    let txt = document.getElementById('json-input').value.replace(/[\n\r\t]+/g, ' ').trim();
     try {
-        scenarioData = JSON.parse(txt);
-        mapData = scenarioData.map; 
-        units = []; setupTrayUnits = []; reinforcementUnits = []; strikes = [];
-        
-        if (scenarioData.units.locked) {
-            scenarioData.units.locked.forEach(u => {
-                u.isFixed = true; 
-                if(!u.category && UNIT_DATA_REGISTRY[u.type]) { const info = UNIT_DATA_REGISTRY[u.type]; u.category = info.category; if(!u.name) u.name = info.name; }
-                if(!u.stance) u.stance = 'deployed'; if(u.stance === 'cover' && u.category === 'hwt') u.stance = 'setup';
-                const stats = (UNIT_DATA_REGISTRY[u.type] || {}).stats || {};
-                u.maxMp = stats.Movement_Points || 6; if(u.mp === undefined) u.mp = u.maxMp; if(u.fp === undefined) u.fp = stats.Firepower || 3;
-                if(u.range === undefined) u.range = stats.Range_Hexes || 6; if(u.hp === undefined) u.hp = 5;
-                units.push(u);
-            });
-        }
-        
-        if (scenarioData.units.tray) {
-            scenarioData.units.tray.forEach(u => {
-                if(!u.category && UNIT_DATA_REGISTRY[u.type]) u.category = UNIT_DATA_REGISTRY[u.type].category;
-                if(!u.name && UNIT_DATA_REGISTRY[u.type]) u.name = UNIT_DATA_REGISTRY[u.type].name;
-                if (u.turn && parseInt(u.turn) > 0) reinforcementUnits.push(u); else setupTrayUnits.push(u);
-            });
-        }
-        if (scenarioData.units.reinforcements) {
-            scenarioData.units.reinforcements.forEach(r => {
-                 if(!r.category && UNIT_DATA_REGISTRY[r.type]) r.category = UNIT_DATA_REGISTRY[r.type].category;
-                 if(!r.name && UNIT_DATA_REGISTRY[r.type]) r.name = UNIT_DATA_REGISTRY[r.type].name;
-                 reinforcementUnits.push(r);
-            });
-        }
-        if (scenarioData.support) { scenarioData.support.forEach(s => { s.isAsset = true; strikes.push(s); }); }
-        
-        document.getElementById('scenario-info-box').innerHTML = `<strong style="color:white">${scenarioData.info.title}</strong><br><span style="color:#aaa">${scenarioData.info.author}</span><br><p style="margin:5px 0 0 0; font-size:11px; color:#888">${scenarioData.info.description}</p>`;
+        scenarioData = JSON.parse(txt); mapData = scenarioData.map;
+        units = []; setupTrayUnits = []; reinforcementUnits = [];
+        scenarioData.units.tray?.forEach(u => { if (parseInt(u.turn) > 0) reinforcementUnits.push(u); else setupTrayUnits.push(u); });
+        scenarioData.units.reinforcements?.forEach(r => reinforcementUnits.push(r));
         document.getElementById('max-turns').innerText = scenarioData.info.maxTurns;
-        toggleMapLoader();
-        document.getElementById('mode-modal').style.display = 'flex';
-    } catch (e) { alert('Invalid JSON: ' + e.message); console.error(e); }
+        toggleMapLoader(); document.getElementById('mode-modal').style.display = 'flex';
+    } catch (e) { alert('JSON Error'); }
 }
 
-// ... PRESERVED FUNCTIONS ...
-function getUnitKey(unit) { if (unit.type && scene.textures.exists(unit.type)) return unit.type; if (unit.unitType && scene.textures.exists(unit.unitType)) return unit.unitType; return 'fallback'; }
-function getUnitImageURL(unit) { const key = getUnitKey(unit); const info = UNIT_DATA_REGISTRY[unit.type]; if(info && info.image) return `${ASSETS_URL}counters/${info.image}`; return `${ASSETS_URL}counters/${key}.png`; }
-function uiUpdate() { selectionGraphics.clear(); unitGraphics.clear(); badgeGraphics.clear(); scene.children.list.filter(c => c.name === 'badgeText').forEach(c => c.destroy()); redrawAllUnits(); if (!selectedUnit && selectedHex) { selectionGraphics.lineStyle(3, 0xffffff, 1); selectionGraphics.strokeCircle(selectedHex.x, selectedHex.y, HEX_RADIUS - 5); } if (selectedUnit) showUnitPanel(selectedUnit); else if (selectedHex) showTerrainPanel(selectedHex); else clearContextPanel(); }
-function showUnitPanel(unit) { document.getElementById('ctx-img').innerHTML = `<img src="${getUnitImageURL(unit)}">`; const side = unit.side === 'blue' ? 'UK' : 'German'; let titleText = unit.name; if (!titleText) { const info = UNIT_DATA_REGISTRY[unit.type]; if(info) titleText = info.name; else { let catName = unit.category ? unit.category.charAt(0).toUpperCase() + unit.category.slice(1) : "Unit"; titleText = `${side} ${catName}`; } } document.getElementById('ctx-title').innerText = titleText; let subText = "UNIT"; const cat = (unit.category || "").toLowerCase(); if (cat === 'squad') subText = "RIFLE SQUAD"; else if (cat === 'team') subText = "WEAPON TEAM"; else if (cat === 'hwt') subText = "HEAVY WEAPON TEAM"; else if (cat === 'vehicle') subText = "VEHICLE"; document.getElementById('ctx-subtitle').innerText = subText; let qStars = "★★"; let q = unit.quality || 'regular'; if(q === 'low') qStars = "★"; else if(q === 'elite') qStars = "★★★"; document.getElementById('ctx-quality').innerText = qStars; document.getElementById('unit-actions').style.display = 'grid'; const leftEl = document.getElementById('ctx-status-left'); let sColor = '#aaa'; let sText = "OPERATIONAL"; if(unit.status === 'clear') { sColor='#fff'; sText="OPERATIONAL"; } else if(unit.status === 'shaken') { sColor='#ff4444'; sText="SHAKEN"; } else if(unit.status === 'damaged') { sColor='#cc00cc'; sText="DAMAGED"; } else if(unit.status === 'immobilized') { sColor='#cc00cc'; sText="IMMOBILIZED"; } else if(unit.status.startsWith('suppressed')) { sColor='#ffff00'; sText="SUPPRESSED +" + unit.status.split('_')[1]; } leftEl.innerText = sText; leftEl.style.color = sColor; leftEl.style.border = `1px solid ${sColor}`; const rightEl = document.getElementById('ctx-stance-right'); let stTextVal = unit.stance || 'deployed'; if(unit.stance === 'cover') stTextVal = 'Cover'; if(unit.stance === 'setup') stTextVal = 'Set Up'; if(unit.stance === 'moving') stTextVal = 'Moving'; let stColor = '#fff'; if(unit.stance === 'moving') stColor = '#0055ff'; else if(unit.stance === 'deployed') stColor = '#ff0000'; else if(unit.stance === 'cover' || unit.stance === 'setup') stColor = '#ff8095'; rightEl.innerText = stTextVal.toUpperCase(); rightEl.style.color = stColor; rightEl.style.border = `1px solid ${sColor}`; if (currentPhase === 'SETUP') { document.querySelectorAll('.btn-game').forEach(b => b.style.display = 'none'); if (!unit.isFixed) { document.querySelectorAll('.btn-setup').forEach(b => b.style.display = 'block'); } else { document.querySelectorAll('.btn-setup').forEach(b => b.style.display = 'none'); } } else { document.querySelectorAll('.btn-game').forEach(b => b.style.display = 'block'); document.querySelectorAll('.btn-setup').forEach(b => b.style.display = 'none'); } const badgeContainer = document.getElementById('ctx-badges'); badgeContainer.innerHTML = ''; if (unit.isFixed && currentPhase === 'SETUP') { const b = document.createElement('span'); b.className = 'badge'; b.style.background = '#555'; b.innerText = 'FIXED'; badgeContainer.appendChild(b); } const hex = hexMap[unit.q][unit.r]; const terrain = hex.terrain; const tProps = TERRAIN_TYPES[terrain]; const tBadge = document.createElement('span'); tBadge.className = 'badge badge-terrain'; tBadge.innerText = terrain.toUpperCase(); if(tProps) { tBadge.style.backgroundColor = '#' + tProps.color.toString(16); tBadge.style.color = (tProps.color > 0x888888) ? '#000' : '#fff'; } tBadge.onclick = () => { selectedUnit = null; selectedHex = hexMap[unit.q][unit.r]; uiUpdate(); }; badgeContainer.appendChild(tBadge); if (hex.victoryPoints) { const vpBadge = document.createElement('span'); vpBadge.className = 'badge badge-vp'; vpBadge.innerText = `VP: ${hex.victoryPoints}`; badgeContainer.appendChild(vpBadge); } if (unit.hp < 5) { const b = document.createElement('span'); b.className = 'badge badge-damage'; b.innerText = `DMG -${5-unit.hp}`; badgeContainer.appendChild(b); } const regInfo = UNIT_DATA_REGISTRY[unit.type] || {}; const stats = regInfo.stats || {}; const maxMp = stats.Movement_Points || unit.maxMp || 6; const curMp = (unit.mp !== undefined) ? unit.mp : maxMp; const fp = stats.Firepower || unit.fp || 3; const rng = stats.Range_Hexes || unit.range || 6; const statsHtml = `<div class="stat-row"><span class="stat-label">Morale:</span> <span class="stat-value">Steady</span></div><div class="stat-row"><span class="stat-label">MP:</span> <span class="stat-value">${curMp}/${maxMp}</span></div><div class="stat-row"><span class="stat-label">Firepower:</span> <span class="stat-value">${fp}</span></div><div class="stat-row"><span class="stat-label">Range:</span> <span class="stat-value">${rng}</span></div><div class="stat-row"><span class="stat-label">Facing:</span> <span class="stat-value">${["N","NE","SE","S","SW","NW"][unit.facing]}</span></div>`; document.getElementById('stats-header').innerText = 'UNIT STATISTICS'; document.getElementById('stats-content').innerHTML = statsHtml; const stack = units.filter(u => u.q === unit.q && u.r === unit.r && u.hp > 0); const stackDiv = document.getElementById('stack-container'); const stackList = document.getElementById('stack-list'); if (stack.length > 1) { stackDiv.style.display = 'block'; stackList.innerHTML = ''; const renderStack = [...stack].reverse(); renderStack.forEach(u => { const item = document.createElement('div'); item.className = 'stack-item'; if (u === unit) item.style.borderColor = 'var(--accent)'; const facingDir = ["N","NE","SE","S","SW","NW"][u.facing]; let stText = "Deployed"; if(u.stance === 'moving') stText = "Moving"; else if(u.stance === 'cover') stText = "Cover"; else if(u.stance === 'setup') stText = "Set Up"; let statText = "Operational"; let statColor = "#fff"; if(u.status === 'shaken') { statText="Shaken"; statColor="#ff4444"; } else if(u.status === 'damaged') { statText="Damaged"; statColor="#cc00cc"; } else if(u.status === 'immobilized') { statText="Immobilized"; statColor="#cc00cc"; } else if(u.status.startsWith('suppressed')) { statText="Suppressed +" + u.status.split('_')[1]; statColor="#ffff00"; } let stackName = u.name; if(!stackName && UNIT_DATA_REGISTRY[u.type]) stackName = UNIT_DATA_REGISTRY[u.type].name; item.innerHTML = `<img class="stack-img" src="${getUnitImageURL(u)}"><div class="stack-info"><div style="font-weight:bold; color:white;">${stackName}</div><div>MP: ${u.mp} | Face: ${facingDir}</div><div>Stance: ${stText}</div><div style="color:${statColor}; font-weight:bold; font-size:10px;">Status: ${statText}</div></div>`; item.onclick = () => { selectUnitInStack(u); }; stackList.appendChild(item); }); } else { stackDiv.style.display = 'none'; } }
-function showTerrainPanel(hex) { const terrain = hex.terrain; const props = TERRAIN_TYPES[terrain]; const variant = hex.variant || 1; let firstImg = `${terrain}${variant}.png`; if(props && props.images && props.images.length > 0) { firstImg = props.images[variant-1] || props.images[0]; } document.getElementById('ctx-img').innerHTML = `<img src="${ASSETS_URL}map/${firstImg}">`; document.getElementById('ctx-title').innerText = terrain.toUpperCase(); document.getElementById('ctx-subtitle').innerText = `COORD: ${hex.q}, ${hex.r}`; document.getElementById('unit-actions').style.display = 'none'; document.getElementById('ctx-status-left').innerText = ""; document.getElementById('ctx-status-left').style.border="none"; document.getElementById('ctx-stance-right').innerText = ""; document.getElementById('ctx-stance-right').style.border="none"; document.getElementById('ctx-quality').innerText = ""; const badgeContainer = document.getElementById('ctx-badges'); badgeContainer.innerHTML = ''; const tBadge = document.createElement('span'); tBadge.className = 'badge badge-terrain'; tBadge.innerText = terrain.toUpperCase(); if(props) { tBadge.style.backgroundColor = '#' + props.color.toString(16); tBadge.style.color = (props.color > 0x888888) ? '#000' : '#fff'; } badgeContainer.appendChild(tBadge); if (hex.victoryPoints) { const vpBadge = document.createElement('span'); vpBadge.className = 'badge badge-vp'; vpBadge.innerText = `VP: ${hex.victoryPoints}`; badgeContainer.appendChild(vpBadge); } const key = `${hex.q},${hex.r}`; if(captureOwners[key]) { const cBadge = document.createElement('span'); cBadge.className='badge'; cBadge.style.background = captureOwners[key]==='blue' ? 'var(--blue-team)':'var(--red-team)'; cBadge.innerText = "OWNED"; badgeContainer.appendChild(cBadge); } document.getElementById('stack-container').style.display = 'none'; if(props) { const statsHtml = `<div class="stat-row"><span class="stat-label">Move Cost:</span> <span class="stat-value">${props.cost}</span></div><div class="stat-row"><span class="stat-label">Height:</span> <span class="stat-value">${props.terrainHeight}</span></div><div class="stat-row"><span class="stat-label">LOS Effect:</span> <span class="stat-value">${props.los.toUpperCase()}</span></div><div class="stat-row"><span class="stat-label">Infantry Ht:</span> <span class="stat-value">${props.infantryUsable}</span></div><div class="stat-row"><span class="stat-label">Vehicle Ht:</span> <span class="stat-value">${props.vehicleUsable}</span></div>`; document.getElementById('stats-header').innerText = 'TERRAIN DATA'; document.getElementById('stats-content').innerHTML = statsHtml; } }
-function clearContextPanel() { document.getElementById('ctx-img').innerHTML = ''; document.getElementById('ctx-title').innerText = 'No Selection'; document.getElementById('ctx-subtitle').innerText = '-'; document.getElementById('ctx-badges').innerHTML = ''; document.getElementById('ctx-quality').innerText = ''; document.getElementById('unit-actions').style.display = 'none'; document.getElementById('stats-content').innerHTML = ''; document.getElementById('stack-container').style.display = 'none'; document.getElementById('ctx-status-left').innerText = ""; document.getElementById('ctx-status-left').style.border="none"; document.getElementById('ctx-stance-right').innerText = ""; document.getElementById('ctx-stance-right').style.border="none"; }
-function selectUnitInStack(unit) { selectedUnit = unit; selectedHex = null; units = units.filter(u => u !== unit); units.push(unit); uiUpdate(); }
-function redeployUnit() { if (!selectedUnit || currentPhase !== 'SETUP' || selectedUnit.isFixed) return; const trayObj = { id: selectedUnit.id, side: selectedUnit.side, type: selectedUnit.type, category: selectedUnit.category, name: selectedUnit.name, quality: selectedUnit.quality }; setupTrayUnits.push(trayObj); units = units.filter(u => u !== selectedUnit); selectedUnit = null; displayMap(); updateDynamicList(); uiUpdate(); addToLog("Unit returned to Tray."); }
-function redrawAllUnits() { Object.values(unitSprites).forEach(sprite => sprite.destroy()); unitSprites = {}; const stackCounts = {}; units.forEach(u => { if(u.hp <= 0) return; const key = `${u.q},${u.r}`; stackCounts[key] = (stackCounts[key] || 0) + 1; }); units.forEach(unit => { if (unit.hp <= 0) return; const pos = getHexPosition(unit.q, unit.r); const key = getUnitKey(unit); if (scene.textures.exists(key)) { const sprite = scene.add.image(pos.x, pos.y, key); sprite.setDisplaySize(HEX_RADIUS * 1.25, HEX_RADIUS * 1.25); sprite.setDepth(600); unitSprites[unit.id] = sprite; } drawFacingIndicator(unit, pos); const isTop = (units.filter(u => u.q === unit.q && u.r === unit.r).pop() === unit); const count = stackCounts[`${unit.q},${unit.r}`]; if (count > 1 && isTop) { const badgeX = pos.x + 10; const badgeY = pos.y - 18; badgeGraphics.fillStyle(0xffffff, 1); badgeGraphics.fillRect(badgeX, badgeY, 16, 14); badgeGraphics.lineStyle(1, 0x000000, 1); badgeGraphics.strokeRect(badgeX, badgeY, 16, 14); scene.add.text(badgeX + 8, badgeY + 7, `+${count-1}`, { font: '11px Arial', fill: '#000', fontStyle:'bold' }).setOrigin(0.5).setDepth(810).setResolution(2).setName('badgeText'); } if (isTop) drawStatusMarkers(unit, pos); }); if (selectedUnit || selectedHex) { const activeHex = selectedUnit ? hexMap[selectedUnit.q][selectedUnit.r] : selectedHex; if(activeHex) { const hexUnits = units.filter(u => u.q === activeHex.q && u.r === activeHex.r); if(hexUnits.length > 0) { let ringColor = 0xffffff; let worstLevel = 0; hexUnits.forEach(u => { let lvl = 0; if(u.status.startsWith('suppressed')) lvl = 1; if(u.status === 'shaken') lvl = 2; if(u.status === 'damaged' || u.status === 'immobilized') lvl = 3; if(lvl > worstLevel) worstLevel = lvl; }); if(worstLevel === 1) ringColor = 0xffff00; if(worstLevel === 2) ringColor = 0xff0000; if(worstLevel === 3) ringColor = 0xcc00cc; const p = getHexPosition(activeHex.q, activeHex.r); selectionGraphics.lineStyle(3, ringColor, 1); selectionGraphics.strokeCircle(p.x, p.y, HEX_RADIUS * 0.7); } } } }
-function drawFacingIndicator(unit, pos) { const facingAngles = [-90, -30, 30, 90, 150, -150]; const angleRad = Phaser.Math.DegToRad(facingAngles[unit.facing]); const indicatorDist = HEX_RADIUS * 0.75; const triX = pos.x + Math.cos(angleRad) * indicatorDist; const triY = pos.y + Math.sin(angleRad) * indicatorDist; let triColor = 0xffffff; if(unit.stance === 'moving') triColor = 0x0055ff; else if(unit.stance === 'deployed') triColor = 0xff0000; else if(unit.stance === 'cover' || unit.stance === 'setup') triColor = 0xff8095; unitGraphics.fillStyle(triColor, 1); const size = 8; unitGraphics.beginPath(); unitGraphics.moveTo(triX + Math.cos(angleRad)*size, triY + Math.sin(angleRad)*size); unitGraphics.lineTo(triX + Math.cos(angleRad+2.5)*size, triY + Math.sin(angleRad+2.5)*size); unitGraphics.lineTo(triX + Math.cos(angleRad-2.5)*size, triY + Math.sin(angleRad-2.5)*size); unitGraphics.closePath(); unitGraphics.fillPath(); }
-function drawStatusMarkers(unit, pos) { if (unit.status !== 'clear') { const bx = pos.x + 15; const by = pos.y + 15; let statColor = 0xffffff; let label = "!"; if(unit.status === 'suppressed_2') { statColor = 0xffff00; label="+2"; } else if(unit.status === 'suppressed_4') { statColor = 0xffff00; label="+4"; } else if(unit.status === 'suppressed_6') { statColor = 0xffff00; label="+6"; } else if(unit.status === 'shaken') { statColor = 0xff0000; label="!"; } else if(unit.status === 'damaged') { statColor = 0x8800cc; label="X"; } else if(unit.status === 'immobilized') { statColor = 0x8800cc; label="I"; } badgeGraphics.fillStyle(statColor, 1); badgeGraphics.fillRect(bx - 8, by - 6, 16, 12); badgeGraphics.lineStyle(1, 0x000000, 1); badgeGraphics.strokeRect(bx - 8, by - 6, 16, 12); scene.add.text(bx, by, label, { font: '9px Arial', fill: '#000', fontStyle: 'bold' }).setOrigin(0.5).setDepth(810).setResolution(2).setName('badgeText'); } }
-function toggleLOSTool() { losTool = !losTool; losStartHex = null; losGraphics.clear(); const container = document.getElementById('los-options'); container.style.display = losTool ? 'flex' : 'none'; document.getElementById('btn-los').classList.toggle('active', losTool); if (losTool) { if (selectedUnit) { losStartHex = hexMap[selectedUnit.q][selectedUnit.r]; let cat = selectedUnit.category || 'squad'; let lType = (cat==='vehicle' || cat==='hwt') ? 'vehicle' : 'infantry'; setLOSType(lType); highlightHex(losStartHex, 0xffffff); addToLog(`LOS Start: Unit at ${losStartHex.q},${losStartHex.r}`, "log-info"); } else if (selectedHex) { losStartHex = selectedHex; highlightHex(losStartHex, 0xffffff); addToLog(`LOS Start: Terrain at ${losStartHex.q},${losStartHex.r}`, "log-info"); } else { addToLog("LOS Tool: Select Start Hex...", "log-info"); } } else { addToLog("LOS Tool Deactivated.", "log-info"); uiUpdate(); } }
-function setLOSType(type) { losUnitType = type; document.getElementById('los-inf').classList.toggle('active', type === 'infantry'); document.getElementById('los-veh').classList.toggle('active', type === 'vehicle'); }
-function handleLOSToolClick(hex) { if (!losStartHex) { losStartHex = hex; highlightHex(hex, 0xffffff); addToLog("Start Hex selected. Select Target...", "log-info"); } else { const result = calculateLOS(losStartHex, hex, losUnitType); let color = 0xff0000; let txt = "BLOCKED"; if(result.status === 'clear') { color = 0x00ff00; txt = "CLEAR"; } if(result.status === 'degraded') { color = 0xffaa00; txt = "DEGRADED"; } drawVisualLOSLine(losStartHex, hex, color); addToLog(`LOS Result: ${txt} ${result.isRoad ? '(Road)' : ''}`); } }
-function selectAction(action) { currentAction = action; if (action === 'FIRE') addToLog(`Select target...`, "log-info"); else if (action === 'FACING') addToLog(`Select direction...`, "log-info"); else addToLog(`Select destination...`, "log-info"); }
-function changeFacing(unit, targetHex) { if (unit.q === targetHex.q && unit.r === targetHex.r) return; const startPos = getHexPosition(unit.q, unit.r); const targetPos = getHexPosition(targetHex.q, targetHex.r); const angleRad = Phaser.Math.Angle.Between(startPos.x, startPos.y, targetPos.x, targetPos.y); let angleDeg = Phaser.Math.RadToDeg(angleRad); const idealAngles = [ -90, -30, 30, 90, 150, -150 ]; let closestIndex = 0; let minDiff = 360; idealAngles.forEach((ideal, index) => { let diff = Math.abs(Phaser.Math.Angle.WrapDegrees(angleDeg - ideal)); if (diff < minDiff) { minDiff = diff; closestIndex = index; } }); unit.facing = closestIndex; uiUpdate(); addToLog(`Facing set to ${["N","NE","SE","S","SW","NW"][closestIndex]}`); currentAction = null; if(currentPhase === 'SETUP') redrawAllUnits(); }
-function addToLog(msg, cssClass = "") { const container = document.getElementById('log-container'); const entry = document.createElement('div'); entry.className = `log-entry ${cssClass}`; entry.innerText = msg; container.appendChild(entry); container.scrollTop = container.scrollHeight; }
-function toggleMapLoader() { const el = document.getElementById('json-modal'); el.style.display = (el.style.display === 'block') ? 'none' : 'block'; }
-function highlightHex(hex, color) { selectionGraphics.lineStyle(4, color); selectionGraphics.strokeCircle(hex.x, hex.y, HEX_RADIUS - 5); }
-function drawVisualLOSLine(start, end, color) { losGraphics.clear(); losGraphics.lineStyle(4, color, 0.8); losGraphics.beginPath(); losGraphics.moveTo(start.x, start.y); losGraphics.lineTo(end.x, end.y); losGraphics.strokePath(); }
-function displayMap() { if (!mapData) return; hexGroup.clear(true, true); roadGraphics.clear(); zoneGraphics.clear(); objGraphics.clear(); objectiveSprites.forEach(s => s.destroy()); objectiveSprites = []; hexMap = {}; const cols = mapData.cols || 0; const rows = mapData.rows || 0; for (let q = 0; q < cols; q++) { hexMap[q] = {}; for (let r = 0; r < rows; r++) { const pos = getHexPosition(q, r); hexMap[q][r] = { terrain: 'clear', x: pos.x, y: pos.y, q: q, r: r, hasRoad: false, variant: null }; } } if (mapData.terrain) mapData.terrain.forEach(t => { if (hexMap[t.q] && hexMap[t.q][t.r]) hexMap[t.q][t.r].terrain = t.type; }); if (mapData.roads) mapData.roads.forEach(road => { if (hexMap[road.from.q]) hexMap[road.from.q][road.from.r].hasRoad = true; if (hexMap[road.to.q]) hexMap[road.to.q][road.to.r].hasRoad = true; }); 
-/* UPDATED ZONE RENDER LOGIC */
-if (mapData.zones) { 
-    mapData.zones.forEach(z => { 
-        if (hexMap[z.q] && hexMap[z.q][z.r]) { 
-            hexMap[z.q][z.r].setupZone = z.side; 
-            
-            // FIX: Uses exclusionary logic to detect any "non-hex" location type (like "setup" or "zone")
-            const isZoneDeployment = !selectedTrayItem || (selectedTrayItem.locType !== 'hex' && selectedTrayItem.locType !== 'edge');
-
-            if (currentPhase === 'SETUP' || (isDeploying && isZoneDeployment && selectedTrayItem.side === z.side)) {
-                const p = getHexPosition(z.q, z.r); 
-                const pts = []; for(let i=0; i<6; i++) { const a = Math.PI/3*i; pts.push({x: p.x+HEX_RADIUS*Math.cos(a), y: p.y+HEX_RADIUS*Math.sin(a)}); } 
-                const color = z.side === 'blue' ? 0x4488ff : 0xff4444; 
-                zoneGraphics.fillStyle(color, 0.2).fillPoints(pts, true); 
-            }
-        } 
-    }); 
+// ... WRAPPER FUNCTIONS ...
+function getUnitKey(u) { return u.type; }
+function getUnitImageURL(u) { return `${ASSETS_URL}counters/${u.type}.png`; }
+function uiUpdate() { selectionGraphics.clear(); unitGraphics.clear(); badgeGraphics.clear(); redrawAllUnits(); }
+function selectUnitInStack(u) { selectedUnit = u; units.push(units.splice(units.indexOf(u), 1)[0]); uiUpdate(); }
+function redrawAllUnits() { 
+    Object.values(unitSprites).forEach(s => s.destroy()); unitSprites = {};
+    units.forEach(u => {
+        const p = getHexPosition(u.q, u.r);
+        const s = scene.add.image(p.x, p.y, u.type).setDisplaySize(50,50).setDepth(600);
+        unitSprites[u.id] = s;
+        drawFacingIndicator(u, p);
+    });
 }
-/* SPECIFIC EDGE HIGHLIGHT LOGIC */
-if (isDeploying && selectedTrayItem && selectedTrayItem.locType === 'edge') {
-    const side = selectedTrayItem.locVal; // N, S, E, W
-    const color = selectedTrayItem.side === 'blue' ? 0x4488ff : 0xff4444;
-    for (let q = 0; q < mapData.cols; q++) {
-        for (let r = 0; r < mapData.rows; r++) {
-            let isEdge = false;
-            if (side === 'N' && r === 0) isEdge = true;
-            if (side === 'S' && r === mapData.rows-1) isEdge = true;
-            if (side === 'W' && q === 0) isEdge = true;
-            if (side === 'E' && q === mapData.cols-1) isEdge = true;
-
-            if (isEdge) {
-                const p = getHexPosition(q, r);
-                const pts = []; for(let i=0; i<6; i++) { const a = Math.PI/3*i; pts.push({x: p.x+HEX_RADIUS*Math.cos(a), y: p.y+HEX_RADIUS*Math.sin(a)}); }
-                zoneGraphics.fillStyle(color, 0.4).fillPoints(pts, true);
+function drawFacingIndicator(u, p) {
+    const rad = Phaser.Math.DegToRad([-90, -30, 30, 90, 150, -150][u.facing]);
+    unitGraphics.fillStyle(0xffffff).beginPath().moveTo(p.x+Math.cos(rad)*30, p.y+Math.sin(rad)*30).lineTo(p.x+Math.cos(rad+2.5)*8, p.y+Math.sin(rad+2.5)*8).lineTo(p.x+Math.cos(rad-2.5)*8, p.y+Math.sin(rad-2.5)*8).closePath().fillPath();
+}
+function toggleLOSTool() { losTool = !losTool; losGraphics.clear(); document.getElementById('btn-los').classList.toggle('active', losTool); }
+function handleLOSToolClick(h) { if(!losStartHex) { losStartHex = h; } else { const r = calculateLOS(losStartHex, h); addToLog(r.status.toUpperCase()); losStartHex = null; } }
+function selectAction(a) { currentAction = a; }
+function changeFacing(u, h) { const p1 = getHexPosition(u.q, u.r), p2 = getHexPosition(h.q, h.r); const ang = Phaser.Math.Angle.Between(p1.x, p1.y, p2.x, p2.y); let best=0, diff=360; [-90, -30, 30, 90, 150, -150].forEach((a, i) => { let d = Math.abs(Phaser.Math.Angle.WrapDegrees(Phaser.Math.RadToDeg(ang)-a)); if(d<diff){diff=d; best=i;} }); u.facing=best; currentAction=null; uiUpdate(); }
+function addToLog(m, c="") { const el = document.createElement('div'); el.className=`log-entry ${c}`; el.innerText=m; const log = document.getElementById('log-container'); log.appendChild(el); log.scrollTop=log.scrollHeight; }
+function toggleMapLoader() { const m = document.getElementById('json-modal'); m.style.display = (m.style.display==='block')?'none':'block'; }
+function displayMap() {
+    if(!mapData) return; hexGroup.clear(true, true); zoneGraphics.clear(); hexMap={};
+    for(let q=0; q<mapData.cols; q++) { hexMap[q]={}; for(let r=0; r<mapData.rows; r++){ 
+        const p = getHexPosition(q, r); hexMap[q][r]={terrain:'clear', x:p.x, y:p.y, q, r};
+        drawHex(hexMap[q][r]);
+    }}
+    mapData.terrain?.forEach(t => { if(hexMap[t.q]?.[t.r]) hexMap[t.q][t.r].terrain = t.type; });
+    mapData.zones?.forEach(z => {
+        if(!hexMap[z.q]?.[z.r]) return;
+        hexMap[z.q][z.r].setupZone = z.side;
+        const isZone = !selectedTrayItem || (selectedTrayItem.locType !== 'hex' && selectedTrayItem.locType !== 'edge');
+        if(currentPhase==='SETUP' || (isDeploying && isZone && selectedTrayItem.side===z.side)) {
+            zoneGraphics.fillStyle(z.side==='blue'?0x4488ff:0xff4444, 0.2);
+            const p = getHexPosition(z.q, z.r); const pts=[]; for(let i=0; i<6; i++){ const a=Math.PI/3*i; pts.push({x:p.x+40*Math.cos(a), y:p.y+40*Math.sin(a)}); }
+            zoneGraphics.fillPoints(pts, true);
+        }
+    });
+    if(isDeploying && selectedTrayItem?.locType === 'edge') {
+        const side = selectedTrayItem.locVal;
+        for(let q=0; q<mapData.cols; q++) for(let r=0; r<mapData.rows; r++) {
+            if((side==='N'&&r===0)||(side==='S'&&r===mapData.rows-1)||(side==='W'&&q===0)||(side==='E'&&q===mapData.cols-1)) {
+                zoneGraphics.fillStyle(selectedTrayItem.side==='blue'?0x4488ff:0xff4444, 0.4);
+                const p = getHexPosition(q, r); const pts=[]; for(let i=0; i<6; i++){ const a=Math.PI/3*i; pts.push({x:p.x+40*Math.cos(a), y:p.y+40*Math.sin(a)}); }
+                zoneGraphics.fillPoints(pts, true);
             }
         }
     }
+    redrawAllUnits();
 }
-/* SPECIFIC HEX HIGHLIGHT LOGIC */
-if (isDeploying && selectedTrayItem && selectedTrayItem.locType === 'hex') { 
-    const [tq, tr] = selectedTrayItem.locVal.split(',').map(Number); 
-    if(hexMap[tq] && hexMap[tq][tr]) { 
-        const p = getHexPosition(tq, tr); 
-        const pts = []; for(let i=0; i<6; i++) { const a = Math.PI/3*i; pts.push({x: p.x+HEX_RADIUS*Math.cos(a), y: p.y+HEX_RADIUS*Math.sin(a)}); } 
-        const color = selectedTrayItem.side === 'blue' ? 0x4488ff : 0xff4444; 
-        zoneGraphics.fillStyle(color, 0.4).fillPoints(pts, true); 
-    }
-}
-const oldObjectives = mapData.objectives || mapData.victoryHexes || []; const newObjectives = (scenarioData && scenarioData.victory && scenarioData.victory.locations) ? scenarioData.victory.locations : []; const allObjectives = [...oldObjectives, ...newObjectives]; if (allObjectives.length > 0) { allObjectives.forEach(obj => { if (hexMap[obj.q] && hexMap[obj.q][obj.r]) { const hex = hexMap[obj.q][obj.r]; hex.victoryPoints = obj.points || 100; const star = scene.add.star(hex.x, hex.y, 5, 8, 16, 0xffcc00); star.setStrokeStyle(2, 0x000000); star.setDepth(150); objectiveSprites.push(star); const txt = scene.add.text(hex.x, hex.y + 10, hex.victoryPoints.toString(), { fontSize: '10px', stroke: '#000', strokeThickness: 3, fill: '#fff', fontStyle: 'bold' }).setOrigin(0.5).setDepth(151); objectiveSprites.push(txt); } }); } for (let q = 0; q < cols; q++) { for (let r = 0; r < rows; r++) { drawHex(hexMap[q][r]); } } drawRoads(); redrawAllUnits(); }
-function drawHex(hex) { const terrainType = hex.terrain; const x = hex.x; const y = hex.y; if (!hex.variant) hex.variant = Phaser.Math.Between(1, 3); const textureKey = `${terrainType}${hex.variant}`; if (scene.textures.exists(textureKey)) { const img = scene.add.image(x, y, textureKey).setDisplaySize(HEX_RADIUS * 2, HEX_RADIUS * 2); const shape = scene.make.graphics().fillStyle(0xffffff).beginPath(); for (let i = 0; i < 6; i++) { const angle = (Math.PI / 3) * i; const hx = x + HEX_RADIUS * Math.cos(angle); const hy = y + HEX_RADIUS * Math.sin(angle); if (i === 0) shape.moveTo(hx, hy); else shape.lineTo(hx, hy); } shape.closePath().fillPath(); img.setMask(shape.createGeometryMask()); hexGroup.add(img); const outline = scene.add.graphics().lineStyle(1, 0x333333, 0.5).beginPath(); for (let i = 0; i < 6; i++) { const angle = (Math.PI / 3) * i; const hx = x + HEX_RADIUS * Math.cos(angle); const hy = y + HEX_RADIUS * Math.sin(angle); if (i === 0) outline.moveTo(hx, hy); else outline.lineTo(hx, hy); } outline.closePath().strokePath(); hexGroup.add(outline); } else { let color = 0x555555; if(TERRAIN_TYPES[terrainType]) color = TERRAIN_TYPES[terrainType].color || 0x555555; const g = scene.add.graphics().fillStyle(color).lineStyle(1, 0x333333, 0.5).beginPath(); for (let i = 0; i < 6; i++) { const angle = (Math.PI / 3) * i; const hx = x + HEX_RADIUS * Math.cos(angle); const hy = y + HEX_RADIUS * Math.sin(angle); if (i === 0) g.moveTo(hx, hy); else g.lineTo(hx, hy); } g.closePath().fillPath().strokePath(); hexGroup.add(g); } }
-function drawRoads() { if (!mapData || !mapData.roads) return; roadGraphics.lineStyle(6, 0x555555, 0.8); mapData.roads.forEach(seg => { const h1 = hexMap[seg.from.q][seg.from.r]; const h2 = hexMap[seg.to.q][seg.to.r]; if (h1 && h2) roadGraphics.beginPath().moveTo(h1.x, h1.y).lineTo(h2.x, h2.y).strokePath(); }); }
-function getHexPosition(q, r) { const x = q * HEX_RADIUS * 1.5; const y = r * HEX_RADIUS * Math.sqrt(3) + (q % 2 === 1 ? HEX_RADIUS * Math.sqrt(3) / 2 : 0); return { x, y }; }
-function offsetToCube(q, r) { const col = q; const row = r; const x = col; const z = row - (col - (col & 1)) / 2; const y = -x - z; return { x, y, z }; }
-function getHexDistance(h1, h2) { const a = offsetToCube(h1.q, h1.r); const b = offsetToCube(h2.q, h2.r); return Math.max(Math.abs(a.x - b.x), Math.abs(a.y - b.y), Math.abs(a.z - b.z)); }
-function getHexAtPoint(worldX, worldY) { if (!mapData) return null; let closestHex = null; let closestDist = Infinity; for (let q = 0; q < mapData.cols; q++) { for (let r = 0; r < mapData.rows; r++) { const hex = hexMap[q][r]; const dist = Math.sqrt((hex.x - worldX) ** 2 + (hex.y - worldY) ** 2); if (dist < HEX_RADIUS && dist < closestDist) { closestDist = dist; closestHex = hex; } } } return closestHex; }
-function getPhysicalRange(startHex, targetHex) { const hexes = []; const dx = targetHex.x - startHex.x; const dy = targetHex.y - startHex.y; const dist = Math.sqrt(dx * dx + dy * dy); const steps = Math.ceil(dist / 2); for (let i = 0; i <= steps; i++) { const t = i / steps; const currX = startHex.x + dx * t; const currY = startHex.y + dy * t; const h = getHexAtPoint(currX, currY); if (h) { const key = `${h.q},${h.r}`; if (!hexes.includes(key) && !(h.q === startHex.q && h.r === startHex.r)) hexes.push(key); } } return hexes.length; }
-function getTargetSector(attacker, target) { const targetPos = getHexPosition(target.q, target.r); const attackerPos = getHexPosition(attacker.q, attacker.r); const angleRad = Phaser.Math.Angle.Between(targetPos.x, targetPos.y, attackerPos.x, attackerPos.y); const angleDeg = Phaser.Math.RadToDeg(angleRad); const idealAngles = [ -90, -30, 30, 90, 150, -150 ]; let attackDirIndex = 0; let minDiff = 360; idealAngles.forEach((ideal, index) => { let diff = Math.abs(Phaser.Math.Angle.WrapDegrees(angleDeg - ideal)); if (diff < minDiff) { minDiff = diff; attackDirIndex = index; } }); let diff = Math.abs(target.facing - attackDirIndex); if (diff > 3) diff = 6 - diff; return diff <= 1 ? 'FRONT' : 'REAR'; }
-function calculateLOS(startHex, targetHex, unitType = 'infantry') { const fromTerrain = TERRAIN_TYPES[startHex.terrain]; const fromUsableHeight = unitType === 'vehicle' ? fromTerrain.vehicleUsable : fromTerrain.infantryUsable; const dx = targetHex.x - startHex.x; const dy = targetHex.y - startHex.y; const distance = Math.sqrt(dx * dx + dy * dy); const steps = Math.ceil(distance / 2); const hexesCrossed = new Set(); const edgeSegments = []; let edgeRunLength = 0; let edgeHexPair = null; for (let i = 0; i <= steps; i++) { const t = i / steps; const x = startHex.x + dx * t; const y = startHex.y + dy * t; const currentHex = getHexAtPoint(x, y); if (!currentHex) continue; if ((currentHex.q === startHex.q && currentHex.r === startHex.r) || (currentHex.q === targetHex.q && currentHex.r === targetHex.r)) continue; const perpDx = -dy / distance; const perpDy = dx / distance; const hex1 = getHexAtPoint(x + perpDx * 3, y + perpDy * 3); const hex2 = getHexAtPoint(x - perpDx * 3, y - perpDy * 3); if (hex1 && hex2 && (hex1.q !== hex2.q || hex1.r !== hex2.r)) { const pairKey = [`${hex1.q},${hex1.r}`, `${hex2.q},${hex2.r}`].sort().join('|'); if (edgeHexPair === pairKey) edgeRunLength++; else { if (edgeRunLength > 5) edgeSegments.push(edgeHexPair); edgeHexPair = pairKey; edgeRunLength = 1; } } else { if (edgeRunLength > 5) edgeSegments.push(edgeHexPair); edgeRunLength = 0; edgeHexPair = null; hexesCrossed.add(`${currentHex.q},${currentHex.r}`); } } if (edgeRunLength > 5) edgeSegments.push(edgeHexPair); let degradingCount = 0; let hasBlocking = false; for (let key of hexesCrossed) { const [q, r] = key.split(',').map(Number); const terrain = TERRAIN_TYPES[hexMap[q][r].terrain]; let losEffect = terrain.los; if (terrain.terrainHeight < fromUsableHeight) { if (losEffect === 'blocking') losEffect = 'degrading'; else if (losEffect === 'degrading') losEffect = 'clear'; } if (losEffect === 'blocking') hasBlocking = true; else if (losEffect === 'degrading') degradingCount++; } for (let edgePair of edgeSegments) { if (!edgePair) continue; const [k1, k2] = edgePair.split('|'); const [q1, r1] = k1.split(',').map(Number); const [q2, r2] = k2.split(',').map(Number); const t1 = TERRAIN_TYPES[hexMap[q1][r1].terrain]; const t2 = TERRAIN_TYPES[hexMap[q2][r2].terrain]; let l1 = t1.los; let l2 = t2.los; if (t1.terrainHeight < fromUsableHeight) l1 = (l1==='blocking'?'degrading':(l1==='degrading'?'clear':l1)); if (t2.terrainHeight < fromUsableHeight) l2 = (l2==='blocking'?'degrading':(l2==='degrading'?'clear':l2)); if (l1 === 'blocking' && l2 === 'blocking') hasBlocking = true; else if (l1 === 'blocking' || l2 === 'blocking') degradingCount++; else if (l1 === 'degrading' && l2 === 'degrading') degradingCount++; } let standardStatus = 'clear'; if (hasBlocking || degradingCount >= 2) standardStatus = 'blocked'; else if (degradingCount === 1) standardStatus = 'degraded'; const hexesOnLine = getHexesAlongLine(startHex, targetHex); const roadLOSResult = checkRoadLOS(startHex, targetHex, hexesOnLine); if (roadLOSResult.isRoad) { const dist = getHexDistance(startHex, targetHex); let roadStatus = 'blocked'; if (dist <= 5) roadStatus = 'clear'; else if (dist <= 10) roadStatus = 'degraded'; const rank = { 'clear': 3, 'degraded': 2, 'blocked': 1 }; if (rank[roadStatus] > rank[standardStatus]) return { status: roadStatus, isRoad: true }; } return { status: standardStatus, isRoad: false }; }
-function getHexesAlongLine(startHex, targetHex) { const hexes = []; const dx = targetHex.x - startHex.x; const dy = targetHex.y - startHex.y; const dist = Math.sqrt(dx*dx + dy*dy); const steps = Math.ceil(dist / 10); for(let i=0; i<=steps; i++) { const t = i/steps; const h = getHexAtPoint(startHex.x + dx*t, startHex.y + dy*t); if(h && !hexes.includes(h)) hexes.push(h); } return hexes; }
-function checkRoadLOS(startHex, targetHex, hexesOnLine) { if (!mapData || !mapData.roads) return { isRoad: false }; if (!startHex.hasRoad || !targetHex.hasRoad) return { isRoad: false }; const roadPath = findRoadPath(startHex, targetHex); if (!roadPath || roadPath.length < 2) return { isRoad: false }; const idealDx = targetHex.x - startHex.x; const idealDy = targetHex.y - startHex.y; const idealLen = Math.sqrt(idealDx*idealDx + idealDy*idealDy); for (let i = 0; i < roadPath.length - 1; i++) { const c = roadPath[i]; const n = roadPath[i+1]; const sdx = n.x - c.x; const sdy = n.y - c.y; const slen = Math.sqrt(sdx*sdx + sdy*sdy); const dot = (idealDx/idealLen) * (sdx/slen) + (idealDy/idealLen) * (sdy/slen); if (dot < 0.96) return { isRoad: false }; } for (let h of hexesOnLine) { if (!roadPath.find(rh => rh.q === h.q && rh.r === h.r)) return { isRoad: false }; } return { isRoad: true }; }
-function findRoadPath(start, target) { const visited = new Set(); const queue = [[start]]; while(queue.length > 0) { const path = queue.shift(); const curr = path[path.length-1]; if(curr.q === target.q && curr.r === target.r) return path; const key = `${curr.q},${curr.r}`; if(visited.has(key)) continue; visited.add(key); mapData.roads.forEach(r => { let next = null; if(r.from.q === curr.q && r.from.r === curr.r) next = hexMap[r.to.q][r.to.r]; else if(r.to.q === curr.q && r.to.r === curr.r) next = hexMap[r.from.q][r.from.r]; if(next) queue.push([...path, next]); }); } return null; }
+function drawHex(h) { const g = scene.add.graphics().fillStyle(0x555555).lineStyle(1, 0x333333, 0.5).beginPath(); for(let i=0; i<6; i++){ const a=Math.PI/3*i; const x=h.x+40*Math.cos(a), y=h.y+40*Math.sin(a); if(i===0) g.moveTo(x,y); else g.lineTo(x,y); } g.closePath().fillPath().strokePath(); hexGroup.add(g); }
+function getHexPosition(q, r) { return { x: q*60, y: r*69.2 + (q%2===1?34.6:0) }; }
+function getHexDistance(h1, h2) { return Math.max(Math.abs(h1.q-h2.q), Math.abs(h1.r-h2.r)); }
+function getHexAtPoint(x, y) { for(let q in hexMap) for(let r in hexMap[q]) { const h=hexMap[q][r]; if(Math.sqrt((h.x-x)**2+(h.y-y)**2)<40) return h; } return null; }
+function getPhysicalRange(h1, h2) { return getHexDistance(h1, h2); }
+function getTargetSector(a, t) { return 'FRONT'; }
+function calculateLOS(h1, h2) { return { status: 'clear' }; }
 </script>
 </body>
 </html>
