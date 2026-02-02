@@ -909,8 +909,11 @@ if (mapData.zones) {
     mapData.zones.forEach(z => { 
         if (hexMap[z.q] && hexMap[z.q][z.r]) { 
             hexMap[z.q][z.r].setupZone = z.side; 
-            // Draw IF in setup OR if actively deploying a unit that uses zones
-            if (currentPhase === 'SETUP' || (isDeploying && (!selectedTrayItem.locType || selectedTrayItem.locType === 'zone') && selectedTrayItem.side === z.side)) {
+            
+            // FIX: Uses exclusionary logic to detect any "non-hex" location type (like "setup" or "zone")
+            const isZoneDeployment = !selectedTrayItem || (selectedTrayItem.locType !== 'hex' && selectedTrayItem.locType !== 'edge');
+
+            if (currentPhase === 'SETUP' || (isDeploying && isZoneDeployment && selectedTrayItem.side === z.side)) {
                 const p = getHexPosition(z.q, z.r); 
                 const pts = []; for(let i=0; i<6; i++) { const a = Math.PI/3*i; pts.push({x: p.x+HEX_RADIUS*Math.cos(a), y: p.y+HEX_RADIUS*Math.sin(a)}); } 
                 const color = z.side === 'blue' ? 0x4488ff : 0xff4444; 
