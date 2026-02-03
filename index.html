@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Wargame Engine v0.9.13 - 30 FPS Limit</title>
+    <title>Wargame Engine v0.9.14 - Keyboard Scroll</title>
     <script src="https://cdn.jsdelivr.net/npm/phaser@3.60.0/dist/phaser.min.js"></script>
     <style>
         :root {
@@ -368,6 +368,7 @@ let scene, hexGroup, zoneGraphics, objGraphics, roadGraphics, losGraphics, unitG
 let unitSprites = {};
 let objectiveSprites = []; 
 let diceCallback = null; 
+let cursors; // NEW: Global for keyboard
 
 const config = {
     type: Phaser.AUTO, parent: 'game-container',
@@ -391,6 +392,9 @@ function preloadScene() {
 
 function createScene() {
     scene = this;
+    // NEW: Initialize Cursor Keys
+    cursors = this.input.keyboard.createCursorKeys();
+
     try {
         const ukData = this.cache.json.get('units_uk') || {};
         const gerData = this.cache.json.get('units_ger') || {};
@@ -444,10 +448,22 @@ function initEngine() {
 }
 
 function updateScene() {
+    // Mouse Scroll (Right Click)
     if (this.input.activePointer.rightButtonDown()) {
         const pointer = this.input.activePointer;
         this.cameras.main.scrollX -= (pointer.x - pointer.prevPosition.x) / this.cameras.main.zoom;
         this.cameras.main.scrollY -= (pointer.y - pointer.prevPosition.y) / this.cameras.main.zoom;
+    }
+
+    // NEW: Keyboard Scroll (Arrow Keys)
+    if (cursors) {
+        const cam = this.cameras.main;
+        const speed = 15 / cam.zoom; // Adjust speed based on zoom
+        
+        if (cursors.left.isDown) cam.scrollX -= speed;
+        if (cursors.right.isDown) cam.scrollX += speed;
+        if (cursors.up.isDown) cam.scrollY -= speed;
+        if (cursors.down.isDown) cam.scrollY += speed;
     }
 }
 
