@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Wargame Engine v0.9.12 - Edge Highlights Fixed</title>
+    <title>Wargame Engine v0.9.13 - 30 FPS Limit</title>
     <script src="https://cdn.jsdelivr.net/npm/phaser@3.60.0/dist/phaser.min.js"></script>
     <style>
         :root {
@@ -347,7 +347,7 @@ let units = [];
 // Separate Data Lists
 let setupTrayUnits = []; 
 let reinforcementUnits = []; 
-let strikes = [];   
+let strikes = [];    
 
 let unitIdCounter = 2000;
 let currentTurn = 1;
@@ -373,6 +373,10 @@ const config = {
     type: Phaser.AUTO, parent: 'game-container',
     width: window.innerWidth - 580, height: window.innerHeight,
     backgroundColor: '#1a1a1a',
+    fps: {
+        target: 30,
+        forceSetTimeOut: true
+    },
     scene: { preload: preloadScene, create: createScene, update: updateScene }
 };
 
@@ -414,7 +418,7 @@ function initEngine() {
     objGraphics = scene.add.graphics().setDepth(150); 
     selectionGraphics = scene.add.graphics().setDepth(500); 
     losGraphics = scene.add.graphics().setDepth(550);        
-    unitGraphics = scene.add.graphics().setDepth(700);      
+    unitGraphics = scene.add.graphics().setDepth(700);       
     badgeGraphics = scene.add.graphics().setDepth(800);     
     scene.cameras.main.setBounds(-2000, -2000, 8000, 8000); 
     scene.input.mouse.disableContextMenu();
