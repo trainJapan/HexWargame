@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Wargame Editor v2.9.2 - Data Tab</title>
+    <title>Wargame Editor v2.9.3 - Performance & Nav Update</title>
     <script src="https://cdn.jsdelivr.net/npm/phaser@3.60.0/dist/phaser.min.js"></script>
     <style>
         :root {
@@ -84,7 +84,7 @@
 <body>
 
 <div class="panel" style="border-left:none;">
-    <div style="padding:10px; background:#222; border-bottom:1px solid #444; font-weight:bold; color:var(--accent);">MAP EDITOR v2.9.2</div>
+    <div style="padding:10px; background:#222; border-bottom:1px solid #444; font-weight:bold; color:var(--accent);">MAP EDITOR v2.9.3</div>
     <div style="padding:10px; overflow-y:auto; flex-grow:1;">
         
         <div class="grid-2">
@@ -319,11 +319,16 @@ let losUnitType = 'infantry';
 // Phaser
 let scene, hexGroup, overlayGroup, zoneGraphics, losGraphics;
 let hexSprites = {};
+let cursors; // NEW: Keyboard control
 
 const config = {
     type: Phaser.AUTO, parent: 'game-container',
     width: window.innerWidth - 660, height: window.innerHeight,
     backgroundColor: '#111',
+    fps: {
+        target: 30,
+        forceSetTimeOut: true
+    },
     scene: { preload: preload, create: create, update: update }
 };
 const game = new Phaser.Game(config);
@@ -337,6 +342,8 @@ function preload() {
 
 function create() {
     scene = this;
+    cursors = this.input.keyboard.createCursorKeys(); // NEW: Keyboard Init
+
     try {
         const ukData = this.cache.json.get('units_uk') || {};
         const gerData = this.cache.json.get('units_ger') || {};
@@ -387,10 +394,22 @@ function startEditor() {
 }
 
 function update() {
+    // Mouse Drag (Right Click)
     if (this.input.activePointer.rightButtonDown()) {
         const p = this.input.activePointer;
         this.cameras.main.scrollX -= (p.x - p.prevPosition.x) / this.cameras.main.zoom;
         this.cameras.main.scrollY -= (p.y - p.prevPosition.y) / this.cameras.main.zoom;
+    }
+
+    // NEW: Keyboard Scroll Logic
+    if (cursors) {
+        const cam = this.cameras.main;
+        const speed = 15 / cam.zoom;
+        
+        if (cursors.left.isDown) cam.scrollX -= speed;
+        if (cursors.right.isDown) cam.scrollX += speed;
+        if (cursors.up.isDown) cam.scrollY -= speed;
+        if (cursors.down.isDown) cam.scrollY += speed;
     }
 }
 
