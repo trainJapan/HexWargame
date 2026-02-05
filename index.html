@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Wargame Engine v0.9.15 - Command View & Initiative</title>
+    <title>Wargame Engine v0.9.16 - Sequential Setup</title>
     <script src="https://cdn.jsdelivr.net/npm/phaser@3.60.0/dist/phaser.min.js"></script>
     <style>
         :root {
@@ -36,14 +36,13 @@
             overflow-y: auto; z-index: 10;
         }
 
-        /* NEW: COMMAND HEADER */
+        /* COMMAND HEADER (Locked - No Click) */
         .command-header {
             padding: 10px; text-align: center; font-weight: bold; font-size: 16px;
-            border-radius: 4px; cursor: pointer; border: 2px solid transparent;
+            border-radius: 4px; border: 2px solid transparent; cursor: default;
             text-transform: uppercase; box-shadow: 0 4px 6px rgba(0,0,0,0.3);
             transition: all 0.2s;
         }
-        .command-header:hover { filter: brightness(1.2); }
         .cmd-blue { background: #223355; color: var(--blue-team); border-color: var(--blue-team); }
         .cmd-red { background: #552222; color: var(--red-team); border-color: var(--red-team); }
 
@@ -140,6 +139,14 @@
             box-shadow: 0 0 15px rgba(0,0,0,0.8);
         }
 
+        /* NEW: Explanation Text */
+        #dice-expl {
+            color: #ccc; font-style: italic; font-size: 14px;
+            max-width: 300px; text-align: center;
+            background: rgba(0,0,0,0.8); padding: 8px; border-radius: 4px; border: 1px solid #555;
+            margin-top: -10px; margin-bottom: 10px;
+        }
+
         .dice-btn {
             background: var(--blue-team); color: white; border: none;
             padding: 10px 40px; font-size: 16px; font-weight: bold;
@@ -215,7 +222,7 @@
 <body>
 
 <div id="left-panel">
-    <div id="command-header" class="command-header cmd-blue" onclick="toggleActiveSide()">
+    <div id="command-header" class="command-header cmd-blue">
         UK COMMAND (BLUE)
     </div>
 
@@ -292,6 +299,7 @@
             </svg>
             <div class="d10-val" id="dice-val">0</div>
         </div>
+        <div id="dice-expl"></div>
         <button class="dice-btn" id="dice-ok-btn">CONTINUE</button>
     </div>
 
@@ -359,7 +367,8 @@ let losTool = false;
 let losStartHex = null;
 let losUnitType = 'infantry';
 let units = [];
-let activeSide = 'blue'; // NEW: Command View State
+let activeSide = 'blue'; 
+let initiativeWinner = 'blue'; // NEW: Track who won the roll
 
 // Separate Data Lists
 let setupTrayUnits = []; 
@@ -385,7 +394,7 @@ let scene, hexGroup, zoneGraphics, objGraphics, roadGraphics, losGraphics, unitG
 let unitSprites = {};
 let objectiveSprites = []; 
 let diceCallback = null; 
-let cursors; // NEW: Global for keyboard
+let cursors; 
 
 const config = {
     type: Phaser.AUTO, parent: 'game-container',
@@ -480,11 +489,11 @@ function updateScene() {
 }
 
 // --- COMMAND VIEW LOGIC ---
-function toggleActiveSide() {
-    activeSide = (activeSide === 'blue') ? 'red' : 'blue';
+function switchSideTo(side) {
+    activeSide = side;
     const header = document.getElementById('command-header');
     
-    // Clear selections to prevent crossover actions
+    // Clear selections
     selectedUnit = null;
     selectedHex = null;
     selectedTrayItem = null;
@@ -509,11 +518,9 @@ function toggleActiveSide() {
 function updateScenarioInfo() {
     if(!scenarioData) return;
     let briefing = "";
-    // Check for new split briefing object
     if (scenarioData.info.briefing && typeof scenarioData.info.briefing === 'object') {
         briefing = scenarioData.info.briefing[activeSide] || "No Briefing.";
     } else {
-        // Fallback for old scenarios
         briefing = scenarioData.info.description || "No Briefing.";
     }
 
@@ -521,50 +528,42 @@ function updateScenarioInfo() {
         <strong style="color:white">${scenarioData.info.title}</strong><br>
         <span style="color:#aaa">${scenarioData.info.author}</span><br>
         <div style="margin:5px 0 0 0; font-size:11px; color:#ddd; background:#222; padding:4px; border:1px solid #444;">
-            <strong style="color:${activeSide==='blue'?'#4488ff':'#ff4444'}">ORDERS:</strong> ${briefing}
+            <strong style="color:${activeSide==='blue'?'#4488ff':'#ff4444'}">BRIEFING:</strong> ${briefing}
         </div>`;
 }
 
 function resolveInitiative(rule) {
     if (rule === 'dice') {
-        rollD10("INITIATIVE (1-5 UK / 6-10 GER)", (val) => {
+        const explanation = "1-5: UK (Blue) Starts<br>6-10: GER (Red) Starts";
+        rollD10("INITIATIVE", (val) => {
             const winner = val <= 5 ? 'blue' : 'red';
-            activeSide = winner;
+            initiativeWinner = winner;
             const sideName = winner === 'blue' ? 'UK (Blue)' : 'GERMAN (Red)';
             addToLog(`Initiative Roll: ${val}. ${sideName} starts setup!`, "log-turn");
-            
-            // Sync UI
-            const header = document.getElementById('command-header');
-            if (activeSide === 'blue') { header.className = 'command-header cmd-blue'; header.innerText = 'UK COMMAND (BLUE)'; }
-            else { header.className = 'command-header cmd-red'; header.innerText = 'GER COMMAND (RED)'; }
-            
-            updateScenarioInfo();
-            updateDynamicList();
-            document.getElementById('mode-modal').style.display = 'flex';
-        });
+            switchSideTo(initiativeWinner);
+        }, explanation);
     } else {
-        activeSide = (rule === 'red') ? 'red' : 'blue'; // Default blue
-        const header = document.getElementById('command-header');
-        if (activeSide === 'blue') { header.className = 'command-header cmd-blue'; header.innerText = 'UK COMMAND (BLUE)'; }
-        else { header.className = 'command-header cmd-red'; header.innerText = 'GER COMMAND (RED)'; }
-        
-        updateScenarioInfo();
-        updateDynamicList();
-        document.getElementById('mode-modal').style.display = 'flex';
+        initiativeWinner = (rule === 'red') ? 'red' : 'blue';
+        const sideName = initiativeWinner === 'blue' ? 'UK (Blue)' : 'GERMAN (Red)';
+        addToLog(`${sideName} starts setup (Fixed Rule).`, "log-turn");
+        switchSideTo(initiativeWinner);
     }
 }
 
 // --- D10 DICE SYSTEM ---
-function rollD10(label, callback) {
+function rollD10(label, callback, explanation="") {
     const overlay = document.getElementById('dice-overlay');
     const container = document.getElementById('dice-anim');
     const valDisplay = document.getElementById('dice-val');
     const lbl = document.getElementById('dice-label');
+    const explDiv = document.getElementById('dice-expl');
     const btn = document.getElementById('dice-ok-btn');
     
     overlay.style.display = 'flex';
-    btn.style.display = 'none'; // Hide OK button while rolling
+    btn.style.display = 'none'; 
     lbl.innerText = label || "ROLLING...";
+    explDiv.innerHTML = explanation; // Set the explanation text
+    
     container.classList.add('dice-shaking');
     diceCallback = callback;
     
@@ -867,24 +866,50 @@ function startGameMode(mode) {
     document.getElementById('phase-display').innerText = 'SETUP';
     document.getElementById('btn-phase').innerText = 'Finish Setup';
     currentListMode = 'tray';
+    
+    let initRule = 'blue';
+    if (scenarioData && scenarioData.rules && scenarioData.rules.initiative) initRule = scenarioData.rules.initiative;
+    resolveInitiative(initRule);
+    
     isDeploying = true; 
     updateDynamicList();
     displayMap(); 
-    addToLog("Setup Phase Started.");
 }
 
 function nextPhase() {
+    // --- SETUP PHASE SEQUENCING ---
     if (currentPhase === 'SETUP') {
-        if (setupTrayUnits.length > 0) { if(!confirm("Undeployed Setup units remain. Start anyway?")) return; }
-        currentPhase = 'Action Phase';
-        document.getElementById('btn-phase').innerText = "End Turn";
-        isDeploying = false; 
-        checkInitialControl(); 
-        displayMap();
-        addToLog("=== MATCH START ===", "log-turn");
-        addToLog(`Turn ${currentTurn} Started.`, "log-turn");
-        toggleListMode('reinforcements');
-    } else {
+        // Check if current side has items left
+        if (setupTrayUnits.filter(u=>u.side===activeSide).length > 0) { 
+             if(!confirm("Undeployed units remain. Finish anyway?")) return; 
+        }
+
+        // 1. If currently the winner, switch to loser
+        if (activeSide === initiativeWinner) {
+            const otherSide = (initiativeWinner === 'blue') ? 'red' : 'blue';
+            addToLog(`${activeSide.toUpperCase()} Setup Complete. Switching to ${otherSide.toUpperCase()}.`, "log-info");
+            switchSideTo(otherSide);
+            return; 
+        } 
+        
+        // 2. If currently the loser (second player), START GAME
+        else {
+             currentPhase = 'Action Phase';
+             document.getElementById('btn-phase').innerText = "End Turn";
+             isDeploying = false; 
+             checkInitialControl(); 
+             
+             // Reset to initiative winner for Turn 1
+             switchSideTo(initiativeWinner);
+             
+             displayMap();
+             addToLog("=== MATCH START ===", "log-turn");
+             addToLog(`Turn ${currentTurn} Started.`, "log-turn");
+             toggleListMode('reinforcements');
+        }
+    } 
+    // --- NORMAL GAME LOOP ---
+    else {
         addToLog(`Turn ${currentTurn} Ended.`, "log-turn");
         units.forEach(u => u.mp = u.maxMp);
         currentTurn++;
@@ -1034,12 +1059,8 @@ function loadScenario() {
         if (scenarioData.support) { scenarioData.support.forEach(s => { s.isAsset = true; strikes.push(s); }); }
         
         document.getElementById('max-turns').innerText = scenarioData.info.maxTurns;
-        
-        // --- NEW INIT LOGIC v0.9.15 ---
         toggleMapLoader();
-        let initRule = 'blue';
-        if (scenarioData.rules && scenarioData.rules.initiative) initRule = scenarioData.rules.initiative;
-        resolveInitiative(initRule);
+        document.getElementById('mode-modal').style.display = 'flex'; // Wait for mode selection
         
     } catch (e) { alert('Invalid JSON: ' + e.message); console.error(e); }
 }
