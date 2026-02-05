@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Wargame Editor v2.9.3 - Performance & Nav Update</title>
+    <title>Wargame Editor v2.9.4 - Split Briefings</title>
     <script src="https://cdn.jsdelivr.net/npm/phaser@3.60.0/dist/phaser.min.js"></script>
     <style>
         :root {
@@ -84,7 +84,7 @@
 <body>
 
 <div class="panel" style="border-left:none;">
-    <div style="padding:10px; background:#222; border-bottom:1px solid #444; font-weight:bold; color:var(--accent);">MAP EDITOR v2.9.3</div>
+    <div style="padding:10px; background:#222; border-bottom:1px solid #444; font-weight:bold; color:var(--accent);">MAP EDITOR v2.9.4</div>
     <div style="padding:10px; overflow-y:auto; flex-grow:1;">
         
         <div class="grid-2">
@@ -180,7 +180,12 @@
         <div class="section-header">SCENARIO INFO</div>
         <label class="label">TITLE</label><input type="text" id="scen-title" value="New Scenario">
         <label class="label">AUTHOR</label><input type="text" id="scen-author" value="Designer">
-        <label class="label">BRIEFING</label><textarea id="scen-desc" rows="6">Briefing...</textarea>
+        
+        <div class="section-header">BRIEFINGS</div>
+        <label class="label" style="color:var(--uk-blue)">UK (BLUE)</label>
+        <textarea id="scen-brief-blue" rows="4">Orders...</textarea>
+        <label class="label" style="color:var(--ger-red)">GERMAN (RED)</label>
+        <textarea id="scen-brief-red" rows="4">Orders...</textarea>
         
         <div class="section-header">ENVIRONMENT</div>
         <div class="grid-2">
@@ -260,6 +265,14 @@
     </div>
 
     <div id="tab-rules" class="tab-content">
+        <div class="section-header">INITIATIVE</div>
+        <label class="label">STARTING SIDE</label>
+        <select id="rules-init">
+            <option value="blue">UK / Blue</option>
+            <option value="red">GER / Red</option>
+            <option value="dice">Dice Roll (50/50)</option>
+        </select>
+        
         <div class="section-header">VICTORY LOCATIONS</div>
         <div id="list-vl" class="rich-list-container"></div>
 
@@ -655,6 +668,34 @@ window.loadJSON = () => {
             if(u.type && !u.category) { const info = UNIT_DATA_REGISTRY[u.type]; if(info) { u.category = info.category; u.name = info.name; u.image = info.image; } else { u.category = u.type; } }
             if(!u.stance) u.stance = "deployed"; if(!u.quality) u.quality = "regular";
         });
+        
+        // --- NEW LOAD LOGIC v2.9.4 ---
+        if (data.info) {
+             document.getElementById('scen-title').value = data.info.title || "";
+             document.getElementById('scen-author').value = data.info.author || "";
+             document.getElementById('scen-turns').value = data.info.maxTurns || 10;
+             if(data.info.environment) {
+                 document.getElementById('env-vis').value = data.info.environment.visibility || "normal";
+                 document.getElementById('env-time').value = data.info.environment.time || "day";
+             }
+             if(data.info.cp) {
+                 document.getElementById('cp-blue').value = data.info.cp.blue || 5;
+                 document.getElementById('cp-red').value = data.info.cp.red || 5;
+             }
+             // Load Split Briefings
+             if (data.info.briefing) {
+                 document.getElementById('scen-brief-blue').value = data.info.briefing.blue || "";
+                 document.getElementById('scen-brief-red').value = data.info.briefing.red || "";
+             }
+        }
+        
+        // Load Initiative
+        if (data.rules && data.rules.initiative) {
+            document.getElementById('rules-init').value = data.rules.initiative;
+        } else {
+             document.getElementById('rules-init').value = 'blue';
+        }
+        
         updateLists(); refreshOverlays(); toggleModal();
     } catch(e) { alert("Invalid JSON: " + e.message); }
 }
@@ -666,7 +707,20 @@ function exportScenario() {
         if(hexMap[q][r].setupZone) zonesExp.push({q:parseInt(q),r:parseInt(r),side:hexMap[q][r].setupZone});
     }
     const scenario = {
-        info: { title: document.getElementById('scen-title').value, author: document.getElementById('scen-author').value, description: document.getElementById('scen-desc').value, maxTurns: parseInt(document.getElementById('scen-turns').value), environment: { visibility: document.getElementById('env-vis').value, time: document.getElementById('env-time').value }, cp: { blue: document.getElementById('cp-blue').value, red: document.getElementById('cp-red').value } },
+        info: { 
+            title: document.getElementById('scen-title').value, 
+            author: document.getElementById('scen-author').value, 
+            briefing: {
+                blue: document.getElementById('scen-brief-blue').value,
+                red: document.getElementById('scen-brief-red').value
+            },
+            maxTurns: parseInt(document.getElementById('scen-turns').value), 
+            environment: { visibility: document.getElementById('env-vis').value, time: document.getElementById('env-time').value }, 
+            cp: { blue: document.getElementById('cp-blue').value, red: document.getElementById('cp-red').value } 
+        },
+        rules: {
+            initiative: document.getElementById('rules-init').value
+        },
         map: { cols: mapData.cols, rows: mapData.rows, terrain: terrainExp, roads: roadSegments, zones: zonesExp },
         units: { locked: units, tray: trayUnits, reinforcements: reinforcements }, support: offBoardAssets, victory: { locations: victoryLocations, thresholds: { blue: document.getElementById('thresh-blue').value, red: document.getElementById('thresh-red').value } }
     };
