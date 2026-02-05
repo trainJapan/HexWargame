@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Wargame Engine v0.9.14 - Keyboard Scroll</title>
+    <title>Wargame Engine v0.9.15 - Command View & Initiative</title>
     <script src="https://cdn.jsdelivr.net/npm/phaser@3.60.0/dist/phaser.min.js"></script>
     <style>
         :root {
@@ -35,6 +35,18 @@
             display: flex; flex-direction: column; gap: 10px;
             overflow-y: auto; z-index: 10;
         }
+
+        /* NEW: COMMAND HEADER */
+        .command-header {
+            padding: 10px; text-align: center; font-weight: bold; font-size: 16px;
+            border-radius: 4px; cursor: pointer; border: 2px solid transparent;
+            text-transform: uppercase; box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+            transition: all 0.2s;
+        }
+        .command-header:hover { filter: brightness(1.2); }
+        .cmd-blue { background: #223355; color: var(--blue-team); border-color: var(--blue-team); }
+        .cmd-red { background: #552222; color: var(--red-team); border-color: var(--red-team); }
+
         .panel-header {
             color: var(--accent); font-size: 18px; font-weight: bold;
             margin-bottom: 5px; border-bottom: 2px solid var(--accent); padding-bottom: 5px;
@@ -203,6 +215,10 @@
 <body>
 
 <div id="left-panel">
+    <div id="command-header" class="command-header cmd-blue" onclick="toggleActiveSide()">
+        UK COMMAND (BLUE)
+    </div>
+
     <div class="panel-header">SCENARIO</div>
     <div class="scenario-box" id="scenario-info-box">
         <strong style="color:white">Wargame Engine</strong><br>
@@ -343,6 +359,7 @@ let losTool = false;
 let losStartHex = null;
 let losUnitType = 'infantry';
 let units = [];
+let activeSide = 'blue'; // NEW: Command View State
 
 // Separate Data Lists
 let setupTrayUnits = []; 
@@ -392,8 +409,7 @@ function preloadScene() {
 
 function createScene() {
     scene = this;
-    // NEW: Initialize Cursor Keys
-    cursors = this.input.keyboard.createCursorKeys();
+    cursors = this.input.keyboard.createCursorKeys(); 
 
     try {
         const ukData = this.cache.json.get('units_uk') || {};
@@ -448,22 +464,93 @@ function initEngine() {
 }
 
 function updateScene() {
-    // Mouse Scroll (Right Click)
     if (this.input.activePointer.rightButtonDown()) {
         const pointer = this.input.activePointer;
         this.cameras.main.scrollX -= (pointer.x - pointer.prevPosition.x) / this.cameras.main.zoom;
         this.cameras.main.scrollY -= (pointer.y - pointer.prevPosition.y) / this.cameras.main.zoom;
     }
-
-    // NEW: Keyboard Scroll (Arrow Keys)
     if (cursors) {
         const cam = this.cameras.main;
-        const speed = 15 / cam.zoom; // Adjust speed based on zoom
-        
+        const speed = 15 / cam.zoom;
         if (cursors.left.isDown) cam.scrollX -= speed;
         if (cursors.right.isDown) cam.scrollX += speed;
         if (cursors.up.isDown) cam.scrollY -= speed;
         if (cursors.down.isDown) cam.scrollY += speed;
+    }
+}
+
+// --- COMMAND VIEW LOGIC ---
+function toggleActiveSide() {
+    activeSide = (activeSide === 'blue') ? 'red' : 'blue';
+    const header = document.getElementById('command-header');
+    
+    // Clear selections to prevent crossover actions
+    selectedUnit = null;
+    selectedHex = null;
+    selectedTrayItem = null;
+    isDeploying = false;
+    currentAction = null;
+
+    if (activeSide === 'blue') {
+        header.className = 'command-header cmd-blue';
+        header.innerText = 'UK COMMAND (BLUE)';
+    } else {
+        header.className = 'command-header cmd-red';
+        header.innerText = 'GER COMMAND (RED)';
+    }
+    
+    updateScenarioInfo();
+    updateDynamicList();
+    displayMap();
+    uiUpdate();
+    addToLog(`View switched to ${activeSide.toUpperCase()} Command.`);
+}
+
+function updateScenarioInfo() {
+    if(!scenarioData) return;
+    let briefing = "";
+    // Check for new split briefing object
+    if (scenarioData.info.briefing && typeof scenarioData.info.briefing === 'object') {
+        briefing = scenarioData.info.briefing[activeSide] || "No Briefing.";
+    } else {
+        // Fallback for old scenarios
+        briefing = scenarioData.info.description || "No Briefing.";
+    }
+
+    document.getElementById('scenario-info-box').innerHTML = `
+        <strong style="color:white">${scenarioData.info.title}</strong><br>
+        <span style="color:#aaa">${scenarioData.info.author}</span><br>
+        <div style="margin:5px 0 0 0; font-size:11px; color:#ddd; background:#222; padding:4px; border:1px solid #444;">
+            <strong style="color:${activeSide==='blue'?'#4488ff':'#ff4444'}">ORDERS:</strong> ${briefing}
+        </div>`;
+}
+
+function resolveInitiative(rule) {
+    if (rule === 'dice') {
+        rollD10("INITIATIVE (1-5 UK / 6-10 GER)", (val) => {
+            const winner = val <= 5 ? 'blue' : 'red';
+            activeSide = winner;
+            const sideName = winner === 'blue' ? 'UK (Blue)' : 'GERMAN (Red)';
+            addToLog(`Initiative Roll: ${val}. ${sideName} starts setup!`, "log-turn");
+            
+            // Sync UI
+            const header = document.getElementById('command-header');
+            if (activeSide === 'blue') { header.className = 'command-header cmd-blue'; header.innerText = 'UK COMMAND (BLUE)'; }
+            else { header.className = 'command-header cmd-red'; header.innerText = 'GER COMMAND (RED)'; }
+            
+            updateScenarioInfo();
+            updateDynamicList();
+            document.getElementById('mode-modal').style.display = 'flex';
+        });
+    } else {
+        activeSide = (rule === 'red') ? 'red' : 'blue'; // Default blue
+        const header = document.getElementById('command-header');
+        if (activeSide === 'blue') { header.className = 'command-header cmd-blue'; header.innerText = 'UK COMMAND (BLUE)'; }
+        else { header.className = 'command-header cmd-red'; header.innerText = 'GER COMMAND (RED)'; }
+        
+        updateScenarioInfo();
+        updateDynamicList();
+        document.getElementById('mode-modal').style.display = 'flex';
     }
 }
 
@@ -579,24 +666,25 @@ function updateDynamicList() {
     let title = "";
     let listData = [];
     
+    // STRICT FILTER: Only show items for activeSide
     if(currentPhase === 'SETUP' && currentListMode === 'tray') {
         title = "SETUP TRAY";
-        listData = setupTrayUnits;
+        listData = setupTrayUnits.filter(u => u.side === activeSide);
     } else if (currentListMode === 'tray') {
         title = "ACTIVE TRAY"; 
         listData = []; 
     } else if(currentListMode === 'reinforcements') {
         title = "REINFORCEMENTS";
-        listData = reinforcementUnits; 
+        listData = reinforcementUnits.filter(u => u.side === activeSide); 
     } else if (currentListMode === 'strikes') {
         title = "OFF-BOARD STRIKES";
-        listData = strikes;
+        listData = strikes.filter(u => u.side === activeSide);
     }
 
     container.innerHTML = `<div class="panel-header" style="font-size:14px; border-width:1px;">${title}</div>`;
 
     if(listData.length === 0) {
-        container.innerHTML += '<div style="color:#666; font-style:italic; padding:10px;">Empty.</div>';
+        container.innerHTML += '<div style="color:#666; font-style:italic; padding:10px;">Empty (or Hidden).</div>';
         return;
     }
 
@@ -945,10 +1033,14 @@ function loadScenario() {
         }
         if (scenarioData.support) { scenarioData.support.forEach(s => { s.isAsset = true; strikes.push(s); }); }
         
-        document.getElementById('scenario-info-box').innerHTML = `<strong style="color:white">${scenarioData.info.title}</strong><br><span style="color:#aaa">${scenarioData.info.author}</span><br><p style="margin:5px 0 0 0; font-size:11px; color:#888">${scenarioData.info.description}</p>`;
         document.getElementById('max-turns').innerText = scenarioData.info.maxTurns;
+        
+        // --- NEW INIT LOGIC v0.9.15 ---
         toggleMapLoader();
-        document.getElementById('mode-modal').style.display = 'flex';
+        let initRule = 'blue';
+        if (scenarioData.rules && scenarioData.rules.initiative) initRule = scenarioData.rules.initiative;
+        resolveInitiative(initRule);
+        
     } catch (e) { alert('Invalid JSON: ' + e.message); console.error(e); }
 }
 
