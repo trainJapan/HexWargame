@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Wargame Engine v0.9.18 - Visual Overhaul & Auto-Face</title>
+    <title>Wargame Engine v0.9.19 - Visual Fixes & Stacking Logic</title>
     <script src="https://cdn.jsdelivr.net/npm/phaser@3.60.0/dist/phaser.min.js"></script>
     <style>
         :root {
@@ -178,11 +178,11 @@
         .stack-item:hover { border-color: var(--accent); background: #333; }
         .stack-img { width: 40px; height: 40px; object-fit: contain; }
         .stack-info { flex-grow: 1; font-size: 11px; text-align: left; }
-        
-        /* SPENT UNIT GLOW (New) */
+
+        /* SPENT UNIT GLOW */
         .stack-item.spent {
-            box-shadow: inset 0 0 10px rgba(255, 0, 0, 0.4);
-            border: 1px solid #884444;
+            box-shadow: inset 0 0 8px rgba(255, 0, 0, 0.6);
+            border: 1px solid #ff4444;
         }
 
         #log-container { background: #111; border-top: 1px solid var(--accent); padding: 10px; font-family: 'Consolas', monospace; font-size: 11px; overflow-y: auto; color: #ccc; }
@@ -1323,61 +1323,87 @@ function getUnitVisibility(target) {
 function redrawAllUnits() { 
     Object.values(unitSprites).forEach(sprite => sprite.destroy()); 
     unitSprites = {}; 
-    const stackCounts = {}; 
+    const stackCounts = {};
+    
+    // Group by Stack first
+    const stacks = {};
+    units.forEach(u => {
+       if(u.hp <= 0) return;
+       const key = `${u.q},${u.r}`;
+       if(!stacks[key]) stacks[key] = [];
+       stacks[key].push(u);
+    });
 
-    units.forEach(unit => {
-        if (unit.hp <= 0) return;
+    Object.values(stacks).forEach(stack => {
+        // Filter visible ones
+        const visibleStack = stack.filter(u => getUnitVisibility(u) > 0);
+        if(visibleStack.length === 0) return;
         
-        const visLevel = getUnitVisibility(unit);
-        if (visLevel === 0) return; // Hidden
+        // Count for Badge
+        const key = `${visibleStack[0].q},${visibleStack[0].r}`;
+        stackCounts[key] = visibleStack.length;
 
-        const key = `${unit.q},${unit.r}`;
-        stackCounts[key] = (stackCounts[key] || 0) + 1;
-        const pos = getHexPosition(unit.q, unit.r);
-        
-        let texture = getUnitKey(unit);
-        let alpha = 1.0; // REMOVED TRANSPARENCY for Spent units
-        
-        // FOW Handling (Level 1)
-        if (visLevel === 1 && unit.side !== activeSide) {
-            let sidePrefix = unit.side === 'blue' ? 'UK' : 'GER';
-            let catSuffix = (unit.category === 'vehicle' || unit.category === 'hwt') ? 'Vehicle' : 'Infantry';
-            texture = `${sidePrefix}_FOW_${catSuffix}`;
-            if (!scene.textures.exists(texture)) texture = 'fow_generic';
-            alpha = 0.8; 
-        } else {
-             if (!scene.textures.exists(texture)) texture = 'fallback';
-        }
+        // "Top" unit is the last one in the array (drawn last)
+        const topUnit = visibleStack[visibleStack.length - 1];
 
-        const sprite = scene.add.image(pos.x, pos.y, texture);
-        sprite.setDisplaySize(HEX_RADIUS * 1.25, HEX_RADIUS * 1.25);
-        sprite.setDepth(600);
-        sprite.setAlpha(alpha);
-        unitSprites[unit.id] = sprite;
-        
-        // SPENT STATUS (New Red Stripe)
-        // Draw directly on unitGraphics (Layer 700)
-        if (unit.hasActed && visLevel === 2) {
-            const barW = 32;
-            const barH = 6;
-            unitGraphics.fillStyle(0xff0000, 1.0);
-            unitGraphics.fillRect(pos.x - barW/2, pos.y + 16, barW, barH);
-        }
+        visibleStack.forEach(unit => {
+            const pos = getHexPosition(unit.q, unit.r);
+            const visLevel = getUnitVisibility(unit);
+            
+            // 1. Draw Sprite
+            let texture = getUnitKey(unit);
+            let alpha = 1.0; 
+            
+            if (visLevel === 1 && unit.side !== activeSide) {
+                let sidePrefix = unit.side === 'blue' ? 'UK' : 'GER';
+                let catSuffix = (unit.category === 'vehicle' || unit.category === 'hwt') ? 'Vehicle' : 'Infantry';
+                texture = `${sidePrefix}_FOW_${catSuffix}`;
+                if (!scene.textures.exists(texture)) texture = 'fow_generic';
+                alpha = 0.8; 
+            } else {
+                 if (!scene.textures.exists(texture)) texture = 'fallback';
+            }
 
-        // Draw Triangle only if FULLY spotted or OWN unit
-        if (visLevel === 2) drawFacingIndicator(unit, pos);
+            const sprite = scene.add.image(pos.x, pos.y, texture);
+            sprite.setDisplaySize(HEX_RADIUS * 1.25, HEX_RADIUS * 1.25);
+            sprite.setDepth(600);
+            sprite.setAlpha(alpha);
+            unitSprites[unit.id] = sprite;
+            
+            // 2. Overlays (Strict Top Check)
+            const isTop = (unit === topUnit);
 
-        const isTop = (units.filter(u => u.q === unit.q && u.r === unit.r && getUnitVisibility(u) > 0).pop() === unit);
-        const count = stackCounts[`${unit.q},${unit.r}`]; 
-        
-        if (count > 1 && isTop) { 
+            // Red Stripe (Spent) - Only on Top
+            if (isTop && unit.hasActed && visLevel === 2) {
+                const barW = 32; const barH = 6;
+                unitGraphics.fillStyle(0xff0000, 1.0);
+                unitGraphics.fillRect(pos.x - barW/2, pos.y + 16, barW, barH);
+            }
+
+            // Facing Triangle
+            // Draw if Top Unit OR (Facing is different from Top Unit)
+            // AND unit is actually fully spotted
+            if (visLevel === 2) {
+                 if (isTop || unit.facing !== topUnit.facing) {
+                     drawFacingIndicator(unit, pos);
+                 }
+            }
+
+            // Status Markers (Damage/Shaken) - Only on Top
+            if (isTop && visLevel === 2) {
+                drawStatusMarkers(unit, pos);
+            }
+        });
+
+        // 3. Stack Count Badge (Only on Top Position)
+        if (visibleStack.length > 1) { 
+            const pos = getHexPosition(topUnit.q, topUnit.r);
             const badgeX = pos.x + 10; const badgeY = pos.y - 18; 
             badgeGraphics.fillStyle(0xffffff, 1); badgeGraphics.fillRect(badgeX, badgeY, 16, 14); 
             badgeGraphics.lineStyle(1, 0x000000, 1); badgeGraphics.strokeRect(badgeX, badgeY, 16, 14); 
-            scene.add.text(badgeX + 8, badgeY + 7, `+${count-1}`, { font: '11px Arial', fill: '#000', fontStyle:'bold' }).setOrigin(0.5).setDepth(810).setResolution(2).setName('badgeText'); 
+            scene.add.text(badgeX + 8, badgeY + 7, `+${visibleStack.length-1}`, { font: '11px Arial', fill: '#000', fontStyle:'bold' }).setOrigin(0.5).setDepth(810).setResolution(2).setName('badgeText'); 
         } 
-        if (isTop && visLevel === 2) drawStatusMarkers(unit, pos); 
-    }); 
+    });
     
     // Selection Ring Logic
     if (selectedUnit || selectedHex) { 
