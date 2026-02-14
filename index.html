@@ -942,3 +942,244 @@ function updateDynamicList() {
         container.appendChild(div);
     });
 }
+// --- DEPLOYMENT & ACTION LOGIC ---
+function deployTrayUnit(uData, hex) {
+    if (currentPhase === 'SETUP' && !setupTrayUnits.includes(uData)) {
+        addToLog("Cannot deploy Reinforcements during Setup!", "log-combat");
+        return;
+    }
+
+    let valid = false;
+    if(currentPhase === 'SETUP') {
+        if (uData.side === 'blue' && hex.setupZone === 'blue') valid = true;
+        if (uData.side === 'red' && hex.setupZone === 'red') valid = true;
+    } else {
+        if(uData.locType === 'hex') {
+            const [tq, tr] = uData.locVal.split(',').map(Number);
+            if(hex.q === tq && hex.r === tr) valid = true;
+        } else if (uData.locType === 'edge') {
+            const side = uData.locVal; 
+            if (side === 'N' && hex.r === 0) valid = true;
+            else if (side === 'S' && hex.r === mapData.rows - 1) valid = true;
+            else if (side === 'W' && hex.q === 0) valid = true;
+            else if (side === 'E' && hex.q === mapData.cols - 1) valid = true;
+        } else {
+            if (uData.side === 'blue' && hex.setupZone === 'blue') valid = true;
+            if (uData.side === 'red' && hex.setupZone === 'red') valid = true;
+        }
+    }
+
+    if (!valid) {
+        addToLog(`Invalid Deployment Location.`, "log-combat"); return;
+    }
+
+    const regInfo = UNIT_DATA_REGISTRY[uData.type] || {};
+    const stats = regInfo.stats || {};
+    
+    const maxMp = stats.Movement_Points !== undefined ? stats.Movement_Points : 6;
+    const fp = stats.Firepower !== undefined ? stats.Firepower : 3;
+    const rng = stats.Range_Hexes !== undefined ? stats.Range_Hexes : 6;
+
+    const newUnit = {
+        id: unitIdCounter++,
+        side: uData.side,
+        type: uData.type,
+        category: uData.category || regInfo.category || 'squad',
+        name: uData.name || regInfo.name,
+        quality: uData.quality || 'regular',
+        q: hex.q, r: hex.r,
+        facing: uData.facing !== undefined ? uData.facing : 0, 
+        status: 'clear', 
+        stance: 'deployed', 
+        hasActed: false,    
+        hasMovedThisTurn: false,
+        hasFiredThisTurn: false,
+        memory: {},         
+        mp: maxMp, maxMp: maxMp, hp: 5, fp: fp, range: rng, isFixed: false
+    };
+
+    units.push(newUnit);
+    
+    if(currentPhase === 'SETUP') setupTrayUnits = setupTrayUnits.filter(t => t !== uData);
+    else reinforcementUnits = reinforcementUnits.filter(t => t !== uData);
+    
+    selectedTrayItem = null;
+    isDeploying = false;
+    selectUnitInStack(newUnit);
+    displayMap(); 
+    updateDynamicList(); 
+    uiUpdate();
+    addToLog(`${newUnit.name} deployed at [${newUnit.q},${newUnit.r}].`);
+    checkControl(newUnit);
+}
+
+// --- TURN & PHASE CONTROL ---
+function startGameMode(mode) {
+    document.getElementById('mode-modal').style.display = 'none';
+    currentPhase = 'SETUP';
+    document.getElementById('phase-display').innerText = 'SETUP';
+    document.getElementById('btn-phase').innerText = 'Finish Setup';
+    currentListMode = 'tray';
+    
+    let initRule = 'blue';
+    if (scenarioData && scenarioData.rules && scenarioData.rules.initiative) initRule = scenarioData.rules.initiative;
+    resolveInitiative(initRule);
+    
+    isDeploying = true; 
+    updateDynamicList();
+    displayMap(); 
+}
+
+function nextPhase() {
+    if (currentPhase === 'SETUP') {
+        if (activeSide === initiativeWinner) {
+            const otherSide = (initiativeWinner === 'blue') ? 'red' : 'blue';
+            addToLog(`${activeSide.toUpperCase()} Setup Complete. Switching to ${otherSide.toUpperCase()}.`, "log-info");
+            switchSideTo(otherSide);
+            return; 
+        } 
+        else {
+             currentPhase = 'Action Phase';
+             document.getElementById('btn-phase').innerText = "End Turn";
+             isDeploying = false; 
+             checkInitialControl(); 
+             units.forEach(u => runActiveSpotting(u));
+             switchSideTo(initiativeWinner);
+             displayMap();
+             addToLog("=== MATCH START ===", "log-turn");
+             toggleListMode('reinforcements');
+        }
+    } 
+    else {
+        const otherSide = (activeSide === 'blue') ? 'red' : 'blue';
+        activeSide = otherSide;
+        if (activeSide === initiativeWinner) currentTurn++;
+
+        if(currentTurn > scenarioData.info.maxTurns) {
+            let win = (scores.blue > scores.red) ? 'blue' : (scores.red > scores.blue ? 'red' : 'draw');
+            endGame(win, "Turn Limit Reached"); return;
+        }
+
+        document.getElementById('turn-counter').innerText = currentTurn;
+        
+        units.filter(u => u.side === activeSide).forEach(u => {
+            u.mp = u.maxMp;
+            u.hasActed = false;
+            u.hasFiredThisTurn = false;
+            u.stance = 'deployed';
+            u.hasMovedThisTurn = false; 
+        });
+
+        units.filter(u => u.side === activeSide).forEach(u => runActiveSpotting(u));
+        switchSideTo(activeSide);
+        addToLog(`Turn ${currentTurn}: ${activeSide.toUpperCase()} Active.`, "log-turn");
+    }
+    document.getElementById('phase-display').innerText = currentPhase;
+    updateDynamicList(); 
+    uiUpdate();
+}
+
+// --- UTILITY & MODAL FUNCTIONS ---
+function toggleMapLoader() { 
+    const el = document.getElementById('json-modal'); 
+    el.style.display = (el.style.display === 'block') ? 'none' : 'block'; 
+}
+
+function loadScenario() {
+    let txt = document.getElementById('json-input').value;
+    txt = txt.replace(/[\n\r\t]+/g, ' ').replace(/\u00A0/g, ' ').trim();
+    try {
+        scenarioData = JSON.parse(txt);
+        mapData = scenarioData.map; 
+        units = []; setupTrayUnits = []; reinforcementUnits = []; strikes = [];
+        
+        if (scenarioData.units.locked) {
+            scenarioData.units.locked.forEach(u => {
+                u.isFixed = true; 
+                const info = UNIT_DATA_REGISTRY[u.type] || {};
+                const stats = info.stats || {};
+                u.category = u.category || info.category;
+                u.name = u.name || info.name;
+                u.maxMp = stats.Movement_Points || 6;
+                u.mp = u.maxMp;
+                u.fp = stats.Firepower || 3;
+                u.range = stats.Range_Hexes || 6;
+                u.hp = 5;
+                u.facing = u.facing !== undefined ? u.facing : 0;
+                u.hasFiredThisTurn = false;
+                units.push(u);
+            });
+        }
+        if (scenarioData.units.tray) {
+            scenarioData.units.tray.forEach(u => {
+                if (u.turn && parseInt(u.turn) > 0) reinforcementUnits.push(u); 
+                else setupTrayUnits.push(u);
+            });
+        }
+        
+        document.getElementById('max-turns').innerText = scenarioData.info.maxTurns;
+        toggleMapLoader();
+        document.getElementById('mode-modal').style.display = 'flex'; 
+    } catch (e) { alert('Invalid JSON Structure'); }
+}
+
+// --- RENDER & SELECTION LOOP ---
+function handleLeftClick(pointer) {
+    if(isSpottingQueueRunning) return;
+    const hex = getHexAtPoint(pointer.worldX, pointer.worldY);
+    if (!hex) { selectedUnit = null; selectedHex = null; uiUpdate(); return; }
+    if (losTool) { handleLOSToolClick(hex); return; }
+
+    if (selectedTrayItem) { deployTrayUnit(selectedTrayItem, hex); return; }
+
+    if (currentAction === 'HASTY' && selectedUnit) { continueHastyMove(hex); return; }
+
+    const hexUnits = units.filter(u => u.q === hex.q && u.r === hex.r && u.hp > 0);
+    const visibleUnits = hexUnits.filter(u => u.side === activeSide || getUnitVisibility(u) === 2);
+
+    if (currentAction && selectedUnit) {
+        if (currentAction === 'FIRE') {
+            const target = visibleUnits.find(u => u.side !== selectedUnit.side);
+            if(target) executeFire(selectedUnit, target);
+        } else if (currentAction === 'FACING') { changeFacing(selectedUnit, hex); } 
+        else if (currentAction === 'TACTICAL') { executeTacticalMove(selectedUnit, hex); }
+        return;
+    }
+
+    if (visibleUnits.length > 0) {
+        const own = visibleUnits.find(u => u.side === activeSide);
+        selectUnitInStack(own || visibleUnits[visibleUnits.length - 1]);
+    } else {
+        selectedUnit = null; selectedHex = hex; uiUpdate();
+    }
+}
+
+function uiUpdate() { 
+    selectionGraphics.clear(); 
+    unitGraphics.clear(); 
+    badgeGraphics.clear(); 
+    scene.children.list.filter(c => c.name === 'badgeText').forEach(c => c.destroy()); 
+    
+    if (selectedUnit) drawFrontalArc(selectedUnit);
+    else arcGraphics.clear();
+
+    redrawAllUnits(); 
+    if (selectedUnit) showUnitPanel(selectedUnit); 
+    else if (selectedHex) showTerrainPanel(selectedHex); 
+    else clearContextPanel(); 
+}
+
+function moveUnitTo(unit, hex) {
+    if(unit.facing !== 'X') calculateFacing(unit, hex);
+    unit.q = hex.q; unit.r = hex.r;
+    reevaluateVisibility(unit); // STICKY MEMORY CHECK
+    selectUnitInStack(unit);
+    checkControl(unit);
+}
+
+// (Remaining engine functions like redrawAllUnits, getHexPosition, etc. go here)
+// Make sure to close your script and body tags!
+</script>
+</body>
+</html>
+
