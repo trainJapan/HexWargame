@@ -943,240 +943,363 @@ function updateDynamicList() {
     });
 }
 // --- END OF PART 3 ---
-// --- DEPLOYMENT & ACTION LOGIC ---
+// --- DEPLOYMENT & ACTION PHASE LOGIC ---
 function deployTrayUnit(uData, hex) {
-    if (currentPhase === 'SETUP' && !setupTrayUnits.includes(uData)) {
-        addToLog("Cannot deploy Reinforcements during Setup!", "log-combat");
-        return;
-    }
-
+    if (currentPhase === 'SETUP' && !setupTrayUnits.includes(uData)) return;
+    
     let valid = false;
     if(currentPhase === 'SETUP') {
         if (uData.side === 'blue' && hex.setupZone === 'blue') valid = true;
         if (uData.side === 'red' && hex.setupZone === 'red') valid = true;
     } else {
-        // Reinforcement logic (Hex or Edge)
         if(uData.locType === 'hex') {
             const [tq, tr] = uData.locVal.split(',').map(Number);
-            if(hex.q === tq && hex.r === tr) valid = true;
+            valid = (hex.q === tq && hex.r === tr);
         } else if (uData.locType === 'edge') {
-            const side = uData.locVal; 
-            if (side === 'N' && hex.r === 0) valid = true;
-            else if (side === 'S' && hex.r === mapData.rows - 1) valid = true;
-            else if (side === 'W' && hex.q === 0) valid = true;
-            else if (side === 'E' && hex.q === mapData.cols - 1) valid = true;
-        } else {
-            if (uData.side === 'blue' && hex.setupZone === 'blue') valid = true;
-            if (uData.side === 'red' && hex.setupZone === 'red') valid = true;
+            const s = uData.locVal; 
+            valid = (s === 'N' && hex.r === 0) || (s === 'S' && hex.r === mapData.rows - 1) || 
+                    (s === 'W' && hex.q === 0) || (s === 'E' && hex.q === mapData.cols - 1);
         }
     }
 
-    if (!valid) { addToLog(`Invalid Deployment Location.`, "log-combat"); return; }
+    if (!valid) { addToLog("Invalid Deployment Location", "log-combat"); return; }
 
-    const regInfo = UNIT_DATA_REGISTRY[uData.type] || {};
-    const stats = regInfo.stats || {};
-    
-    const newUnit = {
+    const reg = UNIT_DATA_REGISTRY[uData.type] || {};
+    const nu = {
         id: unitIdCounter++,
         side: uData.side,
         type: uData.type,
-        category: uData.category || regInfo.category || 'squad',
-        name: uData.name || regInfo.name,
-        quality: uData.quality || 'regular',
-        q: hex.q, r: hex.r,
-        facing: uData.facing !== undefined ? uData.facing : 0, 
-        status: 'clear', stance: 'deployed', 
-        hasActed: false, hasMovedThisTurn: false, hasFiredThisTurn: false,
-        memory: {}, hp: 5, 
-        mp: stats.Movement_Points || 6, maxMp: stats.Movement_Points || 6, 
-        fp: stats.Firepower || 3, range: stats.Range_Hexes || 6
+        category: reg.category || 'squad',
+        name: uData.name || reg.name,
+        q: hex.q,
+        r: hex.r,
+        facing: uData.facing || 0,
+        hp: 5,
+        mp: reg.stats?.Movement_Points || 6,
+        maxMp: reg.stats?.Movement_Points || 6,
+        fp: reg.stats?.Firepower || 3,
+        range: reg.stats?.Range_Hexes || 6,
+        stance: 'deployed',
+        memory: {},
+        hasActed: false,
+        hasMovedThisTurn: false,
+        hasFiredThisTurn: false
     };
 
-    units.push(newUnit);
-    if(currentPhase === 'SETUP') setupTrayUnits = setupTrayUnits.filter(t => t !== uData);
-    else reinforcementUnits = reinforcementUnits.filter(t => t !== uData);
-    
-    selectedTrayItem = null; isDeploying = false;
-    selectUnitInStack(newUnit);
-    displayMap(); updateDynamicList(); uiUpdate();
-    addToLog(`${newUnit.name} deployed at [${newUnit.q},${newUnit.r}].`);
+    units.push(nu);
+    if(currentPhase === 'SETUP') {
+        setupTrayUnits = setupTrayUnits.filter(t => t !== uData);
+    } else {
+        reinforcementUnits = reinforcementUnits.filter(t => t !== uData);
+    }
+
+    selectedTrayItem = null;
+    isDeploying = false;
+    displayMap();
+    updateDynamicList();
+    uiUpdate();
+    addToLog(`${nu.name} deployed at [${nu.q},${nu.r}]`, "log-info");
 }
 
 function moveUnitTo(unit, hex) {
-    if(unit.facing !== 'X') calculateFacing(unit, hex);
-    unit.q = hex.q; unit.r = hex.r;
-    // Trigger Sticky Memory re-evaluation
+    unit.q = hex.q;
+    unit.r = hex.r;
+    // STICKY MEMORY: Re-check LOS for all enemies when this unit moves
     reevaluateVisibility(unit); 
-    selectUnitInStack(unit);
+    selectedUnit = unit;
+    uiUpdate();
 }
 
-// --- TURN & PHASE CONTROL ---
-function startGameMode(mode) {
+function startGameMode() {
     document.getElementById('mode-modal').style.display = 'none';
     currentPhase = 'SETUP';
-    document.getElementById('phase-display').innerText = 'SETUP';
-    document.getElementById('btn-phase').innerText = 'Finish Setup';
-    currentListMode = 'tray';
-    
-    let initRule = scenarioData?.rules?.initiative || 'blue';
-    initiativeWinner = initRule;
+    initiativeWinner = scenarioData?.rules?.initiative || 'blue';
     switchSideTo(initiativeWinner);
-    
-    isDeploying = true; 
-    updateDynamicList();
-    displayMap(); 
+    addToLog("Setup Phase Started", "log-turn");
 }
 
 function nextPhase() {
     if (currentPhase === 'SETUP') {
         if (activeSide === initiativeWinner) {
-            const otherSide = (initiativeWinner === 'blue') ? 'red' : 'blue';
-            addToLog(`${activeSide.toUpperCase()} Setup Complete. Switching to ${otherSide.toUpperCase()}.`, "log-info");
-            switchSideTo(otherSide);
+            switchSideTo(initiativeWinner === 'blue' ? 'red' : 'blue');
         } else {
-             currentPhase = 'Action Phase';
-             document.getElementById('btn-phase').innerText = "End Turn";
-             isDeploying = false; 
-             units.forEach(u => runActiveSpotting(u));
-             switchSideTo(initiativeWinner);
-             displayMap();
-             addToLog("=== MATCH START ===", "log-turn");
+            currentPhase = 'Action';
+            switchSideTo(initiativeWinner);
+            units.forEach(u => runActiveSpotting(u));
+            addToLog("Action Phase Started", "log-turn");
         }
     } else {
-        const otherSide = (activeSide === 'blue') ? 'red' : 'blue';
-        activeSide = otherSide;
-        if (activeSide === initiativeWinner) currentTurn++;
-        if(currentTurn > scenarioData.info.maxTurns) { alert("Game Over!"); return; }
-
+        const next = activeSide === 'blue' ? 'red' : 'blue';
+        if (next === initiativeWinner) currentTurn++;
+        if (currentTurn > scenarioData.info.maxTurns) {
+             alert("Game Over: Turn Limit Reached");
+             return;
+        }
         document.getElementById('turn-counter').innerText = currentTurn;
-        units.filter(u => u.side === activeSide).forEach(u => {
-            u.mp = u.maxMp; u.hasActed = false; u.hasFiredThisTurn = false; u.hasMovedThisTurn = false;
-        });
-        units.filter(u => u.side === activeSide).forEach(u => runActiveSpotting(u));
+        activeSide = next;
         switchSideTo(activeSide);
+        units.filter(u => u.side === activeSide).forEach(u => {
+            u.mp = u.maxMp;
+            u.hasActed = false;
+            u.hasMovedThisTurn = false;
+            u.hasFiredThisTurn = false;
+            runActiveSpotting(u);
+        });
     }
     document.getElementById('phase-display').innerText = currentPhase;
-    updateDynamicList(); uiUpdate();
+    updateDynamicList();
+    uiUpdate();
+}
+// --- END OF PART 4a ---
+// --- RENDER & SELECTION LOOP ---
+function handleLeftClick(pointer) {
+    if(isSpottingQueueRunning) return;
+    const hex = getHexAtPoint(pointer.worldX, pointer.worldY);
+    if (!hex) return;
+
+    if (selectedTrayItem) {
+        deployTrayUnit(selectedTrayItem, hex);
+        return;
+    }
+
+    const hexUnits = units.filter(u => u.q === hex.q && u.r === hex.r && u.hp > 0);
+    const visibleUnits = hexUnits.filter(u => u.side === activeSide || getUnitVisibility(u) === 2);
+
+    if (visibleUnits.length > 0) {
+        // Select own unit first if stacking, otherwise visible enemy
+        const target = visibleUnits.find(u => u.side === activeSide) || visibleUnits[0];
+        selectedUnit = target;
+        selectedHex = null;
+    } else {
+        selectedUnit = null;
+        selectedHex = hex;
+    }
+    uiUpdate();
 }
 
-// --- LINE OF SIGHT (RAYCASTER) ---
+function getUnitVisibility(u) {
+    if (u.side === activeSide) return 2;
+    let maxLvl = 0;
+    units.filter(obs => obs.side === activeSide).forEach(obs => {
+        const lvl = (obs.memory && obs.memory[u.id]) ? obs.memory[u.id].level : 0;
+        if (lvl > maxLvl) maxLvl = lvl;
+    });
+    return maxLvl;
+}
+
+function uiUpdate() {
+    selectionGraphics.clear();
+    unitGraphics.clear();
+    badgeGraphics.clear();
+    
+    // Clear old text badges
+    scene.children.list.filter(c => c.name === 'badgeText').forEach(c => c.destroy());
+
+    if (selectedUnit) {
+        drawFrontalArc(selectedUnit);
+        showUnitPanel(selectedUnit);
+    } else if (selectedHex) {
+        arcGraphics.clear();
+        showTerrainPanel(selectedHex);
+    } else {
+        arcGraphics.clear();
+        clearContextPanel();
+    }
+    redrawAllUnits();
+}
+
+function displayMap() {
+    if (!mapData) return;
+    hexGroup.clear(true, true);
+    zoneGraphics.clear();
+
+    for (let q = 0; q < mapData.cols; q++) {
+        hexMap[q] = hexMap[q] || {};
+        for (let r = 0; r < mapData.rows; r++) {
+            const pos = getHexPosition(q, r);
+            if (!hexMap[q][r]) {
+                hexMap[q][r] = { terrain: 'clear', x: pos.x, y: pos.y, q: q, r: r };
+            }
+            drawHex(hexMap[q][r]);
+        }
+    }
+
+    if (mapData.terrain) {
+        mapData.terrain.forEach(t => {
+            if (hexMap[t.q] && hexMap[t.q][t.r]) hexMap[t.q][t.r].terrain = t.type;
+        });
+    }
+
+    // Draw Setup Zones
+    if (mapData.zones) {
+        mapData.zones.forEach(z => {
+            if (hexMap[z.q] && hexMap[z.q][z.r]) {
+                hexMap[z.q][z.r].setupZone = z.side;
+                const color = (z.side === 'blue') ? 0x4488ff : 0xff4444;
+                zoneGraphics.lineStyle(2, color, 0.4);
+                zoneGraphics.strokeCircle(hexMap[z.q][z.r].x, hexMap[z.q][z.r].y, HEX_RADIUS - 5);
+            }
+        });
+    }
+    redrawAllUnits();
+}
+
+function drawHex(hex) {
+    const g = scene.add.graphics().lineStyle(1, 0x444444, 0.8);
+    g.beginPath();
+    for (let i = 0; i < 6; i++) {
+        const hx = hex.x + HEX_RADIUS * Math.cos(Math.PI / 3 * i);
+        const hy = hex.y + HEX_RADIUS * Math.sin(Math.PI / 3 * i);
+        if (i === 0) g.moveTo(hx, hy); else g.lineTo(hx, hy);
+    }
+    g.closePath().strokePath();
+    hexGroup.add(g);
+}
+
+function redrawAllUnits() {
+    Object.values(unitSprites).forEach(s => s.destroy());
+    unitSprites = {};
+
+    units.forEach(u => {
+        const vis = getUnitVisibility(u);
+        if (vis === 0) return;
+
+        const pos = getHexPosition(u.q, u.r);
+        let texture = u.type;
+        
+        if (vis === 1) {
+            const sidePrefix = u.side === 'blue' ? 'UK' : 'GER';
+            const typeSuffix = (u.category === 'vehicle') ? 'Vehicle' : 'Infantry';
+            texture = `${sidePrefix}_FOW_${typeSuffix}`;
+        }
+
+        const s = scene.add.image(pos.x, pos.y, texture).setDisplaySize(HEX_RADIUS * 1.2, HEX_RADIUS * 1.2).setDepth(600);
+        if (u.hasActed && u.side === activeSide) s.setTint(0x666666);
+        unitSprites[u.id] = s;
+        
+        // Facing Indicator
+        if (u.facing !== 'X' && vis === 2) {
+            const angle = [-90, -30, 30, 90, 150, -150][u.facing];
+            const rad = Phaser.Math.DegToRad(angle);
+            unitGraphics.lineStyle(4, 0xffffff, 0.8).beginPath();
+            unitGraphics.moveTo(pos.x, pos.y).lineTo(pos.x + Math.cos(rad) * 28, pos.y + Math.sin(rad) * 28).strokePath();
+        }
+    });
+}
+// --- END OF PART 4b ---
+// --- COORDINATE MATH & PANELS ---
+function getHexPosition(q, r) {
+    return { 
+        x: q * HEX_RADIUS * 1.5, 
+        y: r * HEX_RADIUS * Math.sqrt(3) + (q % 2 === 1 ? HEX_RADIUS * Math.sqrt(3) / 2 : 0) 
+    };
+}
+
+function getHexDistance(a, b) {
+    const ac = { x: a.q, z: a.r - (a.q - (a.q & 1)) / 2 }; ac.y = -ac.x - ac.z;
+    const bc = { x: b.q, z: b.r - (b.q - (b.q & 1)) / 2 }; bc.y = -bc.x - bc.z;
+    return Math.max(Math.abs(ac.x - bc.x), Math.abs(ac.y - bc.y), Math.abs(ac.z - bc.z));
+}
+
+function getHexAtPoint(wx, wy) {
+    let closest = null, minD = HEX_RADIUS;
+    for(let q in hexMap) for(let r in hexMap[q]) {
+        let d = Phaser.Math.Distance.Between(hexMap[q][r].x, hexMap[q][r].y, wx, wy);
+        if(d < minD) { minD = d; closest = hexMap[q][r]; }
+    } return closest;
+}
+
 function calculateLOS(startHex, endHex, observerType = 'infantry') {
     const dist = getHexDistance(startHex, endHex);
-    if (dist === 0) return { status: 'clear', points: [] };
-    if (dist === 1) return { status: 'clear', points: [] };
-
+    if (dist <= 1) return { status: 'clear' };
     let status = 'clear';
     const samples = dist * 2;
-    const obsHeight = observerType === 'infantry' ? 1 : 2;
-    const startH = TERRAIN_TYPES[startHex.terrain].terrainHeight + obsHeight;
-    const endH = TERRAIN_TYPES[endHex.terrain].terrainHeight + 1;
+    const obsH = observerType === 'infantry' ? 1 : 2;
+    const sH = TERRAIN_TYPES[startHex.terrain].terrainHeight + obsH;
+    const eH = TERRAIN_TYPES[endHex.terrain].terrainHeight + 1;
 
     for (let i = 1; i < samples; i++) {
         const t = i / samples;
         const q = Math.round(startHex.q * (1 - t) + endHex.q * t);
         const r = Math.round(startHex.r * (1 - t) + endHex.r * t);
-        const currentHex = hexMap[q]?.[r];
-        if (!currentHex || (q === startHex.q && r === startHex.r) || (q === endHex.q && r === endHex.r)) continue;
+        const cur = hexMap[q]?.[r];
+        if (!cur || (q === startHex.q && r === startHex.r)) continue;
 
-        const lineH = startH * (1 - t) + endH * t;
-        const terrainH = TERRAIN_TYPES[currentHex.terrain].terrainHeight;
-        const terrainLOS = TERRAIN_TYPES[currentHex.terrain].los;
-
-        if (terrainH >= lineH) return { status: 'blocked' };
-        if (terrainLOS === 'degraded' && terrainH + 0.5 >= lineH) status = 'degraded';
+        const lineH = sH * (1 - t) + eH * t;
+        const terH = TERRAIN_TYPES[cur.terrain].terrainHeight;
+        if (terH >= lineH) return { status: 'blocked' };
+        if (TERRAIN_TYPES[cur.terrain].los === 'degraded' && terH + 0.5 >= lineH) status = 'degraded';
     }
     return { status: status };
 }
 
-// --- UTILITY & MODAL FUNCTIONS ---
+function showUnitPanel(unit) {
+    const info = UNIT_DATA_REGISTRY[unit.type] || {};
+    document.getElementById('ctx-img').innerHTML = `<img src="${ASSETS_URL}counters/${unit.type}.png">`;
+    document.getElementById('ctx-title').innerText = unit.name;
+    document.getElementById('ctx-subtitle').innerText = unit.category.toUpperCase();
+    document.getElementById('unit-actions').style.display = 'grid';
+    document.getElementById('stats-content').innerHTML = `
+        <div class="stat-row"><span>HP:</span> <span>${unit.hp}/5</span></div>
+        <div class="stat-row"><span>MP:</span> <span>${unit.mp}/${unit.maxMp}</span></div>
+        <div class="stat-row"><span>FP:</span> <span>${unit.fp}</span></div>
+        <div class="stat-row"><span>Range:</span> <span>${unit.range}</span></div>
+    `;
+}
+
+function showTerrainPanel(hex) {
+    const type = TERRAIN_TYPES[hex.terrain];
+    document.getElementById('ctx-title').innerText = hex.terrain.toUpperCase();
+    document.getElementById('ctx-subtitle').innerText = `Hex [${hex.q},${hex.r}]`;
+    document.getElementById('unit-actions').style.display = 'none';
+    document.getElementById('stats-content').innerHTML = `
+        <div class="stat-row"><span>Move Cost:</span> <span>${type.cost}</span></div>
+        <div class="stat-row"><span>Elevation:</span> <span>${type.terrainHeight}</span></div>
+        <div class="stat-row"><span>LOS:</span> <span>${type.los}</span></div>
+    `;
+}
+
+function clearContextPanel() {
+    document.getElementById('ctx-title').innerText = "No Selection";
+    document.getElementById('unit-actions').style.display = 'none';
+    document.getElementById('stats-content').innerHTML = "";
+}
+
+// --- SYSTEM UTILS ---
 function toggleMapLoader() { 
     const el = document.getElementById('json-modal'); 
     el.style.display = (el.style.display === 'block') ? 'none' : 'block'; 
 }
 
 function loadScenario() {
-    const input = document.getElementById('json-input').value;
     try {
+        const input = document.getElementById('json-input').value;
         scenarioData = JSON.parse(input);
         mapData = scenarioData.map;
-        units = []; setupTrayUnits = scenarioData.units.tray || [];
+        units = []; 
+        setupTrayUnits = scenarioData.units.tray || [];
         document.getElementById('max-turns').innerText = scenarioData.info.maxTurns;
         toggleMapLoader();
-        document.getElementById('mode-modal').style.display = 'flex';
-    } catch(e) { alert("Invalid JSON!"); }
+        startGameMode();
+        displayMap();
+    } catch(e) { alert("Invalid Scenario JSON"); }
 }
 
-function handleLeftClick(pointer) {
-    if(isSpottingQueueRunning) return;
-    const hex = getHexAtPoint(pointer.worldX, pointer.worldY);
-    if (!hex) return;
-    if (selectedTrayItem) deployTrayUnit(selectedTrayItem, hex);
-    else if (isDeploying) return;
-    else {
-        const unit = units.find(u => u.q === hex.q && u.r === hex.r && getUnitVisibility(u) === 2);
-        if (unit) selectUnitInStack(unit);
-        else { selectedUnit = null; selectedHex = hex; uiUpdate(); }
-    }
+function addToLog(m, c) {
+    const l = document.getElementById('log-container');
+    const e = document.createElement('div');
+    e.className = `log-entry ${c}`;
+    e.innerText = m;
+    l.appendChild(e);
+    l.scrollTop = l.scrollHeight;
 }
 
-function selectUnitInStack(unit) { selectedUnit = unit; selectedHex = null; uiUpdate(); }
-
-function getUnitVisibility(u) {
-    if (u.side === activeSide) return 2;
-    let maxVis = 0;
-    units.filter(obs => obs.side === activeSide).forEach(obs => {
-        const level = obs.memory?.[u.id]?.level || 0;
-        if (level > maxVis) maxVis = level;
-    });
-    return maxVis;
-}
-
-function getUnitKey(u) { return u.type; }
-
-function uiUpdate() {
-    redrawAllUnits();
-    if (selectedUnit) {
-        document.getElementById('ctx-title').innerText = selectedUnit.name;
-        document.getElementById('ctx-img').innerHTML = `<img src="${ASSETS_URL}counters/${getUnitKey(selectedUnit)}.png">`;
-        document.getElementById('unit-actions').style.display = 'grid';
-        if (arcTool) drawFrontalArc(selectedUnit);
-    } else {
-        document.getElementById('unit-actions').style.display = 'none';
-        arcGraphics.clear();
-    }
-}
-
-function displayMap() {
-    hexGroup.clear(true, true);
-    for (let q = 0; q < mapData.cols; q++) {
-        hexMap[q] = hexMap[q] || {};
-        for (let r = 0; r < mapData.rows; r++) {
-            const pos = getHexPosition(q, r);
-            hexMap[q][r] = { q, r, x: pos.x, y: pos.y, terrain: 'clear' };
-            // Draw hex visual here (omitted for space, assume standard graphics draw)
-        }
-    }
-    if (mapData.terrain) mapData.terrain.forEach(t => { if(hexMap[t.q]) hexMap[t.q][t.r].terrain = t.type; });
-    if (mapData.zones) mapData.zones.forEach(z => { if(hexMap[z.q]) hexMap[z.q][z.r].setupZone = z.side; });
-}
-
-function redrawAllUnits() {
-    Object.values(unitSprites).forEach(s => s.destroy());
-    units.forEach(u => {
-        const vis = getUnitVisibility(u);
-        if (vis === 0) return;
-        const pos = getHexPosition(u.q, u.r);
-        const tex = vis === 1 ? (u.category === 'vehicle' ? 'GER_FOW_Vehicle' : 'GER_FOW_Infantry') : getUnitKey(u);
-        unitSprites[u.id] = scene.add.image(pos.x, pos.y, tex).setDisplaySize(50, 50);
-    });
-}
-
-function getHexPosition(q, r) { return { x: q * 60, y: r * 70 + (q % 2 * 35) }; }
-function getHexDistance(a, b) { return (Math.abs(a.q - b.q) + Math.abs(a.q + a.r - (b.q + b.r)) + Math.abs(a.r - b.r)) / 2; }
-function getHexAtPoint(x, y) { /* Standard hex detection logic */ }
-function toggleLOSTool() { losTool = !losTool; document.getElementById('los-options').style.display = losTool ? 'flex' : 'none'; }
-function addToLog(msg, cls) { const l = document.getElementById('log-container'); l.innerHTML += `<div class="log-entry ${cls}">${msg}</div>`; l.scrollTop = l.scrollHeight; }
+function toggleLOSTool() { losTool = !losTool; }
+function selectAction(a) { currentAction = a; addToLog(`Action: ${a}`, "log-info"); }
 
 </script>
 </body>
 </html>
+
+
+
