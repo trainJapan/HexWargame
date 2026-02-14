@@ -1,0 +1,78 @@
+{
+  "base_chance": 100,
+  "unit_states": {
+    "infantry": {
+      "moving": 10,
+      "deployed": 0,
+      "setup": 0,
+      "cover": -10
+    },
+    "vehicle": {
+      "moving": 20,
+      "deployed": 0,
+      "setup": 0
+    }
+  },
+  "terrain_concealment": {
+    "infantry": {
+      "water": null,
+      "beach": 0,
+      "clear": -10,
+      "fields": -30,
+      "orchard": -30,
+      "broken": -40,
+      "hill": -40,
+      "forest": -60,
+      "rural": -50,
+      "urban": -60,
+      "industrial": -50
+    },
+    "vehicle": {
+      "water": null,
+      "beach": 0,
+      "clear": 0,
+      "fields": 0,
+      "orchard": -10,
+      "broken": -10,
+      "hill": -10,
+      "forest": -20,
+      "rural": -20,
+      "urban": -30,
+      "industrial": -20
+    }
+  },
+  "los_quality": {
+    "clear": 10,
+    "degraded": -10,
+    "blocked": null
+  },
+  "scenario_modifiers": {
+    "visibility": {
+      "distance_threshold": 2,
+      "normal": 0,
+      "bad": -30
+    },
+    "time": {
+      "distance_threshold": 1,
+      "day": 0,
+      "night": -50
+    }
+  },
+  "situational_modifiers": {
+    "fired_this_turn": {
+      "standard_penalty": 10,
+      "sniper_penalty": 0
+    },
+    "stationary_infantry_spotted_by_vehicle": -10,
+    "out_of_arc_penalties": {
+      "infantry_spotted_by_vehicle": -40,
+      "vehicle_spotted_by_vehicle": -30,
+      "infantry_spotted_by_infantry": -10
+    }
+  },
+  "auto_fow_rules": {
+    "adjacent_distance": 1,
+    "infantry_spotter_sees_all": true,
+    "vehicle_spotter_sees_vehicle": true
+  }
+}
