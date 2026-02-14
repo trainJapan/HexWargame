@@ -2,9 +2,7 @@
   "clear": {
     "images": ["clear1.png", "clear2.png", "clear3.png"],
     "movement_cost": 1,
-    "cover_value": 0,
     "los_effect": "Clear",
-    "concealment": false,
     "terrain_height": 0,
     "unit_height_infantry": 0,
     "unit_height_vehicle": 0
@@ -12,9 +10,7 @@
   "fields": {
     "images": ["fields1.png", "fields2.png", "fields3.png"],
     "movement_cost": 1,
-    "cover_value": 1,
     "los_effect": "Degrading",
-    "concealment": true,
     "terrain_height": 0,
     "unit_height_infantry": 0,
     "unit_height_vehicle": 0
@@ -22,9 +18,7 @@
   "broken": {
     "images": ["broken1.png", "broken2.png", "broken3.png"],
     "movement_cost": 2,
-    "cover_value": 1,
     "los_effect": "Degrading",
-    "concealment": true,
     "terrain_height": 1,
     "unit_height_infantry": 0,
     "unit_height_vehicle": 0
@@ -32,9 +26,7 @@
   "orchard": {
     "images": ["orchard1.png", "orchard2.png", "orchard3.png"],
     "movement_cost": 2,
-    "cover_value": 1,
     "los_effect": "Degrading",
-    "concealment": true,
     "terrain_height": 1,
     "unit_height_infantry": 0,
     "unit_height_vehicle": 0
@@ -42,9 +34,7 @@
   "rural": {
     "images": ["rural1.png", "rural2.png", "rural3.png"],
     "movement_cost": 2,
-    "cover_value": 2,
     "los_effect": "Degrading",
-    "concealment": true,
     "terrain_height": 1,
     "unit_height_infantry": 0,
     "unit_height_vehicle": 0
@@ -52,9 +42,7 @@
   "forest": {
     "images": ["forest1.png", "forest2.png", "forest3.png"],
     "movement_cost": 3,
-    "cover_value": 2,
     "los_effect": "Blocking",
-    "concealment": true,
     "terrain_height": 2,
     "unit_height_infantry": 0,
     "unit_height_vehicle": 0
@@ -62,9 +50,7 @@
   "urban": {
     "images": ["urban1.png", "urban2.png", "urban3.png"],
     "movement_cost": 2,
-    "cover_value": 3,
     "los_effect": "Blocking",
-    "concealment": true,
     "terrain_height": 2,
     "unit_height_infantry": 2,
     "unit_height_vehicle": 0
@@ -72,9 +58,7 @@
   "industrial": {
     "images": ["industrial1.png", "industrial2.png", "industrial3.png"],
     "movement_cost": 2,
-    "cover_value": 3,
     "los_effect": "Blocking",
-    "concealment": true,
     "terrain_height": 2,
     "unit_height_infantry": 2,
     "unit_height_vehicle": 0
@@ -82,9 +66,7 @@
   "water": {
     "images": ["water1.png", "water2.png", "water3.png"],
     "movement_cost": 999,
-    "cover_value": 0,
     "los_effect": "Clear",
-    "concealment": false,
     "terrain_height": 0,
     "unit_height_infantry": 0,
     "unit_height_vehicle": 0
@@ -92,9 +74,7 @@
   "hill": {
     "images": ["hill1.png", "hill2.png", "hill3.png"],
     "movement_cost": 2,
-    "cover_value": 1,
     "los_effect": "Degrading",
-    "concealment": false,
     "terrain_height": 2,
     "unit_height_infantry": 2,
     "unit_height_vehicle": 2
@@ -102,9 +82,7 @@
   "beach": {
     "images": ["beach1.png", "beach2.png", "beach3.png"],
     "movement_cost": 1,
-    "cover_value": 0,
     "los_effect": "Clear",
-    "concealment": false,
     "terrain_height": 0,
     "unit_height_infantry": 0,
     "unit_height_vehicle": 0
