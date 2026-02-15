@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Wargame Engine v0.9.24 - Advanced Spotting Update</title>
+    <title>Wargame Engine v0.9.25 - Advanced Spotting Update</title>
     <script src="https://cdn.jsdelivr.net/npm/phaser@3.60.0/dist/phaser.min.js"></script>
     <style>
         :root {
@@ -103,42 +103,49 @@
         .btn-rotate-mini:hover { background: #777; }
         .facing-label-mini { font-size: 10px; color: var(--accent); font-weight: bold; }
 
+        /* MODIFIED OVERLAY */
         #dice-overlay {
             position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(0,0,0,0.7); 
-            display: none; flex-direction: column; align-items: center; justify-content: center; gap: 15px;
+            background: rgba(0,0,0,0.85); 
+            display: none; flex-direction: column; align-items: center; justify-content: center; gap: 10px;
             z-index: 2000;
         }
-        .d10-container { width: 150px; height: 150px; position: relative; filter: drop-shadow(0 15px 15px rgba(0,0,0,0.6)); }
+        .dice-header {
+            background: #111; color: var(--accent); padding: 10px 40px;
+            border-radius: 4px; font-weight: bold; font-size: 22px;
+            text-transform: uppercase; border: 2px solid var(--accent);
+            box-shadow: 0 0 20px rgba(0,0,0,0.8);
+            margin-bottom: 5px;
+        }
+        .dice-subheader {
+            color: #ccc; font-size: 14px; font-weight: bold; text-align: center;
+            background: #222; padding: 5px 20px; border-radius: 4px; border: 1px solid #555;
+            margin-bottom: 10px;
+        }
+
+        .d10-container { width: 150px; height: 150px; position: relative; filter: drop-shadow(0 15px 15px rgba(0,0,0,0.6)); margin: 10px 0; }
         .dice-shaking { animation: shake 0.1s infinite; }
         .d10-val {
             position: absolute; top: 38%; left: 50%; transform: translate(-50%, -50%);
             font-size: 48px; font-weight: bold; color: white;
             text-shadow: 2px 2px 4px black; font-family: 'Arial', sans-serif; pointer-events: none;
         }
-        .dice-label {
-            background: #111; color: var(--accent); padding: 10px 30px;
-            border-radius: 4px; font-weight: bold; font-size: 18px;
-            text-transform: uppercase; border: 1px solid var(--accent);
-            box-shadow: 0 0 15px rgba(0,0,0,0.8);
-        }
         
-        /* NEW SPOTTING RECEIPT CSS */
         #dice-expl {
             color: #ccc; font-size: 13px;
             width: 350px; text-align: left;
-            background: rgba(0,0,0,0.85); padding: 15px; border-radius: 6px; border: 1px solid var(--accent);
-            margin-top: 5px; margin-bottom: 5px; font-family: 'Consolas', monospace;
+            background: #111; padding: 15px; border-radius: 6px; border: 1px solid #444;
+            font-family: 'Consolas', monospace;
             box-shadow: 0 0 20px rgba(0,0,0,0.8);
         }
-        .receipt-row { display: flex; justify-content: space-between; margin-bottom: 4px; border-bottom: 1px dashed #444; padding-bottom: 2px; }
+        .receipt-row { display: flex; justify-content: space-between; margin-bottom: 4px; border-bottom: 1px dashed #333; padding-bottom: 2px; }
         .receipt-total { display: flex; justify-content: space-between; margin-top: 8px; font-weight: bold; color: var(--accent); font-size: 16px; border-top: 2px solid var(--accent); padding-top: 5px; }
 
         .dice-btn {
             background: var(--blue-team); color: white; border: none;
-            padding: 10px 40px; font-size: 16px; font-weight: bold;
+            padding: 12px 50px; font-size: 18px; font-weight: bold;
             border-radius: 4px; cursor: pointer; display: none;
-            box-shadow: 0 0 10px rgba(68, 136, 255, 0.5); margin-top: 10px;
+            box-shadow: 0 0 15px rgba(68, 136, 255, 0.6); margin-top: 15px;
         }
         @keyframes shake { 0% { transform: rotate(0deg); } 25% { transform: rotate(5deg); } 50% { transform: rotate(-5deg); } 75% { transform: rotate(5deg); } 100% { transform: rotate(0deg); } }
 
@@ -242,6 +249,7 @@
             <button id="los-inf" class="btn btn-small active" onclick="setLOSType('infantry')">Infantry Height</button>
             <button id="los-veh" class="btn btn-small" onclick="setLOSType('vehicle')">Vehicle Height</button>
         </div>
+        <button class="btn" id="btn-arc" style="width:100%; margin-top:5px; border-color:#88ccff; color:#88ccff" onclick="toggleArcTool()">Show Frontal Arc</button>
     </div>
     <button class="btn" onclick="toggleMapLoader()">Load Scenario JSON</button>
 </div>
@@ -262,7 +270,8 @@
     </div>
 
     <div id="dice-overlay">
-        <div class="dice-label" id="dice-label">Rolling...</div>
+        <div class="dice-header" id="dice-title">ROLLING...</div>
+        <div class="dice-subheader" id="dice-subtitle"></div>
         <div class="d10-container" id="dice-anim">
             <svg width="150" height="150" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
                 <defs>
@@ -278,6 +287,7 @@
             </svg>
             <div class="d10-val" id="dice-val">0</div>
         </div>
+        <div id="dice-verdict" style="font-size:20px; font-weight:bold; margin-top:5px; display:none; text-shadow: 0px 0px 10px rgba(0,0,0,1);"></div>
         <div id="dice-expl"></div>
         <button class="dice-btn" id="dice-ok-btn">CONTINUE</button>
     </div>
@@ -329,8 +339,7 @@
         <div class="log-entry">System initialized.</div>
     </div>
 </div>
-
-<script>
+    <script>
 // --- Configuration ---
 const ASSETS_URL = 'https://raw.githubusercontent.com/trainJapan/HexWargame/main/artwork/';
 const FACING_DIRS = ["N","NE","SE","S","SW","NW"];
@@ -346,6 +355,7 @@ const HEX_RADIUS = 40;
 let scenarioData = null; 
 let mapData = null; 
 let losTool = false;
+let arcTool = false; // NEW: Frontal Arc Tool Toggle
 let losStartHex = null;
 let losUnitType = 'infantry';
 let units = [];
@@ -372,7 +382,7 @@ let currentAction = null;
 let isDeploying = false; 
 
 // Phaser Objects
-let scene, hexGroup, zoneGraphics, objGraphics, roadGraphics, losGraphics, unitGraphics, selectionGraphics, badgeGraphics, hexMap = {};
+let scene, hexGroup, zoneGraphics, objGraphics, roadGraphics, losGraphics, arcGraphics, unitGraphics, selectionGraphics, badgeGraphics, hexMap = {};
 let unitSprites = {};
 let objectiveSprites = []; 
 let diceCallback = null; 
@@ -459,6 +469,7 @@ function initEngine() {
     roadGraphics = scene.add.graphics().setDepth(100);
     objGraphics = scene.add.graphics().setDepth(150); 
     selectionGraphics = scene.add.graphics().setDepth(500); 
+    arcGraphics = scene.add.graphics().setDepth(520); // NEW: Arc graphics layer
     losGraphics = scene.add.graphics().setDepth(550);        
     unitGraphics = scene.add.graphics().setDepth(700);       
     badgeGraphics = scene.add.graphics().setDepth(800);     
@@ -484,7 +495,7 @@ function initEngine() {
     });
     
     document.getElementById('dice-ok-btn').addEventListener('click', closeDiceOverlay);
-    addToLog("System initialized (v0.9.24).");
+    addToLog("System initialized (v0.9.25).");
 }
 
 function updateScene() {
@@ -550,13 +561,13 @@ function resolveInitiative(rule) {
     if (rule === 'dice') {
         const explanation = `<div class="receipt-row"><span>1-5:</span> <span>UK Starts</span></div>
                              <div class="receipt-row"><span>6-10:</span> <span>GER Starts</span></div>`;
-        rollD10("INITIATIVE", (val) => {
+        rollD10("INITIATIVE", "Setup Phase Selection", null, 0, (val) => {
             const winner = val <= 5 ? 'blue' : 'red';
             initiativeWinner = winner;
             const sideName = winner === 'blue' ? 'UK (Blue)' : 'GERMAN (Red)';
             addToLog(`Initiative Roll: ${val}. ${sideName} starts setup!`, "log-turn");
             switchSideTo(initiativeWinner);
-        }, explanation, false);
+        }, explanation);
     } else {
         initiativeWinner = (rule === 'red') ? 'red' : 'blue';
         const sideName = initiativeWinner === 'blue' ? 'UK (Blue)' : 'GERMAN (Red)';
@@ -564,18 +575,25 @@ function resolveInitiative(rule) {
         switchSideTo(initiativeWinner);
     }
 }
+
 // --- D10 DICE SYSTEM ---
-function rollD10(label, callback, explanationHtml="") {
+function rollD10(title, subtitle, rollType, targetVal, callback, explanationHtml="") {
     const overlay = document.getElementById('dice-overlay');
     const container = document.getElementById('dice-anim');
     const valDisplay = document.getElementById('dice-val');
-    const lbl = document.getElementById('dice-label');
+    const titleEl = document.getElementById('dice-title');
+    const subEl = document.getElementById('dice-subtitle');
     const explDiv = document.getElementById('dice-expl');
     const btn = document.getElementById('dice-ok-btn');
+    const verdictDiv = document.getElementById('dice-verdict');
     
     overlay.style.display = 'flex';
     btn.style.display = 'none'; 
-    lbl.innerText = label || "ROLLING...";
+    verdictDiv.style.display = 'none';
+
+    titleEl.innerText = title || "ROLLING...";
+    subEl.innerText = subtitle || "";
+    subEl.style.display = subtitle ? 'block' : 'none';
     explDiv.innerHTML = explanationHtml;
     
     container.classList.add('dice-shaking');
@@ -592,7 +610,22 @@ function rollD10(label, callback, explanationHtml="") {
         result = Phaser.Math.Between(1, 10);
         valDisplay.innerText = result === 10 ? "0" : result;
         container.classList.remove('dice-shaking');
-        lbl.innerText = `RESULT: ${result === 10 ? "0" : result}`;
+        
+        titleEl.innerText = `RESULT: ${result === 10 ? "0" : result}`;
+        
+        // NEW: Evaluate and display the verdict dynamically based on rollType
+        if (rollType === 'spotting') {
+            let hit = (result !== 10 && result <= targetVal);
+            verdictDiv.style.display = 'block';
+            verdictDiv.style.color = hit ? '#00ff00' : '#ff4444';
+            verdictDiv.innerText = hit ? '🟢 SUCCESS! Target Revealed.' : '🔴 FAILURE! Target Remains Hidden.';
+        } else if (rollType === 'combat') {
+            let hit = result >= 5;
+            verdictDiv.style.display = 'block';
+            verdictDiv.style.color = hit ? '#00ff00' : '#ffaaaa';
+            verdictDiv.innerText = hit ? '🟢 HIT! Target Damaged.' : '🔴 MISS! Target Unharmed.';
+        }
+
         btn.style.display = 'block'; 
         diceCallback = () => { if(callback) callback(result); };
     }, 800);
@@ -603,8 +636,7 @@ function closeDiceOverlay() {
     if(diceCallback) diceCallback();
     diceCallback = null;
 }
-
-// --- ADVANCED SPOTTING ENGINE ---
+     // --- ADVANCED SPOTTING ENGINE ---
 let spottingQueue = [];
 let isSpottingQueueRunning = false;
 
@@ -640,8 +672,29 @@ function updateSpottingMemory(observer, target, level) {
     }
 }
 
+// NEW: Feature #3 - Dynamic Spotting ("Sticky Memory" Fix to Level 0)
+function revalidateSpotting(movingUnit) {
+    let lostSight = false;
+    units.filter(u => u.side !== movingUnit.side && u.hp > 0).forEach(enemy => {
+        if (enemy.memory && enemy.memory[movingUnit.id] && enemy.memory[movingUnit.id].level === 2) {
+            const r = calculateSpottingChance(enemy, movingUnit);
+            
+            // If the math is impossible, instantly drop memory to 0 (unit vanishes into FOW)
+            if (r.impossible) {
+                enemy.memory[movingUnit.id].level = 0;
+                lostSight = true;
+            }
+        }
+    });
+    
+    if (lostSight) {
+        addToLog(`[FOW] Target contact lost. ${movingUnit.name} dropped off scope.`, "log-info");
+        redrawAllUnits(); // Instantly update the board to hide the unit
+    }
+}
+
 function isInFrontalArc(spotter, targetHex) {
-    if (spotter.facing === 'X' || spotter.facing === undefined) return true; // Omnidirectional Bypass
+    if (spotter.facing === 'X' || spotter.facing === undefined) return true; // Legacy fallback, though new units won't use 'X'
     
     const targetPos = getHexPosition(targetHex.q, targetHex.r);
     const spotterPos = getHexPosition(spotter.q, spotter.r);
@@ -670,6 +723,9 @@ function calculateSpottingChance(observer, target) {
     const isTargetInf = (target.category !== 'vehicle' && target.category !== 'hwt');
     const isObsInf = (observer.category !== 'vehicle' && observer.category !== 'hwt');
     
+    // NEW: Feature #5 - Math Formatting Fix helper
+    const fmt = (val) => val > 0 ? `+${val}` : `${val}`;
+
     // 1. Auto FOW Checks (Adjacent)
     if (dist <= SPOTTING_RULES.auto_fow_rules.adjacent_distance) {
         if (isObsInf && SPOTTING_RULES.auto_fow_rules.infantry_spotter_sees_all) receipt.autoFow = true;
@@ -687,8 +743,8 @@ function calculateSpottingChance(observer, target) {
     const stateMod = stateGroup[stanceKey] || 0;
     if (stateMod !== 0) {
         receipt.chance += stateMod;
-        receipt.html += `<div class="receipt-row"><span>Target ${stanceKey.toUpperCase()}:</span> <span>${stateMod > 0 ? '+'+stateMod : stateMod}%</span></div>`;
-        receipt.log += ` ${stateMod > 0 ? '+' : ''}${stateMod}% ${stanceKey}`;
+        receipt.html += `<div class="receipt-row"><span>Target ${stanceKey.toUpperCase()}:</span> <span>${fmt(stateMod)}%</span></div>`;
+        receipt.log += ` ${fmt(stateMod)}% ${stanceKey}`;
     }
 
     // 3. Terrain Concealment
@@ -701,8 +757,8 @@ function calculateSpottingChance(observer, target) {
         return receipt;
     } else if (concealMod !== 0) {
         receipt.chance += concealMod;
-        receipt.html += `<div class="receipt-row"><span>Terrain (${tTerrain}):</span> <span>${concealMod}%</span></div>`;
-        receipt.log += ` ${concealMod}% ${tTerrain}`;
+        receipt.html += `<div class="receipt-row"><span>Terrain (${tTerrain}):</span> <span>${fmt(concealMod)}%</span></div>`;
+        receipt.log += ` ${fmt(concealMod)}% ${tTerrain}`;
     }
 
     // 4. LOS Quality
@@ -715,20 +771,20 @@ function calculateSpottingChance(observer, target) {
         return receipt;
     } else if (losMod !== 0) {
         receipt.chance += losMod;
-        receipt.html += `<div class="receipt-row"><span>LOS (${los.status}):</span> <span>${losMod}%</span></div>`;
-        receipt.log += ` ${losMod}% LOS`;
+        receipt.html += `<div class="receipt-row"><span>LOS (${los.status}):</span> <span>${fmt(losMod)}%</span></div>`;
+        receipt.log += ` ${fmt(losMod)}% LOS`;
     }
 
     // 5. Scenario Modifiers
     if (dist > SPOTTING_RULES.scenario_modifiers.visibility.distance_threshold) {
         let visObj = scenarioData?.info?.visibility || 'normal';
         let visMod = SPOTTING_RULES.scenario_modifiers.visibility[visObj] || 0;
-        if(visMod !== 0) { receipt.chance += visMod; receipt.html += `<div class="receipt-row"><span>Vis (${visObj}):</span> <span>${visMod}%</span></div>`; receipt.log += ` ${visMod}% vis`; }
+        if(visMod !== 0) { receipt.chance += visMod; receipt.html += `<div class="receipt-row"><span>Vis (${visObj}):</span> <span>${fmt(visMod)}%</span></div>`; receipt.log += ` ${fmt(visMod)}% vis`; }
     }
     if (dist > SPOTTING_RULES.scenario_modifiers.time.distance_threshold) {
         let timeObj = scenarioData?.info?.time || 'day';
         let timeMod = SPOTTING_RULES.scenario_modifiers.time[timeObj] || 0;
-        if(timeMod !== 0) { receipt.chance += timeMod; receipt.html += `<div class="receipt-row"><span>Time (${timeObj}):</span> <span>${timeMod}%</span></div>`; receipt.log += ` ${timeMod}% time`; }
+        if(timeMod !== 0) { receipt.chance += timeMod; receipt.html += `<div class="receipt-row"><span>Time (${timeObj}):</span> <span>${fmt(timeMod)}%</span></div>`; receipt.log += ` ${fmt(timeMod)}% time`; }
     }
 
     // 6. Fired This Turn
@@ -737,8 +793,8 @@ function calculateSpottingChance(observer, target) {
         let fireMod = isSniper ? SPOTTING_RULES.situational_modifiers.fired_this_turn.sniper_penalty : SPOTTING_RULES.situational_modifiers.fired_this_turn.standard_penalty;
         if (fireMod !== 0) {
             receipt.chance += fireMod;
-            receipt.html += `<div class="receipt-row"><span>Fired This Turn:</span> <span>+${fireMod}%</span></div>`;
-            receipt.log += ` +${fireMod}% fired`;
+            receipt.html += `<div class="receipt-row"><span>Fired This Turn:</span> <span>${fmt(fireMod)}%</span></div>`;
+            receipt.log += ` ${fmt(fireMod)}% fired`;
         }
     }
 
@@ -752,8 +808,8 @@ function calculateSpottingChance(observer, target) {
         
         if (arcMod !== 0) {
             receipt.chance += arcMod;
-            receipt.html += `<div class="receipt-row"><span>Out of Arc:</span> <span>${arcMod}%</span></div>`;
-            receipt.log += ` ${arcMod}% arc`;
+            receipt.html += `<div class="receipt-row"><span>Out of Arc:</span> <span>${fmt(arcMod)}%</span></div>`;
+            receipt.log += ` ${fmt(arcMod)}% arc`;
         }
     }
 
@@ -761,8 +817,8 @@ function calculateSpottingChance(observer, target) {
         let statMod = SPOTTING_RULES.situational_modifiers.stationary_infantry_spotted_by_vehicle;
         if (statMod !== 0) {
             receipt.chance += statMod;
-            receipt.html += `<div class="receipt-row"><span>Stat. Inf vs Veh:</span> <span>${statMod}%</span></div>`;
-            receipt.log += ` ${statMod}% stat.inf`;
+            receipt.html += `<div class="receipt-row"><span>Stat. Inf vs Veh:</span> <span>${fmt(statMod)}%</span></div>`;
+            receipt.log += ` ${fmt(statMod)}% stat.inf`;
         }
     }
 
@@ -785,6 +841,10 @@ function calculateSpottingChance(observer, target) {
 function executeSpottingCheck(observer, target, isReactive, nextCallback) {
     const r = calculateSpottingChance(observer, target);
     
+    // Feature #5: Coordinates appended to names in log
+    const obsNameCoords = `${observer.name} [${observer.q},${observer.r}]`;
+    const tgtNameCoords = `${target.name} [${target.q},${target.r}]`;
+
     if (r.autoFow) updateSpottingMemory(observer, target, 1);
 
     if (r.impossible) {
@@ -794,23 +854,26 @@ function executeSpottingCheck(observer, target, isReactive, nextCallback) {
     
     if (r.autoSpot) {
         updateSpottingMemory(observer, target, 2);
-        addToLog(`[SPOTTING] ${observer.name} -> ${target.name} ${r.log}. Auto-Spotted!`, "log-info");
+        addToLog(`[SPOTTING] ${obsNameCoords} -> ${tgtNameCoords} ${r.log}. Auto-Spotted!`, "log-info");
         redrawAllUnits();
         nextCallback();
         return;
     }
 
+    // Feature #4: Dice Enhancements (Title, Subtitle, RollType for Verdicts)
     const title = isReactive ? "REACTIVE SPOTTING" : "ACTIVE SPOTTING";
-    rollD10(title, (roll) => {
+    const subtitle = `${observer.side.toUpperCase()} ${observer.name} [${observer.q},${observer.r}]`;
+    
+    rollD10(title, subtitle, 'spotting', r.targetRoll, (roll) => {
         let hit = (roll !== 10 && roll <= r.targetRoll);
         let rollDisplay = (roll === 10) ? 0 : roll;
         
         if (hit) {
             updateSpottingMemory(observer, target, 2);
-            addToLog(`[SPOTTING] ${observer.name} -> ${target.name} ${r.log}. Roll: ${rollDisplay}. Success!`, "log-info");
+            addToLog(`[SPOTTING] ${obsNameCoords} -> ${tgtNameCoords} ${r.log}. Roll: ${rollDisplay}. Success!`, "log-info");
             redrawAllUnits();
         } else {
-            addToLog(`[SPOTTING] ${observer.name} -> ${target.name} ${r.log}. Roll: ${rollDisplay}. Failed.`, "log-info");
+            addToLog(`[SPOTTING] ${obsNameCoords} -> ${tgtNameCoords} ${r.log}. Roll: ${rollDisplay}. Failed.`, "log-info");
         }
         nextCallback();
     }, r.html);
@@ -886,8 +949,7 @@ function endGame(winner, reason) {
     document.getElementById('end-blue').innerText = scores.blue;
     document.getElementById('end-red').innerText = scores.red;
 }
-
-// --- LIST & TRAY SYSTEM ---
+        // --- LIST & TRAY SYSTEM ---
 function toggleListMode(targetMode) {
     if (currentListMode === targetMode) {
         currentListMode = 'tray';
@@ -967,10 +1029,10 @@ function updateDynamicList() {
             if (item.locType === 'edge') locText = ` | ${item.locVal} Edge`;
             else if (item.locType === 'hex') locText = ` | Hex [${item.locVal}]`;
 
-            // Setup tray facing init
-            if (item.facing === undefined) item.facing = 'X';
+            // FEATURE #1: Setup tray facing init - Default strictly to North (0)
+            if (item.facing === undefined || item.facing === 'X') item.facing = 0;
 
-            let faceLabel = (item.facing === 'X') ? "Omni (X)" : FACING_DIRS[item.facing];
+            let faceLabel = FACING_DIRS[item.facing];
 
             div.innerHTML = `
             <img src="${imgUrl}" class="list-icon" onerror="this.style.display='none'">
@@ -989,11 +1051,9 @@ function updateDynamicList() {
             if(rotBtn) {
                 rotBtn.onclick = (e) => {
                     e.stopPropagation();
-                    if(item.facing === 'X') item.facing = 0;
-                    else {
-                        item.facing++;
-                        if (item.facing > 5) item.facing = 'X'; 
-                    }
+                    // FEATURE #1: Strict numerical cycling
+                    item.facing++;
+                    if (item.facing > 5) item.facing = 0; 
                     updateDynamicList();
                 };
             }
@@ -1049,7 +1109,6 @@ function deployTrayUnit(uData, hex) {
     const regInfo = UNIT_DATA_REGISTRY[uData.type] || {};
     const stats = regInfo.stats || {};
     
-    // Updated to exactly match the simplified JSON tags
     const maxMp = stats.Movement_Points !== undefined ? stats.Movement_Points : 6;
     const fp = stats.Firepower !== undefined ? stats.Firepower : 3;
     const rng = stats.Range_Hexes !== undefined ? stats.Range_Hexes : 6;
@@ -1062,7 +1121,8 @@ function deployTrayUnit(uData, hex) {
         name: uData.name || regInfo.name,
         quality: uData.quality || 'regular',
         q: hex.q, r: hex.r,
-        facing: uData.facing !== undefined ? uData.facing : 'X',
+        // FEATURE #1: Strip 'X' fallback completely on deploy
+        facing: (uData.facing !== undefined && uData.facing !== 'X') ? uData.facing : 0,
         status: 'clear', 
         stance: 'deployed', 
         hasActed: false,    
@@ -1199,8 +1259,7 @@ function nextPhase() {
     updateDynamicList(); 
     uiUpdate();
 }
-
-// --- STANDARD LOGIC ---
+        // --- STANDARD LOGIC ---
 function handleLeftClick(pointer) {
     if(isSpottingQueueRunning) return; // Prevent clicks while dice rolling
     const hex = getHexAtPoint(pointer.worldX, pointer.worldY);
@@ -1268,6 +1327,7 @@ function continueHastyMove(hex) {
     selectedUnit.hasMovedThisTurn = true;
     
     runReactiveSpotting(selectedUnit);
+    revalidateSpotting(selectedUnit); // FEATURE #3: Drop memory to 0 if LOS breaks mid-move
     
     uiUpdate();
     if(selectedUnit.mp <= 0) finishHastyMove();
@@ -1281,6 +1341,7 @@ function finishHastyMove() {
     document.getElementById('btn-finish-move').style.display = 'none';
     
     runActiveSpotting(selectedUnit);
+    revalidateSpotting(selectedUnit); // FEATURE #3: Final memory check at destination
     
     addToLog(`${selectedUnit.name} finished move.`, "log-info");
     selectedUnit = null;
@@ -1301,6 +1362,7 @@ function executeTacticalMove(unit, targetHex) {
     unit.hasActed = true;
     
     runActiveSpotting(unit);
+    revalidateSpotting(unit); // FEATURE #3: Tactical move FOW memory check
     
     currentAction = null;
     selectedUnit = null;
@@ -1309,7 +1371,7 @@ function executeTacticalMove(unit, targetHex) {
 }
 
 function moveUnitTo(unit, hex) {
-    if(unit.facing !== 'X') calculateFacing(unit, hex);
+    calculateFacing(unit, hex);
     unit.q = hex.q; unit.r = hex.r;
     selectUnitInStack(unit); addToLog(`${unit.name} moved.`);
     checkControl(unit);
@@ -1354,9 +1416,11 @@ function executeFire(attacker, targetUnit) {
     }
 
     const title = `TO HIT (5+)`;
+    const subtitle = `${attacker.side.toUpperCase()} ${attacker.name} [${attacker.q},${attacker.r}]`;
     const expl = `<div style="text-align:center; margin-top:10px;">Rolling Attack vs ${targetUnit.name}</div>`;
     
-    rollD10(title, (roll) => {
+    // FEATURE #4: Using the new Dice Overlay parameters for Combat
+    rollD10(title, subtitle, 'combat', 5, (roll) => {
         let hit = roll >= 5;
         let color = hit ? 0x00ff00 : 0xaaaaaa;
         let damage = 0;
@@ -1364,10 +1428,9 @@ function executeFire(attacker, targetUnit) {
             damage = attacker.fp; 
             if (los.status === 'degraded') { damage -= 1; addToLog("Degraded LOS (-1)", "log-info"); color = 0xffaa00; }
             
-            if(targetUnit.facing !== 'X') {
-                const inFront = isInFrontalArc(targetUnit, startHex);
-                if (!inFront) { damage += 2; addToLog("Rear Shot (+2)", "log-combat"); color = 0xff0000; }
-            }
+            // Frontal arc check for flanking bonus
+            const inFront = isInFrontalArc(targetUnit, startHex);
+            if (!inFront) { damage += 2; addToLog("Rear Shot (+2)", "log-combat"); color = 0xff0000; }
             
             damage = Math.max(1, damage);
             targetUnit.hp -= damage;
@@ -1388,8 +1451,7 @@ function executeFire(attacker, targetUnit) {
         currentAction = null;
     }, expl);
 }
-
-// --- DATA PARSING & RENDERING ---
+        // --- DATA PARSING & RENDERING ---
 function loadScenario() {
     let txt = document.getElementById('json-input').value;
     txt = txt.replace(/[\n\r\t]+/g, ' ').replace(/\u00A0/g, ' ').trim();
@@ -1415,7 +1477,10 @@ function loadScenario() {
                 if(u.fp === undefined) u.fp = stats.Firepower !== undefined ? stats.Firepower : 3;
                 if(u.range === undefined) u.range = stats.Range_Hexes !== undefined ? stats.Range_Hexes : 6; 
                 if(u.hp === undefined) u.hp = 5;
-                if(u.facing === undefined) u.facing = 'X';
+                
+                // FEATURE #1: Strip 'X' fallback, strictly default to North (0)
+                if(u.facing === undefined || u.facing === 'X') u.facing = 0;
+                
                 u.hasFiredThisTurn = false;
                 
                 units.push(u);
@@ -1463,13 +1528,42 @@ function getUnitImageURL(unit) {
     return `${ASSETS_URL}counters/${key}.png`; 
 }
 
+// FEATURE #2: Frontal Arc Tool Toggle
+function toggleArcTool() {
+    arcTool = !arcTool;
+    const btn = document.getElementById('btn-arc');
+    btn.style.background = arcTool ? '#88ccff' : 'transparent';
+    btn.style.color = arcTool ? '#000' : '#88ccff';
+    uiUpdate();
+    addToLog(arcTool ? "Frontal Arc Tool Enabled." : "Frontal Arc Tool Disabled.", "log-info");
+}
+
 function uiUpdate() { 
     selectionGraphics.clear(); 
     unitGraphics.clear(); 
     badgeGraphics.clear(); 
+    arcGraphics.clear(); // NEW: Clear arc overlay
+    
     scene.children.list.filter(c => c.name === 'badgeText').forEach(c => c.destroy()); 
     redrawAllUnits(); 
     
+    // FEATURE #2: Draw dynamic Frontal Arc overlay
+    if (arcTool && selectedUnit) {
+        arcGraphics.fillStyle(0x000000, 0.5);
+        for (let q = 0; q < mapData.cols; q++) {
+            for (let r = 0; r < mapData.rows; r++) {
+                if (!hexMap[q] || !hexMap[q][r]) continue;
+                const hex = hexMap[q][r];
+                if (isInFrontalArc(selectedUnit, hex)) {
+                    const pos = getHexPosition(q, r);
+                    const pts = [];
+                    for(let i=0; i<6; i++) pts.push({x: pos.x+HEX_RADIUS*Math.cos(Math.PI/3*i), y: pos.y+HEX_RADIUS*Math.sin(Math.PI/3*i)});
+                    arcGraphics.fillPoints(pts, true);
+                }
+            }
+        }
+    }
+
     if (!selectedUnit && selectedHex) { 
         selectionGraphics.lineStyle(3, 0xffffff, 1); 
         selectionGraphics.strokeCircle(selectedHex.x, selectedHex.y, HEX_RADIUS - 5); 
@@ -1566,7 +1660,8 @@ function showUnitPanel(unit) {
     const fp = stats.Firepower || unit.fp || 3; 
     const rng = stats.Range_Hexes || unit.range || 6; 
     
-    const faceText = unit.facing === 'X' ? 'Omni (X)' : FACING_DIRS[unit.facing];
+    // FEATURE #1: Context stats now always shows a numerical facing direction
+    const faceText = FACING_DIRS[unit.facing !== undefined ? unit.facing : 0];
 
     const statsHtml = `
         <div class="stat-row"><span class="stat-label">Morale:</span> <span class="stat-value">Steady</span></div>
@@ -1588,7 +1683,7 @@ function showUnitPanel(unit) {
             const item = document.createElement('div'); item.className = 'stack-item'; 
             if (u === unit) item.style.borderColor = 'var(--accent)'; 
             if (u.hasActed) item.classList.add('spent'); 
-            const facingDir = u.facing === 'X' ? 'X' : FACING_DIRS[u.facing]; 
+            const facingDir = FACING_DIRS[u.facing !== undefined ? u.facing : 0]; 
             let stText = "Deployed"; 
             if(u.stance === 'moving') stText = "Moving"; else if(u.stance === 'cover') stText = "Cover"; else if(u.stance === 'setup') stText = "Set Up"; 
             let statText = "Operational"; let statColor = "#fff"; 
@@ -1616,7 +1711,7 @@ function showTerrainPanel(hex) {
     document.getElementById('ctx-quality').innerText = ""; 
     const badgeContainer = document.getElementById('ctx-badges'); badgeContainer.innerHTML = ''; 
     const tBadge = document.createElement('span'); tBadge.className = 'badge badge-terrain'; tBadge.innerText = terrain.toUpperCase(); 
-    if(props) { tBadge.style.backgroundColor = '#' + props.color.toString(16); tBadge.style.color = (props.color > 0x888888) ? '#000' : '#fff'; } 
+    if(props) { tBadge.style.backgroundColor = '#' + tProps.color.toString(16); tBadge.style.color = (props.color > 0x888888) ? '#000' : '#fff'; } 
     badgeContainer.appendChild(tBadge); 
     if (hex.victoryPoints) { const vpBadge = document.createElement('span'); vpBadge.className = 'badge badge-vp'; vpBadge.innerText = `VP: ${hex.victoryPoints}`; badgeContainer.appendChild(vpBadge); } 
     const key = `${hex.q},${hex.r}`; 
@@ -1710,10 +1805,9 @@ function redrawAllUnits() {
                 unitGraphics.fillStyle(0xff0000, 1.0); unitGraphics.fillRect(pos.x - 16, pos.y + 16, 32, 6);
             }
 
-            if (visLevel === 2 && unit.facing !== 'X') {
-                if (unit.side === activeSide || ['vehicle', 'hwt'].includes((unit.category||"").toLowerCase())) {
-                    if (isTop || unit.facing !== topUnit.facing) drawFacingIndicator(unit, pos);
-                }
+            // FEATURE #1: Draw facing indicator for ALL spotted units
+            if (visLevel === 2 && unit.facing !== undefined) {
+                if (isTop || unit.facing !== topUnit.facing) drawFacingIndicator(unit, pos);
             }
 
             if (isTop && unit.side === activeSide && visLevel === 2) drawStatusMarkers(unit, pos);
@@ -2062,4 +2156,5 @@ function findRoadPath(start, target) {
 </script>
 </body>
 </html>
-
+        
+        
