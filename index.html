@@ -595,6 +595,21 @@ function rollD10(title, subtitle, rollType, targetVal, callback, explanationHtml
     subEl.innerText = subtitle || "";
     subEl.style.display = subtitle ? 'block' : 'none';
     explDiv.innerHTML = explanationHtml;
+
+// NEW COLOR LOGIC HERE
+    if (side === 'blue') {
+        subEl.style.backgroundColor = '#223355';
+        subEl.style.borderColor = '#4488ff';
+        subEl.style.color = '#ffffff';
+    } else if (side === 'red') {
+        subEl.style.backgroundColor = '#552222';
+        subEl.style.borderColor = '#ff4444';
+        subEl.style.color = '#ffffff';
+    } else {
+        subEl.style.backgroundColor = '#222';
+        subEl.style.borderColor = '#555';
+        subEl.style.color = '#ccc';
+    }
     
     container.classList.add('dice-shaking');
     diceCallback = callback;
@@ -916,7 +931,7 @@ function executeSpottingCheck(observer, target, isReactive, nextCallback) {
             addToLog(`[SPOTTING] ${obsNameCoords} -> ${tgtNameCoords} ${r.log}. Roll: ${rollDisplay}. Failed.`, "log-info");
         }
         nextCallback();
-    }, r.html);
+    }, r.html, observer.side);
 }
 
 function runActiveSpotting(observer) {
@@ -1504,7 +1519,7 @@ function executeFire(attacker, targetUnit) {
         attacker.hasFiredThisTurn = true; 
         setTimeout(() => losGraphics.clear(), 1000);
         currentAction = null;
-    }, expl);
+    }, expl, attacker.side);
 }
     // --- DATA PARSING & RENDERING ---
 function loadScenario() {
@@ -2224,3 +2239,4 @@ function findRoadPath(start, target) {
 </html>
     
     
+
