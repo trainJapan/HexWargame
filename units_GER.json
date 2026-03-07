@@ -4,9 +4,17 @@
     "category": "squad",
     "image": "GER_S_Rifle_Squad.png",
     "stats": {
-      "Movement_Points": 6,
-      "Firepower": 3,
-      "Range_Hexes": 4
+      "Movement Points": 6,
+      "AP Assault": 0,
+      "AT Assault": "E",
+      "AP Firepower": 3,
+      "HE Fire Effect": false,
+      "Indirect Fire": false,
+      "AT Firepower": "X",
+      "Max AP Range Hexes": 8,
+      "Max AT Range Hexes": "X",
+      "ROF": [4, 2],
+      "Has Radio": false
     }
   },
   "GER_WT_HMG_Team": {
@@ -14,9 +22,18 @@
     "category": "team",
     "image": "GER_WT_HMG_Team.png",
     "stats": {
-      "Movement_Points": 3,
-      "Firepower": 6,
-      "Range_Hexes": 22
+      "Movement Points": 3,
+      "AP Assault": "X",
+      "AT Assault": "X",
+      "AP Firepower": 6,
+      "HE Fire Effect": false,
+      "Indirect Fire": false,
+      "AT Firepower": "X",
+      "Max AP Range Hexes": 20,
+      "Max AT Range Hexes": "X",
+      "ROF": [8, 3],
+      "Needs Setup": 1,
+      "Has Radio": false
     }
   },
   "GER_V_Schwerer_Panzerspähwagen": {
@@ -24,9 +41,17 @@
     "category": "vehicle",
     "image": "GER_V_Schwerer_Panzerspähwagen.png",
     "stats": {
-      "Movement_Points": 6,
-      "Firepower": 6,
-      "Range_Hexes": 10
+      "Movement Points": 8,
+      "AP Firepower": 6,
+      "HE Fire Effect": true,
+      "Indirect Fire": false,
+      "AT Firepower": "D",
+      "Armor Value Front": "E",
+      "Armor Value Flank": "F",
+      "Max AP Range Hexes": 20,
+      "Max AT Range Hexes": 16,
+      "ROF": [4, 2],
+      "Has Radio": true
     }
   },
   "GER_HWT_Leichtes_Infanteriegeschütz": {
@@ -34,9 +59,17 @@
     "category": "hwt",
     "image": "GER_HWT_Leichtes_Infanteriegeschütz.png",
     "stats": {
-      "Movement_Points": 2,
-      "Firepower": 9,
-      "Range_Hexes": 10
+      "Movement Points": 1,
+      "AP Assault": "X",
+      "AT Assault": "X",
+      "AP Firepower": 5,
+      "HE Fire Effect": true,
+      "Indirect Fire": false,
+      "AT Firepower": "D",
+      "Max AP Range Hexes": 20,
+      "Max AT Range Hexes": 16,
+      "ROF": [2, 1],
+      "Has Radio": false
     }
   },
   "GER_HWT_Light_Mortar_Team": {
@@ -44,19 +77,80 @@
     "category": "hwt",
     "image": "GER_HWT_Light_Mortar_Team.png",
     "stats": {
-      "Movement_Points": 3,
-      "Firepower": 8,
-      "Range_Hexes": 10
+      "Movement Points": 3,
+      "AP Assault": "X",
+      "AT Assault": "X",
+      "AP Firepower": 5,
+      "HE Fire Effect": true,
+      "Indirect Fire": true,
+      "AT Firepower": "X",
+      "Max AP Range Hexes": 20,
+      "Max AT Range Hexes": "X",
+      "ROF": [2, 1],
+      "Has Radio": false
+    }
+  },
+  "GER_WT_Panzerschreck_Team": {
+    "name": "Panzerschreck Team",
+    "category": "team",
+    "image": "GER_WT_Panzerschreck.png",
+    "stats": {
+      "Movement Points": 6,
+      "AP Assault": "X",
+      "AT Assault": "B",
+      "AP Firepower": 0,
+      "HE Fire Effect": false,
+      "Indirect Fire": false,
+      "AT Firepower": "X",
+      "Max AP Range Hexes": 6,
+      "Max AT Range Hexes": 2,
+      "ROF": [4, 2],
+      "Needs Setup": 0,
+      "Has Radio": false
     }
   },
   "GER_WT_Sniper_Team": {
     "name": "Sniper Team",
-    "category": "team",
+    "category": "stealth",
     "image": "GER_WT_Sniper_Team.png",
     "stats": {
-      "Movement_Points": 3,
-      "Firepower": 6,
-      "Range_Hexes": 15
+      "Movement Points": 6,
+      "AP Assault": "X",
+      "AT Assault": "X",
+      "AP Firepower": 10,
+      "HE Fire Effect": false,
+      "Indirect Fire": false,
+      "AT Firepower": "X",
+      "Max AP Range Hexes": 16,
+      "Max AT Range Hexes": "X",
+      "ROF": [2, 1],
+      "Has Radio": false
+    }
+  },
+  "GER_S_Engineer_Squad": {
+    "name": "Assault Engineers",
+    "category": "engineer",
+    "image": "GER_S_Engineer_Squad.png",
+    "stats": {
+      "Movement Points": 6,
+      "AP Assault": 6,
+      "AT Assault": "C",
+      "AP Firepower": 1,
+      "HE Fire Effect": false,
+      "Indirect Fire": false,
+      "AT Firepower": "X",
+      "Max AP Range Hexes": 6,
+      "Max AT Range Hexes": "X",
+      "ROF": [4, 2],
+      "Has Radio": false
+    }
+  },
+  "GER_Leader": {
+    "name": "Leader",
+    "category": "leader",
+    "image": "GER_Leader.png",
+    "stats": {
+      "Has Radio": true
     }
   }
 }
