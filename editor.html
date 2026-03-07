@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Wargame Editor v2.9.4 - Split Briefings</title>
+    <title>Wargame Editor v2.9.5 - Engine Upgrade</title>
     <script src="https://cdn.jsdelivr.net/npm/phaser@3.60.0/dist/phaser.min.js"></script>
     <style>
         :root {
@@ -37,11 +37,14 @@
         .section-header { color: var(--accent); font-size: 13px; font-weight: bold; text-transform: uppercase; margin: 15px 0 5px 0; border-bottom: 1px solid #444; padding-bottom: 2px; flex-shrink: 0; }
         .label { font-size: 11px; color: #888; margin-bottom: 3px; display:block; }
         
-        input, textarea, select {
+        input[type="text"], input[type="number"], textarea, select {
             background: #333; border: 1px solid #555; color: white;
             padding: 6px; width: 100%; box-sizing: border-box;
             border-radius: 4px; font-family: inherit; margin-bottom: 8px; font-size: 12px;
         }
+
+        .checkbox-container { display: flex; align-items: center; margin-bottom: 8px; font-size: 12px; color: #fff; }
+        .checkbox-container input { width: auto; margin-right: 8px; }
 
         .btn { background: #444; color: white; border: 1px solid #555; padding: 8px; cursor: pointer; border-radius: 4px; text-align: center; font-weight: bold; width: 100%; font-size: 12px; }
         .btn:hover { background: #555; }
@@ -70,11 +73,9 @@
         .terrain-item img { width: 100%; height: 100%; object-fit: cover; }
         .terrain-item.selected { border-color: var(--accent); transform: scale(0.95); }
 
-        /* --- NEW CSS FOR DATA TAB --- */
         .data-row { display: flex; justify-content: space-between; font-size: 11px; border-bottom: 1px solid #333; padding: 3px 0; }
         .data-key { color: #888; text-transform: capitalize; }
         .data-val { color: #fff; font-weight: bold; font-family: monospace; }
-        /* --------------------------- */
 
         #game-container { position: relative; background: #111; overflow: hidden; }
         #status-bar { position: absolute; top:10px; left:50%; transform:translateX(-50%); background:var(--accent); color:#000; padding:4px 12px; font-weight:bold; border-radius:4px; font-size:12px; display:none; pointer-events:none; z-index:1000; }
@@ -84,7 +85,7 @@
 <body>
 
 <div class="panel" style="border-left:none;">
-    <div style="padding:10px; background:#222; border-bottom:1px solid #444; font-weight:bold; color:var(--accent);">MAP EDITOR v2.9.4</div>
+    <div style="padding:10px; background:#222; border-bottom:1px solid #444; font-weight:bold; color:var(--accent);">MAP EDITOR v2.9.5</div>
     <div style="padding:10px; overflow-y:auto; flex-grow:1;">
         
         <div class="grid-2">
@@ -123,34 +124,57 @@
         <div class="section-header">PLACE UNIT</div>
         <div class="grid-2">
             <select id="placer-side" onchange="updatePlacerDropdowns()"><option value="blue">UK</option><option value="red">GERMAN</option></select>
-            <select id="placer-cat" onchange="updateUIConstraints()">
-                </select>
+            <select id="placer-cat" onchange="updateUIConstraints()"></select>
         </div>
         
-        <label class="label">QUALITY</label>
-        <select id="placer-quality">
-            <option value="low">Low</option>
-            <option value="regular" selected>Regular</option>
-            <option value="elite">Elite</option>
-        </select>
+        <label class="label">QUALITY & STANCE</label>
+        <div class="grid-2">
+            <select id="placer-quality">
+                <option value="low">Low</option>
+                <option value="regular" selected>Regular</option>
+                <option value="elite">Elite</option>
+            </select>
+            <select id="placer-stance"></select>
+        </div>
         
         <div class="grid-2">
             <div>
-                <label class="label">STANCE</label>
-                <select id="placer-stance">
-                    </select>
+                <label class="label">MORALE</label>
+                <select id="placer-morale"></select>
             </div>
             <div>
-                <label class="label">STATUS</label>
-                <select id="placer-status">
-                      </select>
+                <label class="label">SUPPRESSION</label>
+                <select id="placer-suppression">
+                    <option value="0" selected>0</option>
+                    <option value="2">+2</option>
+                    <option value="4">+4</option>
+                    <option value="6">+6</option>
+                </select>
             </div>
         </div>
+        
+        <label class="checkbox-container">
+            <input type="checkbox" id="placer-radio" checked> Has Radio
+        </label>
+        
         <button id="btn-unit" class="btn btn-primary" onclick="setMode('unit')">PLACE UNIT</button>
 
         <div class="section-header">HEX INSPECTOR</div>
         <div id="hex-inspector-panel" class="rich-list-container" style="max-height:200px; flex-grow:0;">
             <div style="font-size:11px; color:#666; font-style:italic">Select a hex...</div>
+        </div>
+        
+        <label class="label">HEX ATTRIBUTE (Applies to Selected)</label>
+        <div class="grid-2" style="margin-bottom: 10px;">
+            <select id="hex-attribute-select">
+                <option value="none" selected>NONE</option>
+                <option value="ap_mines">AP Minefield</option>
+                <option value="at_mines">AT Minefield</option>
+                <option value="obstacles">Obstacles</option>
+                <option value="trench_1">Entrenchment Lvl 1</option>
+                <option value="trench_2">Entrenchment Lvl 2</option>
+            </select>
+            <button class="btn" style="border-color:#00cc88" onclick="applyHexAttribute()">Apply</button>
         </div>
     </div>
 </div>
@@ -204,8 +228,7 @@
         <div class="section-header">COUNTER TRAY</div>
         <div class="grid-2">
             <select id="tray-side" onchange="updateTrayDropdowns()"><option value="blue">UK</option><option value="red">GERMAN</option></select>
-            <select id="tray-cat">
-                </select>
+            <select id="tray-cat"></select>
         </div>
         <div class="grid-2">
              <div>
@@ -232,8 +255,7 @@
         <div class="section-header">REINFORCEMENTS</div>
         <div class="grid-2">
             <select id="reinf-side" onchange="updateReinfDropdowns()"><option value="blue">UK</option><option value="red">GER</option></select>
-            <select id="reinf-cat">
-                </select>
+            <select id="reinf-cat"></select>
         </div>
         
         <label class="label">QUALITY</label>
@@ -299,7 +321,6 @@
         </div>
     </div>
 </div>
-
 <script>
 // --- GAME DATA ---
 const ASSETS_URL = 'https://raw.githubusercontent.com/trainJapan/HexWargame/main/artwork/';
@@ -332,16 +353,13 @@ let losUnitType = 'infantry';
 // Phaser
 let scene, hexGroup, overlayGroup, zoneGraphics, losGraphics;
 let hexSprites = {};
-let cursors; // NEW: Keyboard control
+let cursors; 
 
 const config = {
     type: Phaser.AUTO, parent: 'game-container',
     width: window.innerWidth - 660, height: window.innerHeight,
     backgroundColor: '#111',
-    fps: {
-        target: 30,
-        forceSetTimeOut: true
-    },
+    fps: { target: 30, forceSetTimeOut: true },
     scene: { preload: preload, create: create, update: update }
 };
 const game = new Phaser.Game(config);
@@ -355,7 +373,7 @@ function preload() {
 
 function create() {
     scene = this;
-    cursors = this.input.keyboard.createCursorKeys(); // NEW: Keyboard Init
+    cursors = this.input.keyboard.createCursorKeys();
 
     try {
         const ukData = this.cache.json.get('units_uk') || {};
@@ -371,10 +389,10 @@ function create() {
                 color: 0x555555, 
                 los: (data.los_effect || 'clear').toLowerCase(),
                 cost: data.movement_cost || 1,
-                cover: data.cover_value || 0, // NEW: Capture Cover Value for Data Tab
+                cover: data.cover_value || 0,
                 terrainHeight: data.terrain_height || 0,
                 infantryUsable: data.unit_height_infantry || 0,
-                vehicleUsable: data.unit_height_vehicle || 0
+                vehicleUsable: data.unit_height_vehicle_hwt || 0 // UPDATED TO MATCH NEW JSON
             };
         });
         
@@ -407,14 +425,12 @@ function startEditor() {
 }
 
 function update() {
-    // Mouse Drag (Right Click)
     if (this.input.activePointer.rightButtonDown()) {
         const p = this.input.activePointer;
         this.cameras.main.scrollX -= (p.x - p.prevPosition.x) / this.cameras.main.zoom;
         this.cameras.main.scrollY -= (p.y - p.prevPosition.y) / this.cameras.main.zoom;
     }
 
-    // NEW: Keyboard Scroll Logic
     if (cursors) {
         const cam = this.cameras.main;
         const speed = 15 / cam.zoom;
@@ -426,8 +442,7 @@ function update() {
     }
 }
 
-// --- NEW DATA TAB LOGIC ---
-
+// --- DATA TAB LOGIC ---
 function updateDataTab(hex) {
     const tContainer = document.getElementById('data-terrain');
     const uContainer = document.getElementById('data-unit');
@@ -438,25 +453,21 @@ function updateDataTab(hex) {
         return;
     }
 
-    // 1. Terrain Data
     const t = TERRAIN_TYPES[hex.terrain];
     if (t) {
         let tHtml = `<div class="section-header" style="margin-top:0">${hex.terrain.toUpperCase()}</div>`;
+        tHtml += `<div class="data-row"><span class="data-key">Attribute</span><span class="data-val" style="color:var(--accent)">${hex.attribute.toUpperCase()}</span></div>`;
         tHtml += `<div class="data-row"><span class="data-key">Move Cost</span><span class="data-val">${t.cost}</span></div>`;
-        tHtml += `<div class="data-row"><span class="data-key">Cover Value</span><span class="data-val">${t.cover}</span></div>`;
         tHtml += `<div class="data-row"><span class="data-key">LOS Effect</span><span class="data-val">${t.los}</span></div>`;
         tHtml += `<div class="data-row"><span class="data-key">Terrain Ht</span><span class="data-val">${t.terrainHeight}</span></div>`;
         tHtml += `<div class="data-row"><span class="data-key">Infantry Ht</span><span class="data-val">${t.infantryUsable}</span></div>`;
         tHtml += `<div class="data-row"><span class="data-key">Vehicle Ht</span><span class="data-val">${t.vehicleUsable}</span></div>`;
         tContainer.innerHTML = tHtml;
-    } else {
-        tContainer.innerHTML = '<div style="color:#cc4444; font-size:11px">Terrain Data Missing</div>';
     }
 
-    // 2. Unit Data (Top Unit)
     const hexUnits = units.filter(u => u.q === hex.q && u.r === hex.r);
     if(hexUnits.length > 0) {
-        const topUnit = hexUnits[hexUnits.length-1]; // Last one is top
+        const topUnit = hexUnits[hexUnits.length-1]; 
         const info = UNIT_DATA_REGISTRY[topUnit.type];
         
         if (info) {
@@ -465,18 +476,12 @@ function updateDataTab(hex) {
             
             if(info.stats) {
                 for(let [k,v] of Object.entries(info.stats)) {
-                   // Clean up key name for display
                    const keyDisplay = k.replace(/_/g, ' ');
-                   uHtml += `<div class="data-row">
-                        <span class="data-key">${keyDisplay}</span> <span class="data-val">${v}</span>
-                   </div>`; 
+                   let valDisplay = Array.isArray(v) ? v.join(', ') : v; // Safely handle ROF arrays
+                   uHtml += `<div class="data-row"><span class="data-key">${keyDisplay}</span> <span class="data-val">${valDisplay}</span></div>`; 
                 }
-            } else {
-                 uHtml += '<div style="color:#666; font-size:11px">No Stats Block Found</div>';
             }
             uContainer.innerHTML = uHtml;
-        } else {
-            uContainer.innerHTML = '<div style="color:#cc4444; font-size:11px">Unit Registry Missing</div>';
         }
     } else {
         uContainer.innerHTML = '<div style="color:#666; font-style:italic; font-size:11px; margin-top:5px;">No Unit in Hex</div>';
@@ -484,7 +489,6 @@ function updateDataTab(hex) {
 }
 
 // --- LOGIC: UI DYNAMIC POPULATION ---
-
 function populateSelect(selectId, side) {
     const sel = document.getElementById(selectId);
     sel.innerHTML = '';
@@ -504,36 +508,50 @@ window.updateReinfDropdowns = () => { populateSelect('reinf-cat', document.getEl
 function updateUIConstraints() {
     const unitKey = document.getElementById('placer-cat').value;
     const info = UNIT_DATA_REGISTRY[unitKey];
+    if(!info) return;
+    
     const stanceSel = document.getElementById('placer-stance');
-    const statusSel = document.getElementById('placer-status');
+    const moraleSel = document.getElementById('placer-morale');
+    
     const oldStance = stanceSel.value;
-    const oldStatus = statusSel.value;
-    stanceSel.innerHTML = ''; statusSel.innerHTML = '';
+    const oldMorale = moraleSel.value;
+    
+    stanceSel.innerHTML = ''; moraleSel.innerHTML = '';
 
     const optMoving = new Option("Moving", "moving");
     const optDeployed = new Option("Deployed", "deployed");
     
-    let cat = 'squad';
-    if(info && info.category) cat = info.category;
+    let cat = info.category || 'squad';
 
     if (cat === 'vehicle' || cat === 'hwt') {
-        stanceSel.add(optMoving); stanceSel.add(optDeployed);
-        statusSel.add(new Option("Operational", "clear"));
-        statusSel.add(new Option("Damaged", "damaged"));
-        statusSel.add(new Option("Immobilized", "immobilized"));
+        stanceSel.add(optMoving); 
+        stanceSel.add(optDeployed);
+        if(cat === 'hwt') stanceSel.add(new Option("Set Up", "setup")); // HWT manual setup
     } else {
-        stanceSel.add(optMoving); stanceSel.add(optDeployed); stanceSel.add(new Option("Cover / Set Up", "cover"));
-        statusSel.add(new Option("Operational", "clear"));
-        statusSel.add(new Option("Suppressed (+2)", "suppressed_2"));
-        statusSel.add(new Option("Suppressed (+4)", "suppressed_4"));
-        statusSel.add(new Option("Suppressed (+6)", "suppressed_6"));
-        statusSel.add(new Option("Shaken", "shaken"));
+        stanceSel.add(optMoving); 
+        stanceSel.add(optDeployed); 
+        stanceSel.add(new Option("Cover", "cover"));
     }
-    for(let i=0; i<stanceSel.options.length; i++) if(stanceSel.options[i].value === oldStance) stanceSel.selectedIndex = i;
-    for(let i=0; i<statusSel.options.length; i++) if(statusSel.options[i].value === oldStatus) statusSel.selectedIndex = i;
-}
 
-// --- INTERACTION ---
+    moraleSel.add(new Option("Operational", "operational"));
+    if (cat === 'vehicle') {
+        moraleSel.add(new Option("Damaged", "damaged"));
+        moraleSel.add(new Option("Immobilized", "immobilized"));
+    } else {
+        moraleSel.add(new Option("Shaken", "shaken"));
+    }
+
+    // Auto-check radio box based on JSON stats
+    if(info.stats && info.stats["Has Radio"] !== undefined) {
+        document.getElementById('placer-radio').checked = info.stats["Has Radio"];
+    } else {
+        document.getElementById('placer-radio').checked = false;
+    }
+
+    for(let i=0; i<stanceSel.options.length; i++) if(stanceSel.options[i].value === oldStance) stanceSel.selectedIndex = i;
+    for(let i=0; i<moraleSel.options.length; i++) if(moraleSel.options[i].value === oldMorale) moraleSel.selectedIndex = i;
+}
+    // --- INTERACTION ---
 
 function handleMapClick(pointer) {
     if(!pointer.leftButtonDown()) return;
@@ -548,8 +566,10 @@ function handleMapClick(pointer) {
 
     if (currentMode === 'select') {
         selectedHex = hex;
+        // Update the Hex Attribute dropdown to match selected hex
+        document.getElementById('hex-attribute-select').value = hex.attribute || 'none';
         updateInspector();
-        updateDataTab(hex); // NEW CALL
+        updateDataTab(hex); 
         refreshOverlays(); 
     }
     else if (currentMode === 'paint') { hex.terrain = activeTerrain; hex.variant = Phaser.Math.Between(1,3); paintHex(hex); }
@@ -562,7 +582,21 @@ function handleMapClick(pointer) {
         const unitKey = document.getElementById('placer-cat').value;
         const info = UNIT_DATA_REGISTRY[unitKey];
         if(!info) return;
-        units.push({ id: idCounter++, side: document.getElementById('placer-side').value, type: unitKey, category: info.category, name: info.name, quality: document.getElementById('placer-quality').value, stance: document.getElementById('placer-stance').value, q: hex.q, r: hex.r, facing: 0, status: document.getElementById('placer-status').value });
+        
+        units.push({ 
+            id: idCounter++, 
+            side: document.getElementById('placer-side').value, 
+            type: unitKey, 
+            category: info.category || 'squad', 
+            name: info.name, 
+            quality: document.getElementById('placer-quality').value, 
+            stance: document.getElementById('placer-stance').value, 
+            morale: document.getElementById('placer-morale').value, // NEW SPLIT STATUS
+            suppression: parseInt(document.getElementById('placer-suppression').value), // NEW SPLIT STATUS
+            hasRadio: document.getElementById('placer-radio').checked, // NEW RADIO
+            q: hex.q, r: hex.r, facing: 0 
+        });
+        
         selectedHex = hex; updateInspector(); updateDataTab(hex); refreshOverlays();
     }
     else if (currentMode === 'vl') {
@@ -574,6 +608,15 @@ function handleMapClick(pointer) {
     else if (currentMode === 'zone-uk') { hex.setupZone = (hex.setupZone==='blue') ? null : 'blue'; refreshOverlays(); }
     else if (currentMode === 'zone-ger') { hex.setupZone = (hex.setupZone==='red') ? null : 'red'; refreshOverlays(); }
 }
+
+// --- NEW HEX ATTRIBUTE LOGIC ---
+window.applyHexAttribute = () => {
+    if(!selectedHex) return;
+    const attr = document.getElementById('hex-attribute-select').value;
+    selectedHex.attribute = attr;
+    updateDataTab(selectedHex);
+    refreshOverlays();
+};
 
 // --- INSPECTOR & LISTS ---
 function updateInspector() {
@@ -587,7 +630,10 @@ function updateInspector() {
     html += displayUnits.map(u => {
         let name = u.name;
         let imgKey = u.type; if (!scene.textures.exists(imgKey)) imgKey = 'fallback'; 
-        let statLabel = u.status; if(u.status.startsWith('suppressed')) statLabel = "Suppr " + u.status.split('_')[1];
+        
+        let statLabel = u.morale.charAt(0).toUpperCase() + u.morale.slice(1);
+        if(u.suppression > 0) statLabel += ` | Suppr +${u.suppression}`;
+        
         let qLabel = u.quality ? u.quality.charAt(0).toUpperCase() + u.quality.slice(1) : 'Regular';
         return `<div class="list-item" onclick="promoteUnit(${u.id})"><div style="display:flex; align-items:center;"><img src="${ASSETS_URL}counters/${u.image || (u.type + '.png')}" class="item-icon" onerror="this.src='data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7'"><div class="item-info"><div class="item-title">${qLabel} ${name}</div><div class="item-meta">${u.stance} | ${statLabel}</div></div></div><div><button class="btn-mini" onclick="event.stopPropagation(); rotateUnit(${u.id})">↻</button><button class="btn-mini btn-danger-mini" onclick="event.stopPropagation(); deleteUnit(${u.id})">X</button></div></div>`;
     }).join('');
@@ -601,7 +647,7 @@ function updateLists() {
     const renderUnitItem = (u, meta, delFn) => {
         let name = u.name;
         let qLabel = u.quality ? u.quality.charAt(0).toUpperCase() + u.quality.slice(1) : 'Regular';
-        return `<div class="list-item"><div style="display:flex; align-items:center;"><img src="${ASSETS_URL}counters/${u.image || (u.type + '.png')}" class="item-icon" onerror="this.src='data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7'"><div class="item-info"><div class="item-title">${qLabel} ${name}</div><div class="item-meta">${meta}</div></div></div><span class="del-x" onclick="${delFn}(${u.id})">X</span></div>`;
+        return `<div class="list-item"><div style="display:flex; align-items:center;"><img src="${ASSETS_URL}counters/${u.image || (u.type + '.png')}" class="item-icon" onerror="this.src='data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7'"><div class="item-info"><div class="item-title">${qLabel} ${name}</div><div class="item-meta">${meta}</div></div></div><span class="del-x" onclick="${delFn}(${u.id})" style="cursor:pointer; color:#cc4444; font-weight:bold; padding:4px;">X</span></div>`;
     };
     document.getElementById('list-tray-blue').innerHTML = trayUnits.filter(u=>u.side==='blue').map(u=>renderUnitItem(u, "Setup Tray", "remTray")).join('');
     document.getElementById('list-tray-red').innerHTML = trayUnits.filter(u=>u.side==='red').map(u=>renderUnitItem(u, "Setup Tray", "remTray")).join('');
@@ -611,9 +657,9 @@ function updateLists() {
     }).join('');
     document.getElementById('list-offboard').innerHTML = offBoardAssets.map(o => {
         let name = (o.side==='blue'?'UK ':'GER ') + (o.type==='artillery'?'Artillery':'Air');
-        return `<div class="list-item"><div class="item-info"><div class="item-title">${name}</div><div class="item-meta">Turn ${o.turn} (${o.chance}%)</div></div><span class="del-x" onclick="remOff(${o.id})">X</span></div>`;
+        return `<div class="list-item"><div class="item-info"><div class="item-title">${name}</div><div class="item-meta">Turn ${o.turn} (${o.chance}%)</div></div><span class="del-x" onclick="remOff(${o.id})" style="cursor:pointer; color:#cc4444; font-weight:bold; padding:4px;">X</span></div>`;
     }).join('');
-    document.getElementById('list-vl').innerHTML = victoryLocations.map(v => `<div class="list-item"><div class="item-info"><div class="item-title">Hex [${v.q},${v.r}]</div><div class="item-meta">${v.points} Pts</div></div><span class="del-x" onclick="remVL(${v.q},${v.r})">X</span></div>`).join('');
+    document.getElementById('list-vl').innerHTML = victoryLocations.map(v => `<div class="list-item"><div class="item-info"><div class="item-title">Hex [${v.q},${v.r}]</div><div class="item-meta">${v.points} Pts</div></div><span class="del-x" onclick="remVL(${v.q},${v.r})" style="cursor:pointer; color:#cc4444; font-weight:bold; padding:4px;">X</span></div>`).join('');
 }
 
 window.addTrayUnit = () => { 
@@ -658,18 +704,47 @@ window.loadJSON = () => {
         const data = JSON.parse(document.getElementById('json-input').value);
         document.getElementById('cols').value = data.map.cols; document.getElementById('rows').value = data.map.rows;
         regenerateMap();
-        data.map.terrain.forEach(t => { if(hexMap[t.q]) { hexMap[t.q][t.r].terrain = t.type; paintHex(hexMap[t.q][t.r]); } });
+        
+        // NEW: Load Terrain Attributes
+        data.map.terrain.forEach(t => { 
+            if(hexMap[t.q] && hexMap[t.q][t.r]) {
+                hexMap[t.q][t.r].terrain = t.type; 
+                if(t.attribute) hexMap[t.q][t.r].attribute = t.attribute; 
+                paintHex(hexMap[t.q][t.r]); 
+            } 
+        });
+        
         if(data.map.zones) data.map.zones.forEach(z => { if(hexMap[z.q]) hexMap[z.q][z.r].setupZone = z.side; });
         roadSegments = data.map.roads || [];
         units = data.units.locked || []; trayUnits = data.units.tray || []; reinforcements = data.units.reinforcements || [];
         if(data.victory) victoryLocations = data.victory.locations || [];
         
+        // Backward Compatibility + Split Status/Suppression Parsing
         [...units, ...trayUnits, ...reinforcements].forEach(u => {
             if(u.type && !u.category) { const info = UNIT_DATA_REGISTRY[u.type]; if(info) { u.category = info.category; u.name = info.name; u.image = info.image; } else { u.category = u.type; } }
             if(!u.stance) u.stance = "deployed"; if(!u.quality) u.quality = "regular";
+            
+            // Convert old single 'status' string to new split format if loading an old save
+            if(u.status !== undefined) {
+                if(u.status.startsWith('suppressed_')) {
+                    u.morale = "operational";
+                    u.suppression = parseInt(u.status.split('_')[1]);
+                } else {
+                    u.morale = u.status === 'clear' ? 'operational' : u.status;
+                    u.suppression = 0;
+                }
+                delete u.status;
+            }
+            if(!u.morale) u.morale = "operational";
+            if(u.suppression === undefined) u.suppression = 0;
+            
+            // Load base radio stat if missing
+            if(u.hasRadio === undefined) {
+                const info = UNIT_DATA_REGISTRY[u.type];
+                u.hasRadio = (info && info.stats && info.stats["Has Radio"] !== undefined) ? info.stats["Has Radio"] : false;
+            }
         });
         
-        // --- NEW LOAD LOGIC v2.9.4 ---
         if (data.info) {
              document.getElementById('scen-title').value = data.info.title || "";
              document.getElementById('scen-author').value = data.info.author || "";
@@ -682,19 +757,14 @@ window.loadJSON = () => {
                  document.getElementById('cp-blue').value = data.info.cp.blue || 5;
                  document.getElementById('cp-red').value = data.info.cp.red || 5;
              }
-             // Load Split Briefings
              if (data.info.briefing) {
                  document.getElementById('scen-brief-blue').value = data.info.briefing.blue || "";
                  document.getElementById('scen-brief-red').value = data.info.briefing.red || "";
              }
         }
         
-        // Load Initiative
-        if (data.rules && data.rules.initiative) {
-            document.getElementById('rules-init').value = data.rules.initiative;
-        } else {
-             document.getElementById('rules-init').value = 'blue';
-        }
+        if (data.rules && data.rules.initiative) { document.getElementById('rules-init').value = data.rules.initiative; } 
+        else { document.getElementById('rules-init').value = 'blue'; }
         
         updateLists(); refreshOverlays(); toggleModal();
     } catch(e) { alert("Invalid JSON: " + e.message); }
@@ -703,7 +773,9 @@ window.loadJSON = () => {
 function exportScenario() {
     const terrainExp = []; const zonesExp = [];
     for(let q in hexMap) for(let r in hexMap[q]) {
-        if(hexMap[q][r].terrain!=='clear') terrainExp.push({q:parseInt(q),r:parseInt(r),type:hexMap[q][r].terrain});
+        if(hexMap[q][r].terrain!=='clear' || hexMap[q][r].attribute !== 'none') {
+            terrainExp.push({q:parseInt(q),r:parseInt(r),type:hexMap[q][r].terrain, attribute: hexMap[q][r].attribute});
+        }
         if(hexMap[q][r].setupZone) zonesExp.push({q:parseInt(q),r:parseInt(r),side:hexMap[q][r].setupZone});
     }
     const scenario = {
@@ -726,8 +798,7 @@ function exportScenario() {
     };
     document.getElementById('json-input').value = JSON.stringify(scenario, null, 2); toggleModal();
 }
-
-function getHexPoly(q, r) {
+ function getHexPoly(q, r) {
     const x = q * HEX_RADIUS * 1.5 + HEX_RADIUS; const y = r * HEX_RADIUS * Math.sqrt(3) + (q%2===1 ? HEX_RADIUS*Math.sqrt(3)/2 : 0) + HEX_RADIUS;
     const points = []; for(let i=0; i<6; i++) { const a = Math.PI/3 * i; points.push({ x: x + HEX_RADIUS*Math.cos(a), y: y + HEX_RADIUS*Math.sin(a) }); }
     return { x, y, points };
@@ -822,7 +893,6 @@ function checkRoadLOS(startHex, targetHex, hexesOnLine) {
 
 function calculateLOS(startHex, targetHex, unitType = 'infantry') {
     const fromTerrain = TERRAIN_TYPES[startHex.terrain];
-    // Corrected height lookup for Observer
     const startH = unitType === 'vehicle' ? fromTerrain.vehicleUsable : fromTerrain.infantryUsable;
     
     const p1 = getHexPoly(startHex.q, startHex.r); const p2 = getHexPoly(targetHex.q, targetHex.r);
@@ -895,7 +965,7 @@ function regenerateMap() {
     hexMap = {};
     for (let q = 0; q < mapData.cols; q++) {
         hexMap[q] = {};
-        for (let r = 0; r < mapData.rows; r++) hexMap[q][r] = { q, r, terrain: 'clear', variant: 1, setupZone: null, hasRoad: false };
+        for (let r = 0; r < mapData.rows; r++) hexMap[q][r] = { q, r, terrain: 'clear', variant: 1, setupZone: null, hasRoad: false, attribute: 'none' }; // NEW: Added attribute init
     }
     hexGroup.clear(true, true); hexSprites = {};
     for (let q = 0; q < mapData.cols; q++) {
@@ -904,7 +974,6 @@ function regenerateMap() {
             const pos = getHexPoly(q, r);
             const key = `${hex.terrain}${hex.variant||1}`;
             
-            // Draw Hex Image if loaded, else wireframe
             if(scene.textures.exists(key)) {
                 const img = scene.add.image(pos.x, pos.y, key).setDisplaySize(HEX_RADIUS * 2, HEX_RADIUS * 2);
                 const shape = scene.make.graphics().fillStyle(0xffffff).beginPath();
@@ -931,13 +1000,32 @@ function refreshOverlays() {
         if(hexMap[s.to.q]) hexMap[s.to.q][s.to.r].hasRoad = true;
     });
 
+    // NEW: Hex Attribute Colors Map
+    const attrColors = {
+        'ap_mines': 0xff8888,   // Light Red
+        'at_mines': 0xaa0000,   // Dark Red
+        'obstacles': 0xff8800,  // Orange
+        'trench_1': 0x8b4513,   // Brown
+        'trench_2': 0x000000    // Black
+    };
+
     for (let q = 0; q < mapData.cols; q++) {
         for (let r = 0; r < mapData.rows; r++) {
             const hex = hexMap[q][r];
             if(!hex) continue;
             const pos = getHexPoly(q, r);
+            
+            // Draw Setup Zones
             if (hex.setupZone === 'blue') zoneGraphics.fillStyle(0x4488ff, 0.3).fillPoints(pos.points, true);
             else if (hex.setupZone === 'red') zoneGraphics.fillStyle(0xff4444, 0.3).fillPoints(pos.points, true);
+            
+            // Draw Hex Attributes (Thick inner 50% opacity stroke)
+            if (hex.attribute && hex.attribute !== 'none') {
+                zoneGraphics.lineStyle(6, attrColors[hex.attribute], 0.5);
+                zoneGraphics.strokePoints(pos.points, true, true);
+            }
+            
+            // Selection Highlight
             if (selectedHex && selectedHex.q===q && selectedHex.r===r) zoneGraphics.lineStyle(2, 0xffffff).strokePoints(pos.points, true, true);
         }
     }
@@ -970,7 +1058,7 @@ function refreshOverlays() {
         let triColor = 0xFFFFFF; // fallback
         if(u.stance === 'moving') triColor = 0x0055ff; 
         else if(u.stance === 'deployed') triColor = 0xFF0000; 
-        else if(u.stance === 'cover') triColor = 0xFF8095;
+        else if(u.stance === 'cover' || u.stance === 'setup') triColor = 0xFF8095;
         
         arrow.fillStyle(triColor).fillTriangle(
             p.x+Math.cos(a)*d, p.y+Math.sin(a)*d,
@@ -979,18 +1067,23 @@ function refreshOverlays() {
         );
         overlayGroup.add(arrow);
 
-        // Status Box
-        if (u.status !== 'clear') {
-            const bx = p.x+15; const by = p.y+15;
+        // NEW SPLIT STATUS RENDERING
+        // 1. Suppression Box (Top-Left)
+        if (u.suppression > 0) {
+            const bx = p.x - 15; const by = p.y - 15;
+            overlayGroup.add(scene.add.graphics().fillStyle(0xffff00).fillRect(bx-8, by-6, 16, 12).lineStyle(1,0x000000).strokeRect(bx-8,by-6,16,12));
+            overlayGroup.add(scene.add.text(bx, by, `+${u.suppression}`, {font:'9px Arial', fill:'#000', fontWeight:'bold'}).setOrigin(0.5));
+        }
+
+        // 2. Morale Box (Bottom-Right)
+        if (u.morale !== 'operational') {
+            const bx = p.x + 15; const by = p.y + 15;
             let statColor = 0xffffff;
             let label = "!";
             
-            if(u.status === 'suppressed_2') { statColor = 0xffff00; label="+2"; }
-            else if(u.status === 'suppressed_4') { statColor = 0xffff00; label="+4"; }
-            else if(u.status === 'suppressed_6') { statColor = 0xffff00; label="+6"; }
-            else if(u.status === 'shaken') { statColor = 0xff0000; label="!"; }
-            else if(u.status === 'damaged') { statColor = 0x8800cc; label="X"; }
-            else if(u.status === 'immobilized') { statColor = 0x8800cc; label="I"; }
+            if(u.morale === 'shaken') { statColor = 0xff0000; label="!"; }
+            else if(u.morale === 'damaged') { statColor = 0x8800cc; label="X"; }
+            else if(u.morale === 'immobilized') { statColor = 0x8800cc; label="I"; }
 
             overlayGroup.add(scene.add.graphics().fillStyle(statColor).fillRect(bx-8, by-6, 16, 12).lineStyle(1,0x000000).strokeRect(bx-8,by-6,16,12));
             overlayGroup.add(scene.add.text(bx, by, label, {font:'9px Arial', fill:'#000', fontWeight:'bold'}).setOrigin(0.5));
@@ -1016,4 +1109,4 @@ function refreshOverlays() {
 }
 </script>
 </body>
-</html>
+</html>   
