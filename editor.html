@@ -389,10 +389,12 @@ function create() {
                 color: 0x555555, 
                 los: (data.los_effect || 'clear').toLowerCase(),
                 cost: data.movement_cost || 1,
+                costVeh: data.movement_cost_veh || 'X',     // FIX: Captured Vehicle Cost
+                vehBlocking: data.veh_blocking || false,    // FIX: Captured Vehicle Blocking
                 cover: data.cover_value || 0,
                 terrainHeight: data.terrain_height || 0,
                 infantryUsable: data.unit_height_infantry || 0,
-                vehicleUsable: data.unit_height_vehicle_hwt || 0 // UPDATED TO MATCH NEW JSON
+                vehicleUsable: data.unit_height_vehicle_hwt || 0
             };
         });
         
@@ -456,8 +458,10 @@ function updateDataTab(hex) {
     const t = TERRAIN_TYPES[hex.terrain];
     if (t) {
         let tHtml = `<div class="section-header" style="margin-top:0">${hex.terrain.toUpperCase()}</div>`;
-        tHtml += `<div class="data-row"><span class="data-key">Attribute</span><span class="data-val" style="color:var(--accent)">${hex.attribute.toUpperCase()}</span></div>`;
+        tHtml += `<div class="data-row"><span class="data-key">Attribute</span><span class="data-val" style="color:var(--accent)">${(hex.attribute || 'none').toUpperCase()}</span></div>`;
         tHtml += `<div class="data-row"><span class="data-key">Move Cost</span><span class="data-val">${t.cost}</span></div>`;
+        tHtml += `<div class="data-row"><span class="data-key">Veh Move Cost</span><span class="data-val">${t.costVeh}</span></div>`; // FIX: Added UI row
+        tHtml += `<div class="data-row"><span class="data-key">Veh Blocking</span><span class="data-val">${t.vehBlocking ? 'Yes' : 'No'}</span></div>`; // FIX: Added UI row
         tHtml += `<div class="data-row"><span class="data-key">LOS Effect</span><span class="data-val">${t.los}</span></div>`;
         tHtml += `<div class="data-row"><span class="data-key">Terrain Ht</span><span class="data-val">${t.terrainHeight}</span></div>`;
         tHtml += `<div class="data-row"><span class="data-key">Infantry Ht</span><span class="data-val">${t.infantryUsable}</span></div>`;
@@ -477,7 +481,7 @@ function updateDataTab(hex) {
             if(info.stats) {
                 for(let [k,v] of Object.entries(info.stats)) {
                    const keyDisplay = k.replace(/_/g, ' ');
-                   let valDisplay = Array.isArray(v) ? v.join(', ') : v; // Safely handle ROF arrays
+                   let valDisplay = Array.isArray(v) ? v.join(', ') : v; 
                    uHtml += `<div class="data-row"><span class="data-key">${keyDisplay}</span> <span class="data-val">${valDisplay}</span></div>`; 
                 }
             }
@@ -512,6 +516,7 @@ function updateUIConstraints() {
     
     const stanceSel = document.getElementById('placer-stance');
     const moraleSel = document.getElementById('placer-morale');
+    const suppSel = document.getElementById('placer-suppression'); // Grab suppression dropdown
     
     const oldStance = stanceSel.value;
     const oldMorale = moraleSel.value;
@@ -523,10 +528,21 @@ function updateUIConstraints() {
     
     let cat = info.category || 'squad';
 
+    // FIX: Lock and disable Suppression for Vehicles
+    if (cat === 'vehicle') {
+        suppSel.value = "0";
+        suppSel.disabled = true;
+        // Optional visual cue
+        suppSel.style.opacity = "0.5";
+    } else {
+        suppSel.disabled = false;
+        suppSel.style.opacity = "1";
+    }
+
     if (cat === 'vehicle' || cat === 'hwt') {
         stanceSel.add(optMoving); 
         stanceSel.add(optDeployed);
-        if(cat === 'hwt') stanceSel.add(new Option("Set Up", "setup")); // HWT manual setup
+        if(cat === 'hwt') stanceSel.add(new Option("Set Up", "setup")); 
     } else {
         stanceSel.add(optMoving); 
         stanceSel.add(optDeployed); 
@@ -541,7 +557,6 @@ function updateUIConstraints() {
         moraleSel.add(new Option("Shaken", "shaken"));
     }
 
-    // Auto-check radio box based on JSON stats
     if(info.stats && info.stats["Has Radio"] !== undefined) {
         document.getElementById('placer-radio').checked = info.stats["Has Radio"];
     } else {
@@ -551,6 +566,7 @@ function updateUIConstraints() {
     for(let i=0; i<stanceSel.options.length; i++) if(stanceSel.options[i].value === oldStance) stanceSel.selectedIndex = i;
     for(let i=0; i<moraleSel.options.length; i++) if(moraleSel.options[i].value === oldMorale) moraleSel.selectedIndex = i;
 }
+
     // --- INTERACTION ---
 
 function handleMapClick(pointer) {
@@ -798,7 +814,7 @@ function exportScenario() {
     };
     document.getElementById('json-input').value = JSON.stringify(scenario, null, 2); toggleModal();
 }
- function getHexPoly(q, r) {
+  function getHexPoly(q, r) {
     const x = q * HEX_RADIUS * 1.5 + HEX_RADIUS; const y = r * HEX_RADIUS * Math.sqrt(3) + (q%2===1 ? HEX_RADIUS*Math.sqrt(3)/2 : 0) + HEX_RADIUS;
     const points = []; for(let i=0; i<6; i++) { const a = Math.PI/3 * i; points.push({ x: x + HEX_RADIUS*Math.cos(a), y: y + HEX_RADIUS*Math.sin(a) }); }
     return { x, y, points };
@@ -965,7 +981,7 @@ function regenerateMap() {
     hexMap = {};
     for (let q = 0; q < mapData.cols; q++) {
         hexMap[q] = {};
-        for (let r = 0; r < mapData.rows; r++) hexMap[q][r] = { q, r, terrain: 'clear', variant: 1, setupZone: null, hasRoad: false, attribute: 'none' }; // NEW: Added attribute init
+        for (let r = 0; r < mapData.rows; r++) hexMap[q][r] = { q, r, terrain: 'clear', variant: 1, setupZone: null, hasRoad: false, attribute: 'none' };
     }
     hexGroup.clear(true, true); hexSprites = {};
     for (let q = 0; q < mapData.cols; q++) {
@@ -1000,7 +1016,6 @@ function refreshOverlays() {
         if(hexMap[s.to.q]) hexMap[s.to.q][s.to.r].hasRoad = true;
     });
 
-    // NEW: Hex Attribute Colors Map
     const attrColors = {
         'ap_mines': 0xff8888,   // Light Red
         'at_mines': 0xaa0000,   // Dark Red
@@ -1015,17 +1030,14 @@ function refreshOverlays() {
             if(!hex) continue;
             const pos = getHexPoly(q, r);
             
-            // Draw Setup Zones
             if (hex.setupZone === 'blue') zoneGraphics.fillStyle(0x4488ff, 0.3).fillPoints(pos.points, true);
             else if (hex.setupZone === 'red') zoneGraphics.fillStyle(0xff4444, 0.3).fillPoints(pos.points, true);
             
-            // Draw Hex Attributes (Thick inner 50% opacity stroke)
             if (hex.attribute && hex.attribute !== 'none') {
                 zoneGraphics.lineStyle(6, attrColors[hex.attribute], 0.5);
                 zoneGraphics.strokePoints(pos.points, true, true);
             }
             
-            // Selection Highlight
             if (selectedHex && selectedHex.q===q && selectedHex.r===r) zoneGraphics.lineStyle(2, 0xffffff).strokePoints(pos.points, true, true);
         }
     }
@@ -1050,24 +1062,25 @@ function refreshOverlays() {
         
         overlayGroup.add(scene.add.image(p.x, p.y, key).setDisplaySize(HEX_RADIUS*1.25, HEX_RADIUS*1.25));
 
-        // Facing Triangle Color based on Stance
-        const arrow = scene.add.graphics();
-        const a = Phaser.Math.DegToRad([-90,-30,30,90,150,-150][u.facing]);
-        const d = HEX_RADIUS*0.75;
-        
-        let triColor = 0xFFFFFF; // fallback
-        if(u.stance === 'moving') triColor = 0x0055ff; 
-        else if(u.stance === 'deployed') triColor = 0xFF0000; 
-        else if(u.stance === 'cover' || u.stance === 'setup') triColor = 0xFF8095;
-        
-        arrow.fillStyle(triColor).fillTriangle(
-            p.x+Math.cos(a)*d, p.y+Math.sin(a)*d,
-            p.x+Math.cos(a)*d + Math.cos(a+2.5)*8, p.y+Math.sin(a)*d + Math.sin(a+2.5)*8,
-            p.x+Math.cos(a)*d + Math.cos(a-2.5)*8, p.y+Math.sin(a)*d + Math.sin(a-2.5)*8
-        );
-        overlayGroup.add(arrow);
+        // FIX: Only draw facing triangle if NOT a leader
+        if (u.category !== 'leader') {
+            const arrow = scene.add.graphics();
+            const a = Phaser.Math.DegToRad([-90,-30,30,90,150,-150][u.facing]);
+            const d = HEX_RADIUS*0.75;
+            
+            let triColor = 0xFFFFFF; // fallback
+            if(u.stance === 'moving') triColor = 0x0055ff; 
+            else if(u.stance === 'deployed') triColor = 0xFF0000; 
+            else if(u.stance === 'cover' || u.stance === 'setup') triColor = 0xFF8095;
+            
+            arrow.fillStyle(triColor).fillTriangle(
+                p.x+Math.cos(a)*d, p.y+Math.sin(a)*d,
+                p.x+Math.cos(a)*d + Math.cos(a+2.5)*8, p.y+Math.sin(a)*d + Math.sin(a+2.5)*8,
+                p.x+Math.cos(a)*d + Math.cos(a-2.5)*8, p.y+Math.sin(a)*d + Math.sin(a-2.5)*8
+            );
+            overlayGroup.add(arrow);
+        }
 
-        // NEW SPLIT STATUS RENDERING
         // 1. Suppression Box (Top-Left)
         if (u.suppression > 0) {
             const bx = p.x - 15; const by = p.y - 15;
@@ -1109,4 +1122,5 @@ function refreshOverlays() {
 }
 </script>
 </body>
-</html>   
+</html>  
+    
