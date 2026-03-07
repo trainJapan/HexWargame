@@ -51,7 +51,6 @@
       "Max AP Range Hexes": 6,
       "Max AT Range Hexes": 2,
       "ROF": [4, 2],
-      "Needs Setup": 0,
       "Has Radio": false
     }
   },
@@ -88,6 +87,7 @@
       "Max AP Range Hexes": 20,
       "Max AT Range Hexes": "X",
       "ROF": [2, 1],
+      "Needs Setup": 1,
       "Has Radio": false
     }
   },
