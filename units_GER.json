@@ -93,7 +93,7 @@
   "GER_WT_Panzerschreck_Team": {
     "name": "Panzerschreck Team",
     "category": "team",
-    "image": "GER_WT_Panzerschreck.png",
+    "image": "GER_WT_Panzerschreck_Team.png",
     "stats": {
       "Movement Points": 6,
       "AP Assault": "X",
